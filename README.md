@@ -97,6 +97,60 @@ WHERE circled = 1
 ORDER BY header, row_number;
 ```
 
+### Pontszerzés típusok
+
+A futó ponteredmény változásából (diff) azonosítható a kosár típusa:
+
+| Diff | Típus |
+|---|---|
+| `+1` | Bedobott büntető |
+| `+2` | Dupla (2 pontos kosár) |
+| `+3` | Tripla (3 pontos kosár) — mezszám is bekarikázva |
+| `-` (karakter) | Kihagyott büntető |
+
+A diff kiszámításánál a `LAG()` window function-t használjuk. **Fontos:** az első pontszerzésnél nincs előző érték, ezért `COALESCE(LAG(...), 0)`-t kell használni, hogy a 0-ról induló ugrás is megjelenjen.
+
+#### Pontszerzések lekérdezése (egy csapatra)
+
+```sql
+WITH scores AS (
+    SELECT header, column_name, row_number,
+           CAST(character AS INTEGER) AS score, color
+    FROM running_score
+    WHERE column_name IN ('A1-2','A2-2')  -- B csapathoz: 'B1-2','B2-2'
+      AND character != '-'
+),
+diffs AS (
+    SELECT *,
+        score - COALESCE(LAG(score) OVER (ORDER BY
+            CASE WHEN header='Első félidő' THEN 1 ELSE 2 END,
+            CASE WHEN color='red' THEN 1 WHEN color='black' THEN 2
+                 WHEN color='green' THEN 3 ELSE 4 END,
+            CASE WHEN column_name LIKE '%1-%' THEN 0 ELSE 1 END,
+            row_number
+        ), 0) AS diff
+    FROM scores
+)
+SELECT * FROM diffs WHERE diff > 0;
+```
+
+> A `diff > 0` szűrő kiszűri a félidő eleji átvitt eredményeket (ahol `diff = 0`).
+
+#### Kihagyott büntetők lekérdezése
+
+```sql
+SELECT
+    CASE WHEN s.column_name LIKE 'A%' THEN 'A' ELSE 'B' END AS csapat,
+    s.header, s.row_number, s.color,
+    j.character AS mezszam
+FROM running_score s
+LEFT JOIN running_score j
+  ON s.header = j.header AND s.row_number = j.row_number AND s.color = j.color
+  AND j.column_name = REPLACE(s.column_name, '-2', '-1')
+WHERE s.column_name IN ('A1-2','A2-2','B1-2','B2-2')
+  AND s.character = '-';
+```
+
 ### Color legend
 
 A négy szín a negyedeket jelöli:
