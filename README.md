@@ -26,7 +26,7 @@ The SQLite database (`folyamatos_eredmeny.sqlite`) contains a single table:
 | `header` | TEXT | Period: `Első félidő`, `Második félidő`, or `Hosszabbítás` |
 | `column_name` | TEXT | Grid column (see below) |
 | `color` | TEXT | `red`, `black`, `green`, or `blue` |
-| `circled` | INTEGER | `1` if the number is circled, `0` otherwise |
+| `circled` | INTEGER | `1` if the value is circled, `0` otherwise (see [Circled entries](#circled-entries)) |
 | `row_number` | INTEGER | 1-based row index (topmost row = 1) |
 | `character` | TEXT | The cell value — a number (up to 3 digits) or `-` |
 
@@ -68,23 +68,52 @@ Tehát az 1. ismétlés oszlopai: `A1-1`, `A1-2`, `M1`, `B1-1`, `B1-2`; a 2. ism
 
 Egy cella egyedileg azonosítható a `(header, column_name, row_number)` hármassal.
 
+### Circled entries
+
+A `circled = 1` érték két különböző dolgot jelent, attól függően melyik oszlopban van:
+
+| Oszlop típus | Jelentés |
+|---|---|
+| Mezszám (`A_-1`, `B_-1`) | **Hárompontos kosár** — a játékos hárompontost dobott |
+| Ponteredmény (`A_-2`, `B_-2`) | **Negyed-/félidővég** — az adott negyed vagy mérkőzés végeredménye |
+
+#### Hárompontosok lekérdezése
+
+```sql
+SELECT header, column_name, character AS mezszám, row_number, color
+FROM running_score
+WHERE circled = 1
+  AND column_name IN ('A1-1','A2-1','B1-1','B2-1')
+ORDER BY header, row_number;
+```
+
+#### Negyedvégi eredmények lekérdezése
+
+```sql
+SELECT header, column_name, character AS ponteredmény, row_number, color
+FROM running_score
+WHERE circled = 1
+  AND column_name IN ('A1-2','A2-2','B1-2','B2-2')
+ORDER BY header, row_number;
+```
+
 ### Color legend
 
-The four colors used in the table:
+A négy szín a negyedeket jelöli:
 
-| Color | Hex in PDF |
-|---|---|
-| red | `#FF0000` |
-| black | `#000000` |
-| green | `#088008` |
-| blue | `#0000FF` |
+| Szín | Negyed | Hex a PDF-ben |
+|---|---|---|
+| red | 1. negyed | `#FF0000` |
+| black | 2. negyed | `#000000` |
+| green | 3. negyed | `#088008` |
+| blue | 4. negyed | `#0000FF` |
 
 ### Summary (this match)
 
 - **231** total records
 - **42** rows
 - Headers: Első félidő (123), Második félidő (108), Hosszabbítás (0 — no overtime)
-- **15** circled entries (mark quarter/game final scores)
+- **15** circled entries (7 hárompontos + 8 negyedvégi eredmény)
 
 ## Usage
 
@@ -110,13 +139,14 @@ sqlite3 folyamatos_eredmeny.sqlite
 
 #### Example queries
 
-**All circled entries (quarter/game final scores):**
+**Hárompontosok (bekarikázott mezszámok):**
 
 ```sql
-SELECT row_number, header, column_name, character, color
+SELECT row_number, header, column_name, character AS mezszám, color
 FROM running_score
 WHERE circled = 1
-ORDER BY row_number;
+  AND column_name IN ('A1-1','A2-1','B1-1','B2-1')
+ORDER BY header, row_number;
 ```
 
 **Count records by color:**

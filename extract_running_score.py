@@ -129,6 +129,9 @@ def extract(pdf_path):
                         })
 
     # --- 2. Detect circles ---
+    # A bekarikázott értékek kétféle jelentéssel bírnak:
+    #   - Mezszám oszlopban (A_-1, B_-1): hárompontos kosár
+    #   - Ponteredmény oszlopban (A_-2, B_-2): negyedvégi / mérkőzésvégi eredmény
     drawings = page.get_drawings()
     circles = []
     for d in drawings:
