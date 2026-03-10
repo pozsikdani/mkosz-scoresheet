@@ -35,37 +35,48 @@ def color_name(color_int):
     return best
 
 # --- Column boundaries (x-coordinates) ---
-# 6 groups of 5 columns = 30 physical columns.
-# Group boundaries derived from rectangle x-edges in the PDF.
+# 3 félidő × 2 oszlopcsoport-ismétlés × 5 oszlop = 30 fizikai oszlop.
+# A hierarchia:
+#   1. szint (félidő):        Első félidő | Második félidő | Hosszabbítás
+#   2. szint (oszlopcsoport):  A, M, B — kétszer ismétlődik félidőnként (1. és 2.)
+#   3. szint (egyedi oszlop):  A_-1 (mezszám), A_-2 (ponteredmény), M_ (perc),
+#                              B_-1 (mezszám), B_-2 (ponteredmény)
+# A határok a PDF-ben lévő téglalap x-koordinátáiból származnak.
 COL_BOUNDS = [
-    # 31 boundary values defining 30 columns across 6 groups of 5.
-    # Group 1: Első félidő sub-group 1
+    # 31 határérték, amelyek 30 oszlopot definiálnak.
+    # Első félidő — 1. oszlopcsoport (A1-1, A1-2, M1, B1-1, B1-2)
     481, 503, 524, 543, 564,
-    # Group 2: Első félidő sub-group 2
+    # Első félidő — 2. oszlopcsoport (A2-1, A2-2, M2, B2-1, B2-2)
     586, 605, 627, 646, 665,
-    # Group 3: Második félidő sub-group 1
+    # Második félidő — 1. oszlopcsoport (A1-1, A1-2, M1, B1-1, B1-2)
     687, 708, 729, 749, 769,
-    # Group 4: Második félidő sub-group 2
+    # Második félidő — 2. oszlopcsoport (A2-1, A2-2, M2, B2-1, B2-2)
     792, 811, 832, 851, 870,
-    # Group 5: Hosszabbítás sub-group 1
+    # Hosszabbítás — 1. oszlopcsoport (A1-1, A1-2, M1, B1-1, B1-2)
     891, 912, 933, 953, 973,
-    # Group 6: Hosszabbítás sub-group 2
+    # Hosszabbítás — 2. oszlopcsoport (A2-1, A2-2, M2, B2-1, B2-2)
     994, 1014, 1035, 1055, 1076,
-    # Final right edge
+    # Jobb szél
     1097,
 ]
 
-# Flatten into list of (left, right, header, col_name) for each of the 30 columns
+# Félidő → oszlopcsoport-ismétlés (1., 2.) → egyedi oszlopok
+# Oszlopcsoport-ismétlésenként 5 oszlop:
+#   A_-1 = A csapat mezszám
+#   A_-2 = A csapat ponteredmény (futó összeg)
+#   M_   = megkezdett perc
+#   B_-1 = B csapat mezszám
+#   B_-2 = B csapat ponteredmény (futó összeg)
 GROUPS = [
-    ("Első félidő",    ["A1-1", "A1-2", "M1", "B1-1", "B1-2"]),
-    ("Első félidő",    ["A2-1", "A2-2", "M2", "B2-1", "B2-2"]),
-    ("Második félidő", ["A1-1", "A1-2", "M1", "B1-1", "B1-2"]),
-    ("Második félidő", ["A2-1", "A2-2", "M2", "B2-1", "B2-2"]),
-    ("Hosszabbítás",   ["A1-1", "A1-2", "M1", "B1-1", "B1-2"]),
-    ("Hosszabbítás",   ["A2-1", "A2-2", "M2", "B2-1", "B2-2"]),
+    ("Első félidő",    ["A1-1", "A1-2", "M1", "B1-1", "B1-2"]),   # 1. ismétlés
+    ("Első félidő",    ["A2-1", "A2-2", "M2", "B2-1", "B2-2"]),   # 2. ismétlés
+    ("Második félidő", ["A1-1", "A1-2", "M1", "B1-1", "B1-2"]),   # 1. ismétlés
+    ("Második félidő", ["A2-1", "A2-2", "M2", "B2-1", "B2-2"]),   # 2. ismétlés
+    ("Hosszabbítás",   ["A1-1", "A1-2", "M1", "B1-1", "B1-2"]),   # 1. ismétlés
+    ("Hosszabbítás",   ["A2-1", "A2-2", "M2", "B2-1", "B2-2"]),   # 2. ismétlés
 ]
 
-COLUMNS = []  # list of (x_left, x_right, header, col_name)
+COLUMNS = []  # lista: (x_bal, x_jobb, header, col_name)
 idx = 0
 for gi, (header, names) in enumerate(GROUPS):
     for ci, cname in enumerate(names):

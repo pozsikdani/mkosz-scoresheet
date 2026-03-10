@@ -30,16 +30,43 @@ The SQLite database (`folyamatos_eredmeny.sqlite`) contains a single table:
 | `row_number` | INTEGER | 1-based row index (topmost row = 1) |
 | `character` | TEXT | The cell value — a number (up to 3 digits) or `-` |
 
-### Column naming
+### Column naming — 3 szintű hierarchia
 
-Each period header spans **two sub-groups** of five columns. The naming convention is:
+A Folyamatos Eredmény tábla oszlopai 3 szintű hierarchiát követnek:
 
-| Sub-group | Columns |
+**1. szint — Félidő (`header`):**
+
+| Érték | Leírás |
 |---|---|
-| 1 (left) | `A1-1`, `A1-2`, `M1`, `B1-1`, `B1-2` |
-| 2 (right) | `A2-1`, `A2-2`, `M2`, `B2-1`, `B2-2` |
+| `Első félidő` | 1. és 2. negyed |
+| `Második félidő` | 3. és 4. negyed |
+| `Hosszabbítás` | Hosszabbítás (ha van) |
 
-A unique cell is identified by the combination of `(header, column_name, row_number)`.
+**2. szint — Oszlopcsoport:**
+
+Minden félidő alatt háromféle oszlopcsoport található, **kétszer ismétlődve** (1. és 2. ismétlés):
+
+| Oszlopcsoport | Leírás |
+|---|---|
+| `A` | Az **A csapat** adatai (mezszám + ponteredmény) |
+| `M` | **Megkezdett perc** |
+| `B` | A **B csapat** adatai (mezszám + ponteredmény) |
+
+**3. szint — Egyedi oszlop (`column_name`):**
+
+A `column_name` kódolja az oszlopcsoportot és az ismétlést is. Az `_` helyén `1` az első, `2` a második ismétlés:
+
+| `column_name` | Oszlopcsoport | Jelentés |
+|---|---|---|
+| `A_-1` | A | A csapat — mezszám |
+| `A_-2` | A | A csapat — ponteredmény (futó összeg) |
+| `M_` | M | Megkezdett perc |
+| `B_-1` | B | B csapat — mezszám |
+| `B_-2` | B | B csapat — ponteredmény (futó összeg) |
+
+Tehát az 1. ismétlés oszlopai: `A1-1`, `A1-2`, `M1`, `B1-1`, `B1-2`; a 2. ismétlés oszlopai: `A2-1`, `A2-2`, `M2`, `B2-1`, `B2-2`.
+
+Egy cella egyedileg azonosítható a `(header, column_name, row_number)` hármassal.
 
 ### Color legend
 
