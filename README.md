@@ -1,6 +1,6 @@
-# MKOSZ Scoresheet — Running Score Extractor
+# MKOSZ Scoresheet Extractor
 
-Extracts the **"Folyamatos Eredmény"** (Running Score) table from an MKOSZ (Magyar Kosárlabdázók Országos Szövetsége) basketball scoresheet PDF and stores every cell as a structured record in a SQLite database.
+Extracts all structured data from an MKOSZ (Magyar Kosárlabdázók Országos Szövetsége) basketball scoresheet PDF into a SQLite database with 9 tables.
 
 ## Source
 
@@ -16,68 +16,181 @@ The source PDF is included as `hun3k_125657.pdf`.
 
 ## Database Schema
 
-The SQLite database (`folyamatos_eredmeny.sqlite`) contains a single table:
+The SQLite database (`folyamatos_eredmeny.sqlite`) contains 9 tables:
 
-### `running_score`
+### `match_info`
+
+Match metadata (1 row).
 
 | Column | Type | Description |
 |---|---|---|
-| `id` | INTEGER | Primary key (auto-increment) |
+| `match_id` | TEXT | Match identifier (e.g. "F2KE-0183") |
+| `team_a` | TEXT | Home team name |
+| `team_b` | TEXT | Away team name |
+| `venue` | TEXT | Venue name |
+| `match_date` | TEXT | Date (YYYY-MM-DD) |
+| `match_time` | TEXT | Start time (HH:MM) |
+| `score_a` | INTEGER | Final score team A |
+| `score_b` | INTEGER | Final score team B |
+| `winner` | TEXT | Winning team name |
+| `closure_timestamp` | TEXT | Scoresheet closure timestamp |
+
+### `referees`
+
+| Column | Type | Description |
+|---|---|---|
+| `role` | TEXT | "I. Játékvezető" or "II. Játékvezető" |
+| `name` | TEXT | Referee name (and city) |
+
+### `officials`
+
+Scoresheet officials (scorer, timekeeper, etc.).
+
+| Column | Type | Description |
+|---|---|---|
+| `role` | TEXT | "Jegyző", "Időmérő", or "24\"-es időmérő" |
+| `name` | TEXT | Official name |
+
+### `players`
+
+Player rosters for both teams, including coaches.
+
+| Column | Type | Description |
+|---|---|---|
+| `team` | TEXT | "A" or "B" |
+| `license_number` | TEXT | MKOSZ license number |
+| `name` | TEXT | Player/coach name |
+| `jersey_number` | INTEGER | Jersey number (NULL for coaches) |
+| `role` | TEXT | "player", "captain", "coach", or "assistant_coach" |
+| `starter` | INTEGER | 1 = starting five (circled X), 0 = substitute |
+| `entry_quarter` | INTEGER | Quarter of entry (1-4), determined by X marker color |
+
+### `personal_fouls`
+
+Individual fouls per player.
+
+| Column | Type | Description |
+|---|---|---|
+| `team` | TEXT | "A" or "B" |
+| `jersey_number` | INTEGER | Player jersey number |
+| `foul_number` | INTEGER | Sequential foul number (1-5) |
+| `minute` | TEXT | Minute when foul was committed (1-10) |
+| `quarter` | INTEGER | Quarter (1-4), determined by color |
+
+### `team_fouls`
+
+Team foul count per quarter (max 4 boxes on scoresheet).
+
+| Column | Type | Description |
+|---|---|---|
+| `team` | TEXT | "A" or "B" |
+| `quarter` | INTEGER | Quarter (1-4) |
+| `foul_count` | INTEGER | Number of X marks (0-4) |
+
+### `timeouts`
+
+Timeout events.
+
+| Column | Type | Description |
+|---|---|---|
+| `team` | TEXT | "A" or "B" |
+| `quarter` | INTEGER | Quarter (1-4) |
+| `minute` | TEXT | Minute when timeout was called |
+
+### `quarter_scores`
+
+Score per quarter.
+
+| Column | Type | Description |
+|---|---|---|
+| `quarter` | TEXT | "1", "2", "3", "4", or "Hosszabbítás" |
+| `score_a` | INTEGER | Team A score for that quarter |
+| `score_b` | INTEGER | Team B score for that quarter |
+
+### `running_score`
+
+The "Folyamatos Eredmény" table — every cell of the running score grid.
+
+| Column | Type | Description |
+|---|---|---|
 | `header` | TEXT | Period: `Első félidő`, `Második félidő`, or `Hosszabbítás` |
 | `column_name` | TEXT | Grid column (see below) |
 | `color` | TEXT | `red`, `black`, `green`, or `blue` |
-| `circled` | INTEGER | `1` if the value is circled, `0` otherwise (see [Circled entries](#circled-entries)) |
-| `row_number` | INTEGER | 1-based row index (topmost row = 1) |
-| `character` | TEXT | The cell value — a number (up to 3 digits) or `-` |
+| `circled` | INTEGER | `1` if the value is circled, `0` otherwise |
+| `row_number` | INTEGER | 1-based row index |
+| `character` | TEXT | The cell value — a number or `-` |
 
-### Column naming — 3 szintű hierarchia
+#### Column naming — 3 szintű hierarchia
 
-A Folyamatos Eredmény tábla oszlopai 3 szintű hierarchiát követnek:
+**1. szint — Félidő (`header`):** `Első félidő` (Q1+Q2), `Második félidő` (Q3+Q4), `Hosszabbítás`
 
-**1. szint — Félidő (`header`):**
-
-| Érték | Leírás |
-|---|---|
-| `Első félidő` | 1. és 2. negyed |
-| `Második félidő` | 3. és 4. negyed |
-| `Hosszabbítás` | Hosszabbítás (ha van) |
-
-**2. szint — Oszlopcsoport:**
-
-Minden félidő alatt háromféle oszlopcsoport található, **kétszer ismétlődve** (1. és 2. ismétlés):
-
-| Oszlopcsoport | Leírás |
-|---|---|
-| `A` | Az **A csapat** adatai (mezszám + ponteredmény) |
-| `M` | **Megkezdett perc** |
-| `B` | A **B csapat** adatai (mezszám + ponteredmény) |
+**2. szint — Oszlopcsoport:** A (team A), M (minute), B (team B) — kétszer ismétlődve
 
 **3. szint — Egyedi oszlop (`column_name`):**
 
-A `column_name` kódolja az oszlopcsoportot és az ismétlést is. Az `_` helyén `1` az első, `2` a második ismétlés:
-
-| `column_name` | Oszlopcsoport | Jelentés |
-|---|---|---|
-| `A_-1` | A | A csapat — mezszám |
-| `A_-2` | A | A csapat — ponteredmény (futó összeg) |
-| `M_` | M | Megkezdett perc |
-| `B_-1` | B | B csapat — mezszám |
-| `B_-2` | B | B csapat — ponteredmény (futó összeg) |
-
-Tehát az 1. ismétlés oszlopai: `A1-1`, `A1-2`, `M1`, `B1-1`, `B1-2`; a 2. ismétlés oszlopai: `A2-1`, `A2-2`, `M2`, `B2-1`, `B2-2`.
-
-Egy cella egyedileg azonosítható a `(header, column_name, row_number)` hármassal.
-
-### Circled entries
-
-A `circled = 1` érték két különböző dolgot jelent, attól függően melyik oszlopban van:
-
-| Oszlop típus | Jelentés |
+| `column_name` | Jelentés |
 |---|---|
-| Mezszám (`A_-1`, `B_-1`) | **Hárompontos kosár** — a játékos hárompontost dobott |
-| Ponteredmény (`A_-2`, `B_-2`) | **Negyed-/félidővég** — az adott negyed vagy mérkőzés végeredménye |
+| `A_-1` | A csapat — mezszám |
+| `A_-2` | A csapat — ponteredmény (futó összeg) |
+| `M_` | Megkezdett perc |
+| `B_-1` | B csapat — mezszám |
+| `B_-2` | B csapat — ponteredmény (futó összeg) |
 
-#### Hárompontosok lekérdezése
+Az 1. ismétlés: `A1-1`, `A1-2`, `M1`, `B1-1`, `B1-2`; a 2. ismétlés: `A2-1`, `A2-2`, `M2`, `B2-1`, `B2-2`.
+
+#### Circled entries
+
+| Oszlop típus | `circled = 1` jelentése |
+|---|---|
+| Mezszám (`A_-1`, `B_-1`) | **Hárompontos kosár** |
+| Ponteredmény (`A_-2`, `B_-2`) | **Negyed-/félidővég eredmény** |
+
+#### Color legend
+
+| Szín | Negyed | Hex |
+|---|---|---|
+| red | 1. negyed | `#FF0000` |
+| black | 2. negyed | `#000000` |
+| green | 3. negyed | `#088008` |
+| blue | 4. negyed | `#0000FF` |
+
+## Usage
+
+### Prerequisites
+
+```bash
+pip install PyMuPDF
+```
+
+### Run the extractor
+
+```bash
+python extract_scoresheet.py
+```
+
+This reads `hun3k_125657.pdf` (must be in the same directory) and writes/overwrites `folyamatos_eredmeny.sqlite` with all 9 tables.
+
+### Query the database
+
+```bash
+sqlite3 folyamatos_eredmeny.sqlite
+```
+
+#### Example queries
+
+**Match info:**
+
+```sql
+SELECT team_a, team_b, score_a, score_b, venue, match_date FROM match_info;
+```
+
+**Starting five:**
+
+```sql
+SELECT team, jersey_number, name FROM players WHERE starter = 1 ORDER BY team;
+```
+
+**Three-pointers:**
 
 ```sql
 SELECT header, column_name, character AS mezszám, row_number, color
@@ -87,37 +200,25 @@ WHERE circled = 1
 ORDER BY header, row_number;
 ```
 
-#### Negyedvégi eredmények lekérdezése
+**Player fouls summary:**
 
 ```sql
-SELECT header, column_name, character AS ponteredmény, row_number, color
-FROM running_score
-WHERE circled = 1
-  AND column_name IN ('A1-2','A2-2','B1-2','B2-2')
-ORDER BY header, row_number;
+SELECT p.team, p.name, p.jersey_number, COUNT(f.id) AS total_fouls
+FROM players p
+LEFT JOIN personal_fouls f ON p.team = f.team AND p.jersey_number = f.jersey_number
+WHERE p.role IN ('player', 'captain')
+GROUP BY p.team, p.jersey_number
+ORDER BY total_fouls DESC;
 ```
 
-### Pontszerzés típusok
-
-A futó ponteredmény változásából (diff) azonosítható a kosár típusa:
-
-| Diff | Típus |
-|---|---|
-| `+1` | Bedobott büntető |
-| `+2` | Dupla (2 pontos kosár) |
-| `+3` | Tripla (3 pontos kosár) — mezszám is bekarikázva |
-| `-` (karakter) | Kihagyott büntető |
-
-A diff kiszámításánál a `LAG()` window function-t használjuk. **Fontos:** az első pontszerzésnél nincs előző érték, ezért `COALESCE(LAG(...), 0)`-t kell használni, hogy a 0-ról induló ugrás is megjelenjen.
-
-#### Pontszerzések lekérdezése (egy csapatra)
+**Scoring types with COALESCE(LAG, 0):**
 
 ```sql
 WITH scores AS (
     SELECT header, column_name, row_number,
            CAST(character AS INTEGER) AS score, color
     FROM running_score
-    WHERE column_name IN ('A1-2','A2-2')  -- B csapathoz: 'B1-2','B2-2'
+    WHERE column_name IN ('A1-2','A2-2')
       AND character != '-'
 ),
 diffs AS (
@@ -134,98 +235,10 @@ diffs AS (
 SELECT * FROM diffs WHERE diff > 0;
 ```
 
-> A `diff > 0` szűrő kiszűri a félidő eleji átvitt eredményeket (ahol `diff = 0`).
-
-#### Kihagyott büntetők lekérdezése
-
-```sql
-SELECT
-    CASE WHEN s.column_name LIKE 'A%' THEN 'A' ELSE 'B' END AS csapat,
-    s.header, s.row_number, s.color,
-    j.character AS mezszam
-FROM running_score s
-LEFT JOIN running_score j
-  ON s.header = j.header AND s.row_number = j.row_number AND s.color = j.color
-  AND j.column_name = REPLACE(s.column_name, '-2', '-1')
-WHERE s.column_name IN ('A1-2','A2-2','B1-2','B2-2')
-  AND s.character = '-';
-```
-
-### Color legend
-
-A négy szín a negyedeket jelöli:
-
-| Szín | Negyed | Hex a PDF-ben |
-|---|---|---|
-| red | 1. negyed | `#FF0000` |
-| black | 2. negyed | `#000000` |
-| green | 3. negyed | `#088008` |
-| blue | 4. negyed | `#0000FF` |
-
 ### Summary (this match)
 
-- **231** total records
-- **42** rows
-- Headers: Első félidő (123), Második félidő (108), Hosszabbítás (0 — no overtime)
-- **15** circled entries (7 hárompontos + 8 negyedvégi eredmény)
-
-## Usage
-
-### Prerequisites
-
-```bash
-pip install PyMuPDF
-```
-
-### Run the extractor
-
-```bash
-python extract_running_score.py
-```
-
-This reads `hun3k_125657.pdf` (must be in the same directory) and writes/overwrites `folyamatos_eredmeny.sqlite`.
-
-### Query the database
-
-```bash
-sqlite3 folyamatos_eredmeny.sqlite
-```
-
-#### Example queries
-
-**Hárompontosok (bekarikázott mezszámok):**
-
-```sql
-SELECT row_number, header, column_name, character AS mezszám, color
-FROM running_score
-WHERE circled = 1
-  AND column_name IN ('A1-1','A2-1','B1-1','B2-1')
-ORDER BY header, row_number;
-```
-
-**Count records by color:**
-
-```sql
-SELECT color, COUNT(*) AS cnt
-FROM running_score
-GROUP BY color
-ORDER BY cnt DESC;
-```
-
-**All entries in a specific column:**
-
-```sql
-SELECT row_number, character, color, circled
-FROM running_score
-WHERE header = 'Első félidő' AND column_name = 'A1-2'
-ORDER BY row_number;
-```
-
-**Reconstruct a full row:**
-
-```sql
-SELECT header, column_name, character, color, circled
-FROM running_score
-WHERE row_number = 1
-ORDER BY header, column_name;
-```
+- **231** running score records
+- **23** players (14 A + 9 B, including coaches)
+- **32** personal fouls (18 A + 14 B)
+- **8** timeouts (3 A + 5 B)
+- Quarter scores: 22-18, 20-24, 25-13, 17-20 → **84-75**
