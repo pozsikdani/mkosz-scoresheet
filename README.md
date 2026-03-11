@@ -67,15 +67,31 @@ Player rosters for both teams, including coaches.
 
 ### `personal_fouls`
 
-Individual fouls per player.
+Individual fouls per player and coach technical fouls (FIBA B.8.3).
 
 | Column | Type | Description |
 |---|---|---|
 | `team` | TEXT | "A" or "B" |
-| `jersey_number` | INTEGER | Player jersey number |
+| `jersey_number` | INTEGER | Player jersey number (NULL for coach fouls) |
 | `foul_number` | INTEGER | Sequential foul number (1-5) |
-| `minute` | TEXT | Minute when foul was committed (1-10) |
+| `minute` | TEXT | Minute when foul was committed (1-10), NULL for "GD" |
 | `quarter` | INTEGER | Quarter (1-4), determined by color |
+| `foul_type` | TEXT | "defensive" (védő) or "offensive" (támadó, circled) |
+| `foul_category` | TEXT | NULL=sima személyi, or special code (see below) |
+| `free_throws` | INTEGER | Free throws awarded (1, 2, or 3), NULL if none |
+| `offsetting` | INTEGER | 1 if offsetting foul ("c", 42.§), 0 otherwise |
+
+#### Foul categories (FIBA B.8.3)
+
+| Code | Meaning | Rule |
+|------|---------|------|
+| NULL | Regular personal foul (P) | — |
+| T | Technical foul (player) | B.8.3.2 |
+| C | Technical foul (coach conduct) | B.8.3.3 |
+| B | Technical foul (coach bench) | B.8.3.4 |
+| U | Unsportsmanlike foul | B.8.3.5 |
+| D | Disqualifying foul | B.8.3.6 |
+| GD | Game Disqualification marker | B.8.3.2-5 |
 
 ### `team_fouls`
 
@@ -239,6 +255,6 @@ SELECT * FROM diffs WHERE diff > 0;
 
 - **231** running score records
 - **23** players (14 A + 9 B, including coaches)
-- **32** personal fouls (18 A + 14 B)
+- **33** personal fouls (18 A + 15 B, including 1 coach technical "C")
 - **8** timeouts (3 A + 5 B)
 - Quarter scores: 22-18, 20-24, 25-13, 17-20 → **84-75**

@@ -539,13 +539,116 @@ FOUL_SLOTS_A = [(367, 395), (395, 415), (415, 433), (433, 451), (451, 475)]
 FOUL_SLOTS_B = [(362, 393), (393, 415), (415, 435), (435, 453), (453, 475)]
 
 
-def extract_personal_fouls(all_chars, team, player_cfg, foul_slots, players_list):
-    """Extract personal fouls for one team's players."""
+FOUL_CATEGORY_LETTERS = {"T", "U", "B", "C", "D"}
+
+
+def _parse_foul_slot(all_chars_in_slot, all_circles):
+    """Parse a single foul slot and return a dict with foul data, or None if empty.
+
+    A foul slot may contain (per FIBA B.8.3):
+    - Main digit(s) (larger size, ~13.4): the minute of the foul
+      OR main letters "GD": game disqualification marker
+    - Annotation digit (smaller size, ~11.1): free throws awarded (1, 2, or 3)
+    - Annotation letter (smaller size, ~11.1):
+        - "T"/"U"/"B"/"C"/"D" = foul category (jobb alsó index)
+        - "c" = offsetting foul, 42.§ (jobb felső index)
+    - Circle around the main digit: offensive foul (támadó hiba)
+    """
+    # Collect all meaningful chars (digits + letters, skip punctuation/labels)
+    slot_chars = [c for c in all_chars_in_slot if c["c"].isdigit() or c["c"].isalpha()]
+    if not slot_chars:
+        return None
+
+    # Separate by size: main (largest) vs annotation (smaller)
+    sizes = set(c["size"] for c in slot_chars)
+    if len(sizes) > 1:
+        max_size = max(sizes)
+        main_chars = [c for c in slot_chars if c["size"] == max_size]
+        annotation_chars = [c for c in slot_chars if c["size"] != max_size]
+    else:
+        main_chars = slot_chars
+        annotation_chars = []
+
+    # --- Analyze main characters ---
+    main_digits = [c for c in main_chars if c["c"].isdigit()]
+    main_letters = [c for c in main_chars if c["c"].isalpha()]
+
+    if main_letters and not main_digits:
+        # Slot contains only letters at main size → "GD" marker
+        gd_text = "".join(c["c"] for c in sorted(main_letters, key=lambda c: c["x"]))
+        if "GD" in gd_text.upper():
+            quarter = color_to_quarter(main_letters[0]["color"])
+            return {
+                "minute": None,
+                "quarter": quarter,
+                "foul_type": "defensive",
+                "foul_category": "GD",
+                "free_throws": None,
+                "offsetting": 0,
+            }
+        return None  # Unknown letters, skip
+
+    if not main_digits:
+        return None
+
+    minute_text = assemble_number(main_digits)
+    quarter = color_to_quarter(main_digits[0]["color"])
+
+    # Foul type: circled = offensive (támadó), not circled = defensive (védő)
+    foul_type = "defensive"
+    for mc in main_digits:
+        if is_circled(mc["x"], mc["y"], all_circles):
+            foul_type = "offensive"
+            break
+
+    # --- Analyze annotation characters ---
+    free_throws = None
+    foul_category = None
+    offsetting = 0
+
+    ann_digits = [c for c in annotation_chars if c["c"].isdigit()]
+    ann_letters = [c for c in annotation_chars if c["c"].isalpha()]
+
+    # Annotation digits → free throws (1, 2, or 3)
+    if ann_digits:
+        ft_text = assemble_number(ann_digits)
+        if ft_text.isdigit():
+            free_throws = int(ft_text)
+
+    # Annotation letters → foul category or offsetting
+    for lc in ann_letters:
+        letter = lc["c"].upper()
+        if letter in FOUL_CATEGORY_LETTERS:
+            foul_category = letter
+        elif lc["c"] == "c":  # lowercase "c" = offsetting (42.§)
+            offsetting = 1
+
+    return {
+        "minute": minute_text,
+        "quarter": quarter,
+        "foul_type": foul_type,
+        "foul_category": foul_category,
+        "free_throws": free_throws,
+        "offsetting": offsetting,
+    }
+
+
+def extract_personal_fouls(all_chars, all_circles, team, player_cfg, foul_slots,
+                           players_list, coach_cfg=None):
+    """Extract personal fouls for one team's players and coaches.
+
+    Each foul slot may contain (per FIBA B.8.3):
+    - Main digit(s): minute of the foul
+    - Annotation digit: free throws awarded (1, 2, or 3)
+    - Annotation letter: foul category (T/U/B/C/D) or offsetting ("c")
+    - Circle: offensive foul
+    - "GD" text: game disqualification marker
+    """
     fouls = []
     y_start = player_cfg["y_start"]
     rh = player_cfg["row_height"]
 
-    # Build jersey map from player list for this team
+    # --- Player fouls ---
     team_players = [p for p in players_list if p["team"] == team and p["role"] in ("player", "captain")]
 
     for pi, player in enumerate(team_players):
@@ -553,30 +656,37 @@ def extract_personal_fouls(all_chars, team, player_cfg, foul_slots, players_list
         y_max = y_min + rh
 
         for slot_idx, (x_min, x_max) in enumerate(foul_slots):
-            foul_chars = collect_chars_in_rect(all_chars, x_min, x_max, y_min, y_max)
-            # Only digit chars (ignore any labels)
-            digit_chars = [c for c in foul_chars if c["c"].isdigit()]
-            if not digit_chars:
+            slot_chars = collect_chars_in_rect(all_chars, x_min, x_max, y_min, y_max)
+            parsed = _parse_foul_slot(slot_chars, all_circles)
+            if parsed is None:
                 continue
-
-            # Filter out annotation digits (smaller size, e.g. 11.1 = foul type codes)
-            # Keep only the dominant (largest) size within each slot
-            sizes = set(c["size"] for c in digit_chars)
-            if len(sizes) > 1:
-                max_size = max(sizes)
-                digit_chars = [c for c in digit_chars if c["size"] == max_size]
-
-            minute_text = assemble_number(digit_chars)
-            # Quarter from color (use first digit's color)
-            quarter = color_to_quarter(digit_chars[0]["color"])
 
             fouls.append({
                 "team": team,
                 "jersey_number": player["jersey_number"],
                 "foul_number": slot_idx + 1,
-                "minute": minute_text,
-                "quarter": quarter,
+                **parsed,
             })
+
+    # --- Coach fouls (technical fouls: B/C types) ---
+    if coach_cfg:
+        for coach_role, (cy_min, cy_max) in [("coach", coach_cfg["coach_y"]),
+                                               ("assistant_coach", coach_cfg["asst_y"])]:
+            # Extend y-range downward: annotation letters (e.g. "C") may be ~15px below the minute
+            extended_y_max = cy_max + 20
+
+            for slot_idx, (x_min, x_max) in enumerate(foul_slots):
+                slot_chars = collect_chars_in_rect(all_chars, x_min, x_max, cy_min, extended_y_max)
+                parsed = _parse_foul_slot(slot_chars, all_circles)
+                if parsed is None:
+                    continue
+
+                fouls.append({
+                    "team": team,
+                    "jersey_number": None,  # coaches have no jersey number
+                    "foul_number": slot_idx + 1,
+                    **parsed,
+                })
 
     return fouls
 
@@ -752,13 +862,22 @@ def write_db(db_path, running_score, match_info, referees, officials,
         CREATE TABLE personal_fouls (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             team TEXT NOT NULL, jersey_number INTEGER,
-            foul_number INTEGER NOT NULL, minute TEXT NOT NULL,
-            quarter INTEGER NOT NULL
+            foul_number INTEGER NOT NULL, minute TEXT,
+            quarter INTEGER NOT NULL,
+            foul_type TEXT NOT NULL DEFAULT 'defensive',
+            foul_category TEXT,
+            free_throws INTEGER,
+            offsetting INTEGER NOT NULL DEFAULT 0
         )
     """)
     for f in personal_fouls:
-        c.execute("INSERT INTO personal_fouls (team, jersey_number, foul_number, minute, quarter) VALUES (?,?,?,?,?)",
-                  (f["team"], f["jersey_number"], f["foul_number"], f["minute"], f["quarter"]))
+        c.execute("""INSERT INTO personal_fouls
+                     (team, jersey_number, foul_number, minute, quarter,
+                      foul_type, foul_category, free_throws, offsetting)
+                     VALUES (?,?,?,?,?,?,?,?,?)""",
+                  (f["team"], f["jersey_number"], f["foul_number"], f["minute"], f["quarter"],
+                   f["foul_type"], f.get("foul_category"), f.get("free_throws"),
+                   f.get("offsetting", 0)))
 
     # --- team_fouls ---
     c.execute("DROP TABLE IF EXISTS team_fouls")
@@ -828,9 +947,9 @@ if __name__ == "__main__":
     players_b = extract_players(all_chars, all_circles, "B", TEAM_B_PLAYERS, TEAM_B_COACH)
     all_players = players_a + players_b
 
-    # Personal fouls
-    fouls_a = extract_personal_fouls(all_chars, "A", TEAM_A_PLAYERS, FOUL_SLOTS_A, all_players)
-    fouls_b = extract_personal_fouls(all_chars, "B", TEAM_B_PLAYERS, FOUL_SLOTS_B, all_players)
+    # Personal fouls (including coach technical fouls)
+    fouls_a = extract_personal_fouls(all_chars, all_circles, "A", TEAM_A_PLAYERS, FOUL_SLOTS_A, all_players, TEAM_A_COACH)
+    fouls_b = extract_personal_fouls(all_chars, all_circles, "B", TEAM_B_PLAYERS, FOUL_SLOTS_B, all_players, TEAM_B_COACH)
     all_personal_fouls = fouls_a + fouls_b
 
     # Team fouls
