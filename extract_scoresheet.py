@@ -168,20 +168,25 @@ def extract_all_from_pdf(pdf_path):
 # Running Score extraction (existing logic, preserved)
 # ---------------------------------------------------------------------------
 
-# Column boundaries for the running score table
+# Column boundaries for the running score table.
+# Boundaries shifted left by 2px from nominal grid lines to better capture
+# characters that sit near column edges (improves Második félidő accuracy).
+# Additionally, M*/B*-1 boundaries (4th value in each group) are shifted
+# left by an extra 2px (total -4px) because some PDFs position the tens
+# digit of B-team jersey numbers slightly left of the B*-1 column.
 COL_BOUNDS = [
     # Első félidő — 1. oszlopcsoport (A1-1, A1-2, M1, B1-1, B1-2)
-    481, 503, 524, 543, 564,
+    479, 501, 522, 539, 562,
     # Első félidő — 2. oszlopcsoport (A2-1, A2-2, M2, B2-1, B2-2)
-    586, 605, 627, 646, 665,
+    584, 603, 625, 642, 663,
     # Második félidő — 1. oszlopcsoport
-    687, 708, 729, 749, 769,
+    685, 706, 727, 745, 767,
     # Második félidő — 2. oszlopcsoport
-    792, 811, 832, 851, 870,
+    790, 809, 830, 847, 868,
     # Hosszabbítás — 1. oszlopcsoport
-    891, 912, 933, 953, 973,
+    889, 910, 931, 949, 971,
     # Hosszabbítás — 2. oszlopcsoport
-    994, 1014, 1035, 1055, 1076,
+    992, 1012, 1033, 1051, 1074,
     1097,
 ]
 
@@ -218,12 +223,28 @@ def _get_column(x):
     return None
 
 
-def extract_running_score(all_chars, all_circles):
-    """Extract the Folyamatos Eredmény table (unchanged logic)."""
-    # Filter to running score area
-    raw_chars = [ch for ch in all_chars if ch["x"] >= 480 and 300 < ch["y"] < 1410]
+def extract_running_score(all_chars, all_circles, template=None):
+    """Extract the Folyamatos Eredmény table.
+
+    Each cell (row × column) produces exactly ONE record — all characters
+    within the cell are concatenated (no gap-based token splitting).
+    The y-filter is tightened to exclude text below the grid (e.g. "Eredmény:").
+    """
+    if template is None:
+        template = detect_template(all_chars)
+    off = template["off_body"]
+    row_top = ROW_TOP + off
+
+    # y upper bound: row 42 bottom = row_top + NUM_ROWS * ROW_HEIGHT
+    y_max = row_top + NUM_ROWS * ROW_HEIGHT + 2  # small margin
+    y_min = row_top - 8
+    raw_chars = [ch for ch in all_chars if ch["x"] >= 480 and y_min < ch["y"] < y_max]
     rs_circles = [(x0, y0, x1, y1) for x0, y0, x1, y1 in all_circles
-                  if x0 >= 475 and y0 >= 290 and y1 <= 1420]
+                  if x0 >= 475 and y0 >= y_min - 10 and y1 <= y_max + 5]
+
+    def _get_row_local(y):
+        r = int((y - row_top) / ROW_HEIGHT) + 1
+        return max(1, min(r, NUM_ROWS))
 
     cells = {}
     for ch in raw_chars:
@@ -231,55 +252,158 @@ def extract_running_score(all_chars, all_circles):
         if col_info is None:
             continue
         header, cname = col_info
-        row = _get_row(ch["y"])
+        row = _get_row_local(ch["y"])
         key = (row, header, cname)
         cells.setdefault(key, []).append((ch["x"], ch["c"], ch["color"]))
+
+    # --- Boundary correction pass ---
+    # At column-group boundaries, characters can "spill" between adjacent
+    # columns due to slight x-position variations across PDFs.  Two cases:
+    #
+    #  1) B*-2 (last col of group) picks up chars from the next group's
+    #     A*-1 — detected as chars far from the column's left boundary
+    #     or separated from the main cluster by a large x-gap.
+    #
+    #  2) A*-1 (first col of group) picks up chars that really belong to
+    #     the A*-2 column next to it — detected as chars near the *-1/*-2
+    #     boundary with a large x-gap from the jersey cluster.
+    #
+    # In both cases, we re-assign or drop the stray characters.
+
+    _col_left_map = {}
+    _col_right_map = {}
+    for left, right, h, cn in COLUMNS:
+        _col_left_map[(h, cn)] = left
+        _col_right_map[(h, cn)] = right
+
+    # Identify the *-2 column key for each *-1 column (same header & group)
+    _jersey_to_score = {}   # (h, "*-1") → (h, "*-2")
+    for left, right, h, cn in COLUMNS:
+        if cn.endswith("-1"):
+            score_cn = cn[:-1] + "2"  # A1-1 → A1-2, B1-1 → B1-2, etc.
+            _jersey_to_score[(h, cn)] = (h, score_cn)
+
+    # Build mapping: B*-2 → next group's A*-1 for cross-group re-assignment.
+    # COLUMNS order: A1-1, A1-2, M1, B1-1, B1-2, A2-1, A2-2, ...
+    _b2_to_next_a1 = {}
+    for ci in range(len(COLUMNS) - 1):
+        _, _, h, cn = COLUMNS[ci]
+        if cn == "B1-2" or cn == "B2-2":
+            next_left, next_right, nh, ncn = COLUMNS[ci + 1]
+            if ncn.startswith("A"):
+                _b2_to_next_a1[(h, cn)] = (nh, ncn)
+
+    # Case 1: B*-2 columns — re-assign stray right-side chars to next A*-1
+    for key in list(cells.keys()):
+        row, header, cname = key
+        if cname != "B1-2" and cname != "B2-2":
+            continue
+        char_list = cells[key]
+        if not char_list:
+            continue
+        char_list.sort(key=lambda t: t[0])
+
+        col_left = _col_left_map.get((header, cname), 0)
+        next_a1 = _b2_to_next_a1.get((header, cname))
+
+        # If ALL chars are far from the left boundary → entirely stray,
+        # re-assign them to the next group's A*-1 column.
+        if char_list[0][0] - col_left > 15:
+            if next_a1:
+                a1_key = (row, next_a1[0], next_a1[1])
+                cells.setdefault(a1_key, [])
+                cells[a1_key] = char_list + cells[a1_key]
+            del cells[key]
+            continue
+
+        # If there's a large gap, keep only the left cluster;
+        # re-assign right-side chars to next A*-1.
+        if len(char_list) > 1:
+            filtered = [char_list[0]]
+            spill_chars = []
+            for i in range(1, len(char_list)):
+                gap = char_list[i][0] - char_list[i - 1][0]
+                if gap > 10:
+                    spill_chars = char_list[i:]
+                    break
+                filtered.append(char_list[i])
+            cells[key] = filtered
+            if spill_chars and next_a1:
+                a1_key = (row, next_a1[0], next_a1[1])
+                cells.setdefault(a1_key, [])
+                cells[a1_key] = spill_chars + cells[a1_key]
+
+    # Case 2: *-1 (jersey) columns — spill right-side chars to *-2 (score)
+    for key in list(cells.keys()):
+        row, header, cname = key
+        if not cname.endswith("-1"):
+            continue
+        char_list = cells[key]
+        if len(char_list) < 2:
+            continue
+        char_list.sort(key=lambda t: t[0])
+
+        col_right = _col_right_map.get((header, cname), 9999)
+
+        # Find the largest internal gap
+        max_gap = 0
+        split_at = -1
+        for i in range(1, len(char_list)):
+            gap = char_list[i][0] - char_list[i - 1][0]
+            if gap > max_gap:
+                max_gap = gap
+                split_at = i
+
+        # If there's a significant gap AND the right-side chars are near
+        # the column boundary, they likely belong to the *-2 column.
+        if max_gap > 10 and split_at > 0:
+            right_chars = char_list[split_at:]
+            # Check: are the right-side chars within 5px of the boundary?
+            if right_chars[0][0] >= col_right - 5:
+                # Move them to the adjacent *-2 column
+                score_key_info = _jersey_to_score.get((header, cname))
+                if score_key_info:
+                    score_key = (row, score_key_info[0], score_key_info[1])
+                    cells.setdefault(score_key, [])
+                    cells[score_key] = right_chars + cells[score_key]
+                cells[key] = char_list[:split_at]
 
     records = []
     for (row, header, cname), char_list in sorted(cells.items()):
         char_list.sort(key=lambda t: t[0])
 
-        tokens = []
-        current = []
-        for i, (x, c, color) in enumerate(char_list):
-            if current and x - char_list[i - 1][0] > 12:
-                tokens.append(current)
-                current = []
-            current.append((x, c, color))
-        if current:
-            tokens.append(current)
+        # All characters in one cell form ONE token (no gap-based splitting).
+        token_chars = char_list
+        text = "".join(c for _, c, _ in token_chars)
+        color_val = token_chars[0][2]
+        for _, c, col in token_chars:
+            if c != "-":
+                color_val = col
+                break
 
-        for token_chars in tokens:
-            text = "".join(c for _, c, _ in token_chars)
-            color_val = token_chars[0][2]
-            for _, c, col in token_chars:
-                if c != "-":
-                    color_val = col
-                    break
-
-            circled = 0
-            for cx0, cy0, cx1, cy1 in rs_circles:
-                for chx, _, _ in token_chars:
-                    if cx0 - 3 <= chx <= cx1 + 3:
-                        ch_y = None
-                        for rc in raw_chars:
-                            if abs(rc["x"] - chx) < 1:
-                                ch_y = rc["y"]
-                                break
-                        if ch_y is not None and cy0 - 3 <= ch_y <= cy1 + 3:
-                            circled = 1
+        circled = 0
+        for cx0, cy0, cx1, cy1 in rs_circles:
+            for chx, _, _ in token_chars:
+                if cx0 - 3 <= chx <= cx1 + 3:
+                    ch_y = None
+                    for rc in raw_chars:
+                        if abs(rc["x"] - chx) < 1:
+                            ch_y = rc["y"]
                             break
-                if circled:
-                    break
+                    if ch_y is not None and cy0 - 3 <= ch_y <= cy1 + 3:
+                        circled = 1
+                        break
+            if circled:
+                break
 
-            records.append({
-                "header": header,
-                "column": cname,
-                "color": color_name(color_val),
-                "circled": circled,
-                "row_number": row,
-                "character": text,
-            })
+        records.append({
+            "header": header,
+            "column": cname,
+            "color": color_name(color_val),
+            "circled": circled,
+            "row_number": row,
+            "character": text,
+        })
 
     return records
 
@@ -288,39 +412,62 @@ def extract_running_score(all_chars, all_circles):
 # Match info extraction
 # ---------------------------------------------------------------------------
 
-def extract_match_info(all_chars):
+def detect_template(all_chars):
+    """Detect PDF template type based on match_id vertical position.
+
+    Returns a y-offset dict:
+        TYPE1 (match_id F at y≈178): offset_header=0, offset_body=0
+        TYPE2 (match_id F at y≈168): offset_header=-10, offset_body=-20
+
+    The offset values describe how much TYPE2 coordinates are shifted UP
+    relative to TYPE1 (i.e. TYPE2_y = TYPE1_y + offset).
+    """
+    f_chars = [ch for ch in all_chars
+               if ch["c"] == "F" and ch["x"] < 40 and 150 < ch["y"] < 200]
+    if f_chars and f_chars[0]["y"] < 173:
+        # TYPE2
+        return {"name": "TYPE2", "off_id": -10, "off_body": -20}
+    return {"name": "TYPE1", "off_id": 0, "off_body": 0}
+
+
+def extract_match_info(all_chars, template=None):
     """Extract match metadata from header and footer."""
+    if template is None:
+        template = detect_template(all_chars)
+    off_id = template["off_id"]
+    off = template["off_body"]
+
     def blue_text(x_min, x_max, y_min, y_max, gap=2.0):
         chars = collect_chars_in_rect(all_chars, x_min, x_max, y_min, y_max,
                                       color_filter=OFFICIAL_BLUE)
         return assemble_text(chars, gap_threshold=gap)
 
-    # Team names — y≈83-95, A ends ~x=521, B starts ~x=720
+    # Team names — y≈83-95 (same for both templates)
     team_a = blue_text(90, 600, 80, 100)
     team_b = blue_text(600, 900, 80, 100)
 
-    # Venue — y≈126-136
+    # Venue — y≈126-136 (same for both templates)
     venue = blue_text(200, 500, 123, 140)
 
-    # Match ID — y≈175-185
-    match_id = blue_text(20, 200, 172, 190)
+    # Match ID — TYPE1: y≈175-185, TYPE2: y≈165-175
+    match_id = blue_text(20, 200, 172 + off_id, 190 + off_id)
 
-    # Date and time — y≈205-215
-    match_date = blue_text(200, 360, 202, 220)
-    match_time = blue_text(360, 450, 202, 220)
+    # Date and time — TYPE1: y≈205-215, TYPE2: y≈185-195
+    match_date = blue_text(200, 360, 202 + off, 220 + off)
+    match_time = blue_text(360, 450, 202 + off, 220 + off)
 
-    # Final score — footer y≈1548-1562 (black text, not blue)
-    score_chars_a = collect_chars_in_rect(all_chars, 698, 730, 1548, 1565)
+    # Final score — TYPE1: y≈1548-1565, TYPE2: y≈1528-1545
+    score_chars_a = collect_chars_in_rect(all_chars, 698, 730, 1548 + off, 1565 + off)
     score_a_text = assemble_number([c for c in score_chars_a if c["c"].isdigit()])
 
-    score_chars_b = collect_chars_in_rect(all_chars, 908, 935, 1548, 1565)
+    score_chars_b = collect_chars_in_rect(all_chars, 908, 935, 1548 + off, 1565 + off)
     score_b_text = assemble_number([c for c in score_chars_b if c["c"].isdigit()])
 
-    # Winner — y≈1575-1590
-    winner = blue_text(650, 900, 1572, 1595)
+    # Winner — TYPE1: y≈1575-1590, TYPE2: y≈1555-1570
+    winner = blue_text(650, 900, 1572 + off, 1595 + off)
 
-    # Closure timestamp — y≈1620-1635
-    closure = blue_text(900, 1080, 1618, 1640)
+    # Closure timestamp — TYPE1: y≈1620-1635, TYPE2: y≈1600-1615
+    closure = blue_text(900, 1080, 1618 + off, 1640 + off)
 
     return {
         "match_id": match_id,
@@ -365,13 +512,17 @@ def extract_referees(all_chars):
 # Officials extraction (footer)
 # ---------------------------------------------------------------------------
 
-def extract_officials(all_chars):
+def extract_officials(all_chars, template=None):
     """Extract officials (scorer, timekeeper, etc.) from the footer."""
+    if template is None:
+        template = detect_template(all_chars)
+    off = template["off_body"]
+
     officials = []
     roles = [
-        ("Jegyző",           1414, 1435),
-        ("Időmérő",          1462, 1480),
-        ("24\"-es időmérő",  1488, 1505),
+        ("Jegyző",           1414 + off, 1435 + off),
+        ("Időmérő",          1462 + off, 1480 + off),
+        ("24\"-es időmérő",  1488 + off, 1505 + off),
     ]
     for role, y_min, y_max in roles:
         name = assemble_text(
@@ -387,16 +538,19 @@ def extract_officials(all_chars):
 # Quarter scores extraction (footer)
 # ---------------------------------------------------------------------------
 
-def extract_quarter_scores(all_chars):
+def extract_quarter_scores(all_chars, template=None):
     """Extract quarter-by-quarter scores from the footer."""
+    if template is None:
+        template = detect_template(all_chars)
+    off = template["off_body"]
+
     scores = []
-    # Quarter score rows are at approximately y=1418, 1443, 1468, 1493, 1518
     quarter_rows = [
-        ("1", 1413, 1430),
-        ("2", 1438, 1455),
-        ("3", 1463, 1480),
-        ("4", 1488, 1505),
-        ("Hosszabbítás", 1513, 1530),
+        ("1", 1413 + off, 1430 + off),
+        ("2", 1438 + off, 1455 + off),
+        ("3", 1463 + off, 1480 + off),
+        ("4", 1488 + off, 1505 + off),
+        ("Hosszabbítás", 1513 + off, 1530 + off),
     ]
     for q_label, y_min, y_max in quarter_rows:
         # A score — roughly x 770-800
@@ -419,13 +573,31 @@ def extract_quarter_scores(all_chars):
 # Players extraction
 # ---------------------------------------------------------------------------
 
-# Player roster y-ranges (first row top, last row bottom, row height)
+# Player roster y-ranges — TYPE1 defaults (first row top, last row bottom, row height)
 TEAM_A_PLAYERS = {"y_start": 430, "y_end": 725, "row_height": 24.5, "max_rows": 12}
 TEAM_B_PLAYERS = {"y_start": 1033, "y_end": 1220, "row_height": 24.5, "max_rows": 12}
 
-# Coach y-ranges
+# Coach y-ranges — TYPE1 defaults
 TEAM_A_COACH = {"coach_y": (730, 760), "asst_y": (768, 795)}
 TEAM_B_COACH = {"coach_y": (1330, 1360), "asst_y": (1358, 1385)}
+
+
+def _offset_player_region(region, off):
+    """Apply y-offset to a player region dict."""
+    return {
+        "y_start": region["y_start"] + off,
+        "y_end": region["y_end"] + off,
+        "row_height": region["row_height"],
+        "max_rows": region["max_rows"],
+    }
+
+
+def _offset_coach_region(region, off):
+    """Apply y-offset to a coach region dict."""
+    return {
+        "coach_y": (region["coach_y"][0] + off, region["coach_y"][1] + off),
+        "asst_y": (region["asst_y"][0] + off, region["asst_y"][1] + off),
+    }
 
 
 def extract_players(all_chars, all_circles, team, cfg, coach_cfg):
@@ -447,12 +619,52 @@ def extract_players(all_chars, all_circles, team, cfg, coach_cfg):
         license_num = assemble_number(license_chars)
 
         # Player name — x 95-275, blue (must not overlap with jersey at x≈282)
+        # Long names can wrap to a second line in the PDF, and the wrapped
+        # portion may spill into the NEXT row's y-band (within ~2px of the
+        # top).  To avoid garbling, we group chars by y-line and drop any
+        # line that sits within 8px of the row's top edge when there are
+        # other, lower lines present (those are the actual name for this row).
         name_chars = collect_chars_in_rect(all_chars, 95, 275, y_min, y_max,
                                             color_filter=OFFICIAL_BLUE)
-        name = assemble_text(name_chars, gap_threshold=2.0)
+        # Player names never contain digits.  In some PDFs the first digit
+        # of the jersey number sits at x≈274 which falls inside the name
+        # rect (95-275), causing a trailing stray digit.  Filter them out.
+        name_chars = [c for c in name_chars if not c["c"].isdigit()]
+        if name_chars:
+            # Group by y-line (tolerance 5px)
+            name_chars_sorted = sorted(name_chars, key=lambda c: c["y"])
+            y_lines = []
+            cur_line = [name_chars_sorted[0]]
+            for i in range(1, len(name_chars_sorted)):
+                if name_chars_sorted[i]["y"] - cur_line[0]["y"] > 5:
+                    y_lines.append(cur_line)
+                    cur_line = [name_chars_sorted[i]]
+                else:
+                    cur_line.append(name_chars_sorted[i])
+            y_lines.append(cur_line)
 
-        # Jersey number — x 275-330, blue
-        jersey_chars = collect_chars_in_rect(all_chars, 275, 330, y_min, y_max,
+            if len(y_lines) > 1:
+                # Drop lines whose y is within 8px of the row top (overflow
+                # from previous row's wrapped name).
+                kept = [ln for ln in y_lines if ln[0]["y"] - y_min >= 8]
+                if kept:
+                    y_lines = kept
+
+                # Assemble each y-line separately to avoid interleaving
+                # characters from wrapped names (e.g. "SCHWARCZENBERGER"
+                # wrapping within its own cell → two overlapping x-ranges).
+                name = " ".join(
+                    assemble_text(ln, gap_threshold=2.0) for ln in y_lines
+                )
+            else:
+                name = assemble_text(name_chars, gap_threshold=2.0)
+        else:
+            name = ""
+
+        # Jersey number — x 265-330, blue
+        # Some PDFs position the tens digit of 2-digit jerseys as far left
+        # as x≈270, so we start at 265 to capture them reliably.
+        jersey_chars = collect_chars_in_rect(all_chars, 265, 330, y_min, y_max,
                                               color_filter=OFFICIAL_BLUE)
         jersey_chars = [c for c in jersey_chars if c["c"].isdigit()]
         jersey_text = assemble_number(jersey_chars)
@@ -722,11 +934,15 @@ TEAM_FOUL_REGIONS = {
 }
 
 
-def extract_team_fouls(all_chars, team):
+def extract_team_fouls(all_chars, team, template=None):
     """Extract team foul counts per quarter."""
+    if template is None:
+        template = detect_template(all_chars)
+    off = template["off_body"]
+
     fouls = []
     for row_cfg in TEAM_FOUL_REGIONS[team]["rows"]:
-        y_min, y_max = row_cfg["y_min"], row_cfg["y_max"]
+        y_min, y_max = row_cfg["y_min"] + off, row_cfg["y_max"] + off
 
         # Odd quarter (left group, x 215-300)
         odd_x = collect_chars_in_rect(all_chars, 215, 300, y_min, y_max)
@@ -761,12 +977,16 @@ TIMEOUT_REGIONS = {
 }
 
 
-def extract_timeouts(all_chars, team):
+def extract_timeouts(all_chars, team, template=None):
     """Extract timeout events (minute + quarter from color)."""
+    if template is None:
+        template = detect_template(all_chars)
+    off = template["off_body"]
+
     timeouts = []
 
     for row_cfg in TIMEOUT_REGIONS[team]["rows"]:
-        y_min, y_max = row_cfg["y_min"], row_cfg["y_max"]
+        y_min, y_max = row_cfg["y_min"] + off, row_cfg["y_max"] + off
         # Timeout minutes are at x < 130
         chars = collect_chars_in_rect(all_chars, 0, 135, y_min, y_max)
         digit_chars = [c for c in chars if c["c"].isdigit()]
@@ -924,8 +1144,8 @@ def create_schema(conn):
             team            TEXT NOT NULL CHECK (team IN ('A', 'B')),
             jersey_number   INTEGER NOT NULL,
             license_number  TEXT,
-            points          INTEGER NOT NULL CHECK (points IN (0, 1, 2, 3)),
-            shot_type       TEXT NOT NULL CHECK (shot_type IN ('2FG', '3FG', 'FT')),
+            points          INTEGER NOT NULL CHECK (points >= 0),
+            shot_type       TEXT NOT NULL CHECK (shot_type IN ('2FG', '3FG', 'FT', 'MULTI')),
             made            INTEGER NOT NULL CHECK (made IN (0, 1)),
             score_a         INTEGER NOT NULL,
             score_b         INTEGER NOT NULL,
@@ -1017,7 +1237,7 @@ def insert_officials(conn, match_id, officials):
 def insert_players(conn, match_id, players):
     for p in players:
         conn.execute("""
-            INSERT INTO players (match_id, team, license_number, name, jersey_number,
+            INSERT OR IGNORE INTO players (match_id, team, license_number, name, jersey_number,
                                  role, starter, entry_quarter)
             VALUES (?,?,?,?,?,?,?,?)
         """, (match_id, p["team"], p["license_number"], p["name"],
@@ -1147,11 +1367,11 @@ def compute_scoring_events(rs_records, players_list, match_id):
             jersey_circled = ja["circled"] if ja else 0
             color = sa["color"]
 
-            if jersey_val and jersey_val != "-":
+            if jersey_val and jersey_val != "-" and jersey_val.isdigit():
                 last_jersey_a = jersey_val
             jersey = last_jersey_a
 
-            if jersey:
+            if jersey and jersey.isdigit():
                 quarter = SCORING_COLOR_QUARTER.get(color, None)
                 if score_val == "-":
                     # Missed FT
@@ -1165,31 +1385,37 @@ def compute_scoring_events(rs_records, players_list, match_id):
                         "score_a": score_a, "score_b": score_b,
                     })
                 else:
-                    new_score = int(score_val)
-                    pts = new_score - score_a
-                    score_a = new_score
-
-                    if pts == 0:
-                        pass  # Reference entry (e.g. halftime score), skip
+                    try:
+                        new_score = int(score_val)
+                    except ValueError:
+                        pass  # Non-numeric score (e.g. text bleed), skip
                     else:
-                        if pts == 3 or (jersey_circled and pts > 0):
-                            shot_type = "3FG"
-                        elif pts == 1:
-                            shot_type = "FT"
-                        elif pts >= 2:
-                            shot_type = "2FG"
-                        else:
-                            shot_type = "FT"  # edge case
+                        pts = new_score - score_a
 
-                        seq += 1
-                        events.append({
-                            "match_id": match_id, "event_seq": seq,
-                            "quarter": quarter, "minute": minute_str,
-                            "team": "A", "jersey_number": int(jersey),
-                            "license_number": player_lookup.get(("A", jersey)),
-                            "points": pts, "shot_type": shot_type, "made": 1,
-                            "score_a": score_a, "score_b": score_b,
-                        })
+                        if pts == 0:
+                            score_a = new_score  # Reference entry, skip
+                        elif pts < 0 or pts > 10:
+                            pass  # Backwards or huge gap → likely garbage, DON'T update accumulator
+                        else:
+                            score_a = new_score
+                            if pts == 3 or (jersey_circled and pts > 0):
+                                shot_type = "3FG"
+                            elif pts == 1:
+                                shot_type = "FT"
+                            elif pts == 2:
+                                shot_type = "2FG"
+                            else:
+                                shot_type = "MULTI"  # 4-10 pts: aggregated events
+
+                            seq += 1
+                            events.append({
+                                "match_id": match_id, "event_seq": seq,
+                                "quarter": quarter, "minute": minute_str,
+                                "team": "A", "jersey_number": int(jersey),
+                                "license_number": player_lookup.get(("A", jersey)),
+                                "points": pts, "shot_type": shot_type, "made": 1,
+                                "score_a": score_a, "score_b": score_b,
+                            })
 
         # --- Team B event ---
         if sb is not None:
@@ -1199,11 +1425,11 @@ def compute_scoring_events(rs_records, players_list, match_id):
             jersey_circled = jb["circled"] if jb else 0
             color = sb["color"]
 
-            if jersey_val and jersey_val != "-":
+            if jersey_val and jersey_val != "-" and jersey_val.isdigit():
                 last_jersey_b = jersey_val
             jersey = last_jersey_b
 
-            if jersey:
+            if jersey and jersey.isdigit():
                 quarter = SCORING_COLOR_QUARTER.get(color, None)
                 if score_val == "-":
                     seq += 1
@@ -1216,31 +1442,37 @@ def compute_scoring_events(rs_records, players_list, match_id):
                         "score_a": score_a, "score_b": score_b,
                     })
                 else:
-                    new_score = int(score_val)
-                    pts = new_score - score_b
-                    score_b = new_score
-
-                    if pts == 0:
-                        pass  # Reference entry, skip
+                    try:
+                        new_score = int(score_val)
+                    except ValueError:
+                        pass  # Non-numeric score, skip
                     else:
-                        if pts == 3 or (jersey_circled and pts > 0):
-                            shot_type = "3FG"
-                        elif pts == 1:
-                            shot_type = "FT"
-                        elif pts >= 2:
-                            shot_type = "2FG"
-                        else:
-                            shot_type = "FT"
+                        pts = new_score - score_b
 
-                        seq += 1
-                        events.append({
-                            "match_id": match_id, "event_seq": seq,
-                            "quarter": quarter, "minute": minute_str if sa is None else None,
-                            "team": "B", "jersey_number": int(jersey),
-                            "license_number": player_lookup.get(("B", jersey)),
-                            "points": pts, "shot_type": shot_type, "made": 1,
-                            "score_a": score_a, "score_b": score_b,
-                        })
+                        if pts == 0:
+                            score_b = new_score  # Reference entry, skip
+                        elif pts < 0 or pts > 10:
+                            pass  # Backwards or huge gap → likely garbage, DON'T update accumulator
+                        else:
+                            score_b = new_score
+                            if pts == 3 or (jersey_circled and pts > 0):
+                                shot_type = "3FG"
+                            elif pts == 1:
+                                shot_type = "FT"
+                            elif pts == 2:
+                                shot_type = "2FG"
+                            else:
+                                shot_type = "MULTI"
+
+                            seq += 1
+                            events.append({
+                                "match_id": match_id, "event_seq": seq,
+                                "quarter": quarter, "minute": minute_str if sa is None else None,
+                                "team": "B", "jersey_number": int(jersey),
+                                "license_number": player_lookup.get(("B", jersey)),
+                                "points": pts, "shot_type": shot_type, "made": 1,
+                                "score_a": score_a, "score_b": score_b,
+                            })
 
     return events
 
@@ -1260,13 +1492,91 @@ def insert_scoring_events(conn, events):
 
 
 # ---------------------------------------------------------------------------
+# Jersey reconciliation
+# ---------------------------------------------------------------------------
+
+def reconcile_jersey_numbers(conn, match_id):
+    """Fix truncated jersey numbers in scoring_events.
+
+    When a character in the running-score grid sits a few pixels outside its
+    column boundary, the tens digit of a 2-digit jersey number may be lost
+    (e.g. 17 → 7).  This function detects such orphan jersey numbers —
+    scoring_events entries whose jersey doesn't match any player in the
+    roster — and re-maps them to the correct player by matching trailing
+    digits.
+
+    The license_number (MKOSZ igazolásszám) is the true unique player
+    identifier — jersey numbers and names are NOT unique across matches.
+    When a jersey is remapped, the license_number is also updated so that
+    cross-match queries can reliably aggregate by license_number.
+
+    Only unambiguous matches (exactly one candidate) are applied.
+    """
+    for team in ("A", "B"):
+        # Build jersey → license_number lookup from the players roster.
+        player_map = {}   # jersey_number → license_number
+        for jersey, lic in conn.execute(
+            "SELECT jersey_number, license_number FROM players "
+            "WHERE match_id=? AND team=? AND role IN ('player','captain') "
+            "AND jersey_number IS NOT NULL",
+            (match_id, team),
+        ).fetchall():
+            player_map[jersey] = lic
+
+        if not player_map:
+            continue
+
+        orphans = conn.execute(
+            "SELECT DISTINCT jersey_number FROM scoring_events "
+            "WHERE match_id=? AND team=? AND jersey_number IS NOT NULL",
+            (match_id, team),
+        ).fetchall()
+
+        for (orphan,) in orphans:
+            if orphan in player_map:
+                # Jersey matches — just ensure license_number is set.
+                lic = player_map[orphan]
+                if lic:
+                    conn.execute(
+                        "UPDATE scoring_events SET license_number=? "
+                        "WHERE match_id=? AND team=? AND jersey_number=? "
+                        "AND (license_number IS NULL OR license_number != ?)",
+                        (lic, match_id, team, orphan, lic),
+                    )
+                continue
+
+            # Orphan: no matching player.  Find candidates whose jersey
+            # ends with the same digit (e.g. orphan=7 → 17, 27, 37 …).
+            candidates = [
+                pj for pj in player_map
+                if pj != orphan and pj % 10 == orphan % 10
+            ]
+
+            if len(candidates) == 1:
+                correct_jersey = candidates[0]
+                correct_lic = player_map[correct_jersey]
+                conn.execute(
+                    "UPDATE scoring_events "
+                    "SET jersey_number=?, license_number=? "
+                    "WHERE match_id=? AND team=? AND jersey_number=?",
+                    (correct_jersey, correct_lic, match_id, team, orphan),
+                )
+
+
+# ---------------------------------------------------------------------------
 # Player game stats computation
 # ---------------------------------------------------------------------------
 
 def compute_player_game_stats(conn, match_id):
-    """Aggregate scoring_events + personal_fouls into per-player box scores."""
+    """Aggregate scoring_events + personal_fouls into per-player box scores.
+
+    JOINs use license_number (MKOSZ igazolásszám) as the primary key when
+    available, falling back to (team, jersey_number) otherwise.  This is
+    important because jersey numbers are NOT unique identifiers — the same
+    player may wear different numbers in different matches.
+    """
     conn.execute("""
-        INSERT INTO player_game_stats
+        INSERT OR REPLACE INTO player_game_stats
             (match_id, team, jersey_number, license_number, name,
              points, fg2_made, fg3_made, ft_made, ft_attempted,
              personal_fouls, starter, entry_quarter)
@@ -1286,7 +1596,7 @@ def compute_player_game_stats(conn, match_id):
             p.entry_quarter
         FROM players p
         LEFT JOIN (
-            SELECT match_id, team, jersey_number,
+            SELECT match_id, team, license_number, jersey_number,
                 SUM(points) AS points,
                 SUM(CASE WHEN shot_type='2FG' AND made=1 THEN 1 ELSE 0 END) AS fg2_made,
                 SUM(CASE WHEN shot_type='3FG' AND made=1 THEN 1 ELSE 0 END) AS fg3_made,
@@ -1294,9 +1604,17 @@ def compute_player_game_stats(conn, match_id):
                 SUM(CASE WHEN shot_type='FT' THEN 1 ELSE 0 END) AS ft_att
             FROM scoring_events
             WHERE match_id = ?
-            GROUP BY match_id, team, jersey_number
+            GROUP BY match_id, team,
+                     CASE WHEN license_number IS NOT NULL AND license_number != ''
+                          THEN license_number ELSE jersey_number END
         ) s ON p.match_id = s.match_id AND p.team = s.team
-               AND p.jersey_number = s.jersey_number
+               AND (
+                   (p.license_number IS NOT NULL AND p.license_number != ''
+                    AND p.license_number = s.license_number)
+                   OR
+                   (p.license_number IS NULL OR p.license_number = '')
+                    AND p.jersey_number = s.jersey_number
+               )
         LEFT JOIN (
             SELECT match_id, team, jersey_number, COUNT(*) AS foul_count
             FROM personal_fouls
@@ -1324,31 +1642,41 @@ def process_single_pdf(pdf_path, conn):
     # 1. Extract raw data from PDF
     all_chars, all_circles = extract_all_from_pdf(pdf_path)
 
-    # 2. Extract structured data
-    match_info = extract_match_info(all_chars)
+    # 2. Detect template (TYPE1 vs TYPE2 based on y-coordinate layout)
+    template = detect_template(all_chars)
+    off = template["off_body"]
+
+    # 3. Extract structured data with template-aware coordinates
+    match_info = extract_match_info(all_chars, template)
     match_id = match_info["match_id"]
 
-    rs_records = extract_running_score(all_chars, all_circles)
+    rs_records = extract_running_score(all_chars, all_circles, template)
     referees = extract_referees(all_chars)
-    officials = extract_officials(all_chars)
-    quarter_scores = extract_quarter_scores(all_chars)
+    officials = extract_officials(all_chars, template)
+    quarter_scores = extract_quarter_scores(all_chars, template)
 
-    players_a = extract_players(all_chars, all_circles, "A", TEAM_A_PLAYERS, TEAM_A_COACH)
-    players_b = extract_players(all_chars, all_circles, "B", TEAM_B_PLAYERS, TEAM_B_COACH)
+    # Apply offset to player/coach regions
+    ta_players = _offset_player_region(TEAM_A_PLAYERS, off)
+    tb_players = _offset_player_region(TEAM_B_PLAYERS, off)
+    ta_coach = _offset_coach_region(TEAM_A_COACH, off)
+    tb_coach = _offset_coach_region(TEAM_B_COACH, off)
+
+    players_a = extract_players(all_chars, all_circles, "A", ta_players, ta_coach)
+    players_b = extract_players(all_chars, all_circles, "B", tb_players, tb_coach)
     all_players = players_a + players_b
 
-    fouls_a = extract_personal_fouls(all_chars, all_circles, "A", TEAM_A_PLAYERS,
-                                      FOUL_SLOTS_A, all_players, TEAM_A_COACH)
-    fouls_b = extract_personal_fouls(all_chars, all_circles, "B", TEAM_B_PLAYERS,
-                                      FOUL_SLOTS_B, all_players, TEAM_B_COACH)
+    fouls_a = extract_personal_fouls(all_chars, all_circles, "A", ta_players,
+                                      FOUL_SLOTS_A, all_players, ta_coach)
+    fouls_b = extract_personal_fouls(all_chars, all_circles, "B", tb_players,
+                                      FOUL_SLOTS_B, all_players, tb_coach)
     all_personal_fouls = fouls_a + fouls_b
 
-    team_fouls_a = extract_team_fouls(all_chars, "A")
-    team_fouls_b = extract_team_fouls(all_chars, "B")
+    team_fouls_a = extract_team_fouls(all_chars, "A", template)
+    team_fouls_b = extract_team_fouls(all_chars, "B", template)
     all_team_fouls = team_fouls_a + team_fouls_b
 
-    timeouts_a = extract_timeouts(all_chars, "A")
-    timeouts_b = extract_timeouts(all_chars, "B")
+    timeouts_a = extract_timeouts(all_chars, "A", template)
+    timeouts_b = extract_timeouts(all_chars, "B", template)
     all_timeouts = timeouts_a + timeouts_b
 
     # 3. Delete existing data for this match (re-processing)
@@ -1369,7 +1697,10 @@ def process_single_pdf(pdf_path, conn):
     scoring_events = compute_scoring_events(rs_records, all_players, match_id)
     insert_scoring_events(conn, scoring_events)
 
-    # 6. Compute and insert player game stats
+    # 6. Reconcile truncated jersey numbers (e.g. 17→7) before aggregation
+    reconcile_jersey_numbers(conn, match_id)
+
+    # 7. Compute and insert player game stats
     compute_player_game_stats(conn, match_id)
 
     record_counts = {
