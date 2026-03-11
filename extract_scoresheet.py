@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
 """
-Extract all structured data from an MKOSZ basketball scoresheet PDF
+Extract all structured data from MKOSZ basketball scoresheet PDFs
 into a SQLite database.
 
-Tables: match_info, referees, officials, players, personal_fouls,
-        team_fouls, timeouts, quarter_scores, running_score
+Supports single-file and batch (directory) processing.
+
+Tables: matches, referees, officials, players, personal_fouls,
+        team_fouls, timeouts, quarter_scores, running_score,
+        scoring_events, player_game_stats, extraction_log
 """
 
 import fitz  # PyMuPDF
 import sqlite3
 import os
 import re
+import glob
+import time
+import json
+import argparse
 from collections import Counter
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PDF_PATH = os.path.join(SCRIPT_DIR, "hun3k_125657.pdf")
-DB_PATH = os.path.join(SCRIPT_DIR, "folyamatos_eredmeny.sqlite")
+DEFAULT_PDF_PATH = os.path.join(SCRIPT_DIR, "hun3k_125657.pdf")
+DEFAULT_DB_PATH = os.path.join(SCRIPT_DIR, "season.sqlite")
 
 # ---------------------------------------------------------------------------
 # Color helpers
@@ -788,136 +795,664 @@ def extract_timeouts(all_chars, team):
 
 
 # ---------------------------------------------------------------------------
-# Database writing
+# Database schema + insert functions (multi-match)
 # ---------------------------------------------------------------------------
 
-def write_db(db_path, running_score, match_info, referees, officials,
-             players, personal_fouls, team_fouls, timeouts, quarter_scores):
-    conn = sqlite3.connect(db_path)
+def create_schema(conn):
+    """Create all tables if they don't exist. Supports multi-match storage."""
+    conn.execute("PRAGMA foreign_keys = ON")
     c = conn.cursor()
 
-    # --- running_score (existing) ---
-    c.execute("DROP TABLE IF EXISTS running_score")
     c.execute("""
-        CREATE TABLE running_score (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            header TEXT NOT NULL,
+        CREATE TABLE IF NOT EXISTS matches (
+            match_id        TEXT PRIMARY KEY,
+            team_a          TEXT NOT NULL,
+            team_b          TEXT NOT NULL,
+            venue           TEXT,
+            match_date      TEXT NOT NULL,
+            match_time      TEXT,
+            score_a         INTEGER,
+            score_b         INTEGER,
+            winner          TEXT,
+            closure_timestamp TEXT,
+            source_pdf      TEXT,
+            extracted_at    TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS referees (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id  TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            role      TEXT NOT NULL,
+            name      TEXT NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS officials (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id  TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            role      TEXT NOT NULL,
+            name      TEXT NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS players (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id        TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            team            TEXT NOT NULL CHECK (team IN ('A', 'B')),
+            license_number  TEXT,
+            name            TEXT NOT NULL,
+            jersey_number   INTEGER,
+            role            TEXT NOT NULL DEFAULT 'player',
+            starter         INTEGER NOT NULL DEFAULT 0,
+            entry_quarter   INTEGER,
+            UNIQUE(match_id, team, license_number)
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS personal_fouls (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id        TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            team            TEXT NOT NULL CHECK (team IN ('A', 'B')),
+            jersey_number   INTEGER,
+            foul_number     INTEGER NOT NULL,
+            minute          TEXT,
+            quarter         INTEGER NOT NULL,
+            foul_type       TEXT NOT NULL DEFAULT 'defensive',
+            foul_category   TEXT,
+            free_throws     INTEGER,
+            offsetting      INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS team_fouls (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id    TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            team        TEXT NOT NULL CHECK (team IN ('A', 'B')),
+            quarter     INTEGER NOT NULL,
+            foul_count  INTEGER NOT NULL,
+            UNIQUE(match_id, team, quarter)
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS timeouts (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id  TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            team      TEXT NOT NULL CHECK (team IN ('A', 'B')),
+            quarter   INTEGER NOT NULL,
+            minute    TEXT NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS quarter_scores (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id  TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            quarter   TEXT NOT NULL,
+            score_a   INTEGER,
+            score_b   INTEGER,
+            UNIQUE(match_id, quarter)
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS running_score (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id    TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            header      TEXT NOT NULL,
             column_name TEXT NOT NULL,
-            color TEXT NOT NULL,
-            circled INTEGER NOT NULL DEFAULT 0,
-            row_number INTEGER NOT NULL,
-            character TEXT NOT NULL
+            color       TEXT NOT NULL,
+            circled     INTEGER NOT NULL DEFAULT 0,
+            row_number  INTEGER NOT NULL,
+            character   TEXT NOT NULL
         )
     """)
-    for r in running_score:
-        c.execute("INSERT INTO running_score (header, column_name, color, circled, row_number, character) VALUES (?,?,?,?,?,?)",
-                  (r["header"], r["column"], r["color"], r["circled"], r["row_number"], r["character"]))
 
-    # --- match_info ---
-    c.execute("DROP TABLE IF EXISTS match_info")
     c.execute("""
-        CREATE TABLE match_info (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            match_id TEXT, team_a TEXT, team_b TEXT,
-            venue TEXT, match_date TEXT, match_time TEXT,
-            score_a INTEGER, score_b INTEGER,
-            winner TEXT, closure_timestamp TEXT
+        CREATE TABLE IF NOT EXISTS scoring_events (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id        TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            event_seq       INTEGER NOT NULL,
+            quarter         INTEGER NOT NULL,
+            minute          TEXT,
+            team            TEXT NOT NULL CHECK (team IN ('A', 'B')),
+            jersey_number   INTEGER NOT NULL,
+            license_number  TEXT,
+            points          INTEGER NOT NULL CHECK (points IN (0, 1, 2, 3)),
+            shot_type       TEXT NOT NULL CHECK (shot_type IN ('2FG', '3FG', 'FT')),
+            made            INTEGER NOT NULL CHECK (made IN (0, 1)),
+            score_a         INTEGER NOT NULL,
+            score_b         INTEGER NOT NULL,
+            UNIQUE(match_id, event_seq)
         )
     """)
-    m = match_info
-    c.execute("INSERT INTO match_info (match_id, team_a, team_b, venue, match_date, match_time, score_a, score_b, winner, closure_timestamp) VALUES (?,?,?,?,?,?,?,?,?,?)",
-              (m["match_id"], m["team_a"], m["team_b"], m["venue"], m["match_date"], m["match_time"],
-               m["score_a"], m["score_b"], m["winner"], m["closure_timestamp"]))
 
-    # --- referees ---
-    c.execute("DROP TABLE IF EXISTS referees")
-    c.execute("CREATE TABLE referees (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, name TEXT NOT NULL)")
-    for r in referees:
-        c.execute("INSERT INTO referees (role, name) VALUES (?,?)", (r["role"], r["name"]))
-
-    # --- officials ---
-    c.execute("DROP TABLE IF EXISTS officials")
-    c.execute("CREATE TABLE officials (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, name TEXT NOT NULL)")
-    for o in officials:
-        c.execute("INSERT INTO officials (role, name) VALUES (?,?)", (o["role"], o["name"]))
-
-    # --- players ---
-    c.execute("DROP TABLE IF EXISTS players")
     c.execute("""
-        CREATE TABLE players (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            team TEXT NOT NULL, license_number TEXT, name TEXT NOT NULL,
-            jersey_number INTEGER, role TEXT NOT NULL DEFAULT 'player',
-            starter INTEGER NOT NULL DEFAULT 0, entry_quarter INTEGER
+        CREATE TABLE IF NOT EXISTS player_game_stats (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id        TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+            team            TEXT NOT NULL CHECK (team IN ('A', 'B')),
+            jersey_number   INTEGER NOT NULL,
+            license_number  TEXT,
+            name            TEXT NOT NULL,
+            points          INTEGER NOT NULL DEFAULT 0,
+            fg2_made        INTEGER NOT NULL DEFAULT 0,
+            fg3_made        INTEGER NOT NULL DEFAULT 0,
+            ft_made         INTEGER NOT NULL DEFAULT 0,
+            ft_attempted    INTEGER NOT NULL DEFAULT 0,
+            personal_fouls  INTEGER NOT NULL DEFAULT 0,
+            starter         INTEGER NOT NULL DEFAULT 0,
+            entry_quarter   INTEGER,
+            UNIQUE(match_id, team, jersey_number)
         )
     """)
-    for p in players:
-        c.execute("INSERT INTO players (team, license_number, name, jersey_number, role, starter, entry_quarter) VALUES (?,?,?,?,?,?,?)",
-                  (p["team"], p["license_number"], p["name"], p["jersey_number"],
-                   p["role"], p["starter"], p["entry_quarter"]))
 
-    # --- personal_fouls ---
-    c.execute("DROP TABLE IF EXISTS personal_fouls")
     c.execute("""
-        CREATE TABLE personal_fouls (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            team TEXT NOT NULL, jersey_number INTEGER,
-            foul_number INTEGER NOT NULL, minute TEXT,
-            quarter INTEGER NOT NULL,
-            foul_type TEXT NOT NULL DEFAULT 'defensive',
-            foul_category TEXT,
-            free_throws INTEGER,
-            offsetting INTEGER NOT NULL DEFAULT 0
+        CREATE TABLE IF NOT EXISTS extraction_log (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id        TEXT,
+            source_pdf      TEXT NOT NULL,
+            extracted_at    TEXT NOT NULL DEFAULT (datetime('now')),
+            status          TEXT NOT NULL CHECK (status IN ('success', 'error', 'skipped')),
+            error_message   TEXT,
+            duration_ms     INTEGER,
+            record_counts   TEXT
         )
     """)
-    for f in personal_fouls:
-        c.execute("""INSERT INTO personal_fouls
-                     (team, jersey_number, foul_number, minute, quarter,
-                      foul_type, foul_category, free_throws, offsetting)
-                     VALUES (?,?,?,?,?,?,?,?,?)""",
-                  (f["team"], f["jersey_number"], f["foul_number"], f["minute"], f["quarter"],
-                   f["foul_type"], f.get("foul_category"), f.get("free_throws"),
-                   f.get("offsetting", 0)))
 
-    # --- team_fouls ---
-    c.execute("DROP TABLE IF EXISTS team_fouls")
-    c.execute("""
-        CREATE TABLE team_fouls (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            team TEXT NOT NULL, quarter INTEGER NOT NULL,
-            foul_count INTEGER NOT NULL
-        )
-    """)
-    for f in team_fouls:
-        c.execute("INSERT INTO team_fouls (team, quarter, foul_count) VALUES (?,?,?)",
-                  (f["team"], f["quarter"], f["foul_count"]))
-
-    # --- timeouts ---
-    c.execute("DROP TABLE IF EXISTS timeouts")
-    c.execute("""
-        CREATE TABLE timeouts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            team TEXT NOT NULL, quarter INTEGER NOT NULL,
-            minute TEXT NOT NULL
-        )
-    """)
-    for t in timeouts:
-        c.execute("INSERT INTO timeouts (team, quarter, minute) VALUES (?,?,?)",
-                  (t["team"], t["quarter"], t["minute"]))
-
-    # --- quarter_scores ---
-    c.execute("DROP TABLE IF EXISTS quarter_scores")
-    c.execute("""
-        CREATE TABLE quarter_scores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            quarter TEXT NOT NULL, score_a INTEGER, score_b INTEGER
-        )
-    """)
-    for q in quarter_scores:
-        c.execute("INSERT INTO quarter_scores (quarter, score_a, score_b) VALUES (?,?,?)",
-                  (q["quarter"], q["score_a"], q["score_b"]))
+    # Indexes for common queries
+    for stmt in [
+        "CREATE INDEX IF NOT EXISTS idx_referees_match ON referees(match_id)",
+        "CREATE INDEX IF NOT EXISTS idx_officials_match ON officials(match_id)",
+        "CREATE INDEX IF NOT EXISTS idx_players_match ON players(match_id)",
+        "CREATE INDEX IF NOT EXISTS idx_players_license ON players(license_number)",
+        "CREATE INDEX IF NOT EXISTS idx_pf_match ON personal_fouls(match_id)",
+        "CREATE INDEX IF NOT EXISTS idx_rs_match ON running_score(match_id)",
+        "CREATE INDEX IF NOT EXISTS idx_se_match ON scoring_events(match_id)",
+        "CREATE INDEX IF NOT EXISTS idx_se_license ON scoring_events(license_number)",
+        "CREATE INDEX IF NOT EXISTS idx_pgs_match ON player_game_stats(match_id)",
+        "CREATE INDEX IF NOT EXISTS idx_pgs_license ON player_game_stats(license_number)",
+    ]:
+        c.execute(stmt)
 
     conn.commit()
+
+
+def delete_match(conn, match_id):
+    """Delete all data for a match (ON DELETE CASCADE handles child rows)."""
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("DELETE FROM matches WHERE match_id = ?", (match_id,))
+
+
+def insert_match(conn, match_info, source_pdf=None):
+    """Insert into matches table."""
+    m = match_info
+    conn.execute("""
+        INSERT INTO matches (match_id, team_a, team_b, venue, match_date, match_time,
+                             score_a, score_b, winner, closure_timestamp, source_pdf)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    """, (m["match_id"], m["team_a"], m["team_b"], m["venue"], m["match_date"],
+          m["match_time"], m["score_a"], m["score_b"], m["winner"],
+          m["closure_timestamp"], source_pdf))
+
+
+def insert_referees(conn, match_id, referees):
+    for r in referees:
+        conn.execute("INSERT INTO referees (match_id, role, name) VALUES (?,?,?)",
+                     (match_id, r["role"], r["name"]))
+
+
+def insert_officials(conn, match_id, officials):
+    for o in officials:
+        conn.execute("INSERT INTO officials (match_id, role, name) VALUES (?,?,?)",
+                     (match_id, o["role"], o["name"]))
+
+
+def insert_players(conn, match_id, players):
+    for p in players:
+        conn.execute("""
+            INSERT INTO players (match_id, team, license_number, name, jersey_number,
+                                 role, starter, entry_quarter)
+            VALUES (?,?,?,?,?,?,?,?)
+        """, (match_id, p["team"], p["license_number"], p["name"],
+              p["jersey_number"], p["role"], p["starter"], p["entry_quarter"]))
+
+
+def insert_personal_fouls(conn, match_id, fouls):
+    for f in fouls:
+        conn.execute("""
+            INSERT INTO personal_fouls (match_id, team, jersey_number, foul_number,
+                                        minute, quarter, foul_type, foul_category,
+                                        free_throws, offsetting)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (match_id, f["team"], f["jersey_number"], f["foul_number"],
+              f["minute"], f["quarter"], f["foul_type"], f.get("foul_category"),
+              f.get("free_throws"), f.get("offsetting", 0)))
+
+
+def insert_team_fouls(conn, match_id, team_fouls):
+    for f in team_fouls:
+        conn.execute("INSERT INTO team_fouls (match_id, team, quarter, foul_count) VALUES (?,?,?,?)",
+                     (match_id, f["team"], f["quarter"], f["foul_count"]))
+
+
+def insert_timeouts(conn, match_id, timeouts):
+    for t in timeouts:
+        conn.execute("INSERT INTO timeouts (match_id, team, quarter, minute) VALUES (?,?,?,?)",
+                     (match_id, t["team"], t["quarter"], t["minute"]))
+
+
+def insert_quarter_scores(conn, match_id, quarter_scores):
+    for q in quarter_scores:
+        conn.execute("INSERT INTO quarter_scores (match_id, quarter, score_a, score_b) VALUES (?,?,?,?)",
+                     (match_id, q["quarter"], q["score_a"], q["score_b"]))
+
+
+def insert_running_score(conn, match_id, rs_records):
+    for r in rs_records:
+        conn.execute("""
+            INSERT INTO running_score (match_id, header, column_name, color, circled,
+                                       row_number, character)
+            VALUES (?,?,?,?,?,?,?)
+        """, (match_id, r["header"], r["column"], r["color"], r["circled"],
+              r["row_number"], r["character"]))
+
+
+# ---------------------------------------------------------------------------
+# Scoring events computation (running_score → structured events)
+# ---------------------------------------------------------------------------
+
+# Color → quarter mapping for scoring events
+SCORING_COLOR_QUARTER = {
+    "red": 1,
+    "black": 2,
+    "green": 3,
+    "blue": 4,
+}
+
+
+def compute_scoring_events(rs_records, players_list, match_id):
+    """Transform raw running_score records into structured scoring events.
+
+    Each event = one shot attempt (made basket or missed FT).
+
+    Rules:
+    - Score "-" = missed free throw (points=0, made=0)
+    - No jersey number = continuation FT (same player as previous)
+    - Circled jersey = three-pointer
+    - Points = delta of cumulative score
+    - Quarter determined by color (red=Q1, black=Q2, green=Q3, blue=Q4)
+    """
+    # Build player lookup: (team, jersey_str) → license_number
+    player_lookup = {}
+    for p in players_list:
+        if p["jersey_number"] is not None:
+            key = (p["team"], str(p["jersey_number"]))
+            player_lookup[key] = p.get("license_number")
+
+    # Organize running_score into rows by (header, group, row_number)
+    # header order: Első félidő=0, Második félidő=1, Hosszabbítás=2
+    HEADER_ORDER = {"Első félidő": 0, "Második félidő": 1, "Hosszabbítás": 2}
+
+    # Group records by (header, column_name, row_number)
+    cells = {}
+    for r in rs_records:
+        key = (r["header"], r["column"], r["row_number"])
+        cells[key] = r
+
+    # Build flat event timeline: iterate G1 then G2 for each period
+    timeline = []
+    for header in ["Első félidő", "Második félidő", "Hosszabbítás"]:
+        for group in [1, 2]:
+            ja_col = f"A{group}-1"
+            sa_col = f"A{group}-2"
+            m_col = f"M{group}"
+            jb_col = f"B{group}-1"
+            sb_col = f"B{group}-2"
+
+            for rn in range(1, NUM_ROWS + 1):
+                ja = cells.get((header, ja_col, rn))
+                sa = cells.get((header, sa_col, rn))
+                mn = cells.get((header, m_col, rn))
+                jb = cells.get((header, jb_col, rn))
+                sb = cells.get((header, sb_col, rn))
+
+                if any(x is not None for x in [ja, sa, mn, jb, sb]):
+                    timeline.append({
+                        "ja": ja, "sa": sa, "minute": mn,
+                        "jb": jb, "sb": sb, "header": header,
+                    })
+
+    # Walk through timeline, computing events
+    events = []
+    score_a, score_b = 0, 0
+    last_jersey_a, last_jersey_b = None, None
+    seq = 0
+
+    for row in timeline:
+        ja, sa, mn, jb, sb = row["ja"], row["sa"], row["minute"], row["jb"], row["sb"]
+        minute_str = mn["character"] if mn else None
+
+        # --- Team A event ---
+        if sa is not None:
+            score_val = sa["character"]
+            score_circled = sa["circled"]
+            jersey_val = ja["character"] if ja else None
+            jersey_circled = ja["circled"] if ja else 0
+            color = sa["color"]
+
+            if jersey_val and jersey_val != "-":
+                last_jersey_a = jersey_val
+            jersey = last_jersey_a
+
+            if jersey:
+                quarter = SCORING_COLOR_QUARTER.get(color, None)
+                if score_val == "-":
+                    # Missed FT
+                    seq += 1
+                    events.append({
+                        "match_id": match_id, "event_seq": seq,
+                        "quarter": quarter, "minute": minute_str,
+                        "team": "A", "jersey_number": int(jersey),
+                        "license_number": player_lookup.get(("A", jersey)),
+                        "points": 0, "shot_type": "FT", "made": 0,
+                        "score_a": score_a, "score_b": score_b,
+                    })
+                else:
+                    new_score = int(score_val)
+                    pts = new_score - score_a
+                    score_a = new_score
+
+                    if pts == 0:
+                        pass  # Reference entry (e.g. halftime score), skip
+                    else:
+                        if pts == 3 or (jersey_circled and pts > 0):
+                            shot_type = "3FG"
+                        elif pts == 1:
+                            shot_type = "FT"
+                        elif pts >= 2:
+                            shot_type = "2FG"
+                        else:
+                            shot_type = "FT"  # edge case
+
+                        seq += 1
+                        events.append({
+                            "match_id": match_id, "event_seq": seq,
+                            "quarter": quarter, "minute": minute_str,
+                            "team": "A", "jersey_number": int(jersey),
+                            "license_number": player_lookup.get(("A", jersey)),
+                            "points": pts, "shot_type": shot_type, "made": 1,
+                            "score_a": score_a, "score_b": score_b,
+                        })
+
+        # --- Team B event ---
+        if sb is not None:
+            score_val = sb["character"]
+            score_circled = sb["circled"]
+            jersey_val = jb["character"] if jb else None
+            jersey_circled = jb["circled"] if jb else 0
+            color = sb["color"]
+
+            if jersey_val and jersey_val != "-":
+                last_jersey_b = jersey_val
+            jersey = last_jersey_b
+
+            if jersey:
+                quarter = SCORING_COLOR_QUARTER.get(color, None)
+                if score_val == "-":
+                    seq += 1
+                    events.append({
+                        "match_id": match_id, "event_seq": seq,
+                        "quarter": quarter, "minute": minute_str if sa is None else None,
+                        "team": "B", "jersey_number": int(jersey),
+                        "license_number": player_lookup.get(("B", jersey)),
+                        "points": 0, "shot_type": "FT", "made": 0,
+                        "score_a": score_a, "score_b": score_b,
+                    })
+                else:
+                    new_score = int(score_val)
+                    pts = new_score - score_b
+                    score_b = new_score
+
+                    if pts == 0:
+                        pass  # Reference entry, skip
+                    else:
+                        if pts == 3 or (jersey_circled and pts > 0):
+                            shot_type = "3FG"
+                        elif pts == 1:
+                            shot_type = "FT"
+                        elif pts >= 2:
+                            shot_type = "2FG"
+                        else:
+                            shot_type = "FT"
+
+                        seq += 1
+                        events.append({
+                            "match_id": match_id, "event_seq": seq,
+                            "quarter": quarter, "minute": minute_str if sa is None else None,
+                            "team": "B", "jersey_number": int(jersey),
+                            "license_number": player_lookup.get(("B", jersey)),
+                            "points": pts, "shot_type": shot_type, "made": 1,
+                            "score_a": score_a, "score_b": score_b,
+                        })
+
+    return events
+
+
+def insert_scoring_events(conn, events):
+    """Insert computed scoring events into the database."""
+    for e in events:
+        conn.execute("""
+            INSERT INTO scoring_events (match_id, event_seq, quarter, minute, team,
+                                        jersey_number, license_number, points,
+                                        shot_type, made, score_a, score_b)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (e["match_id"], e["event_seq"], e["quarter"], e["minute"],
+              e["team"], e["jersey_number"], e["license_number"],
+              e["points"], e["shot_type"], e["made"],
+              e["score_a"], e["score_b"]))
+
+
+# ---------------------------------------------------------------------------
+# Player game stats computation
+# ---------------------------------------------------------------------------
+
+def compute_player_game_stats(conn, match_id):
+    """Aggregate scoring_events + personal_fouls into per-player box scores."""
+    conn.execute("""
+        INSERT INTO player_game_stats
+            (match_id, team, jersey_number, license_number, name,
+             points, fg2_made, fg3_made, ft_made, ft_attempted,
+             personal_fouls, starter, entry_quarter)
+        SELECT
+            p.match_id,
+            p.team,
+            p.jersey_number,
+            p.license_number,
+            p.name,
+            COALESCE(s.points, 0),
+            COALESCE(s.fg2_made, 0),
+            COALESCE(s.fg3_made, 0),
+            COALESCE(s.ft_made, 0),
+            COALESCE(s.ft_att, 0),
+            COALESCE(f.foul_count, 0),
+            p.starter,
+            p.entry_quarter
+        FROM players p
+        LEFT JOIN (
+            SELECT match_id, team, jersey_number,
+                SUM(points) AS points,
+                SUM(CASE WHEN shot_type='2FG' AND made=1 THEN 1 ELSE 0 END) AS fg2_made,
+                SUM(CASE WHEN shot_type='3FG' AND made=1 THEN 1 ELSE 0 END) AS fg3_made,
+                SUM(CASE WHEN shot_type='FT' AND made=1 THEN 1 ELSE 0 END) AS ft_made,
+                SUM(CASE WHEN shot_type='FT' THEN 1 ELSE 0 END) AS ft_att
+            FROM scoring_events
+            WHERE match_id = ?
+            GROUP BY match_id, team, jersey_number
+        ) s ON p.match_id = s.match_id AND p.team = s.team
+               AND p.jersey_number = s.jersey_number
+        LEFT JOIN (
+            SELECT match_id, team, jersey_number, COUNT(*) AS foul_count
+            FROM personal_fouls
+            WHERE match_id = ?
+            GROUP BY match_id, team, jersey_number
+        ) f ON p.match_id = f.match_id AND p.team = f.team
+               AND p.jersey_number = f.jersey_number
+        WHERE p.match_id = ?
+          AND p.role IN ('player', 'captain')
+          AND p.jersey_number IS NOT NULL
+    """, (match_id, match_id, match_id))
+
+
+# ---------------------------------------------------------------------------
+# Single-PDF processing
+# ---------------------------------------------------------------------------
+
+def process_single_pdf(pdf_path, conn):
+    """Extract one PDF and insert all data into the multi-match database.
+
+    Returns (match_id, record_counts) on success.
+    """
+    source_pdf = os.path.basename(pdf_path)
+
+    # 1. Extract raw data from PDF
+    all_chars, all_circles = extract_all_from_pdf(pdf_path)
+
+    # 2. Extract structured data
+    match_info = extract_match_info(all_chars)
+    match_id = match_info["match_id"]
+
+    rs_records = extract_running_score(all_chars, all_circles)
+    referees = extract_referees(all_chars)
+    officials = extract_officials(all_chars)
+    quarter_scores = extract_quarter_scores(all_chars)
+
+    players_a = extract_players(all_chars, all_circles, "A", TEAM_A_PLAYERS, TEAM_A_COACH)
+    players_b = extract_players(all_chars, all_circles, "B", TEAM_B_PLAYERS, TEAM_B_COACH)
+    all_players = players_a + players_b
+
+    fouls_a = extract_personal_fouls(all_chars, all_circles, "A", TEAM_A_PLAYERS,
+                                      FOUL_SLOTS_A, all_players, TEAM_A_COACH)
+    fouls_b = extract_personal_fouls(all_chars, all_circles, "B", TEAM_B_PLAYERS,
+                                      FOUL_SLOTS_B, all_players, TEAM_B_COACH)
+    all_personal_fouls = fouls_a + fouls_b
+
+    team_fouls_a = extract_team_fouls(all_chars, "A")
+    team_fouls_b = extract_team_fouls(all_chars, "B")
+    all_team_fouls = team_fouls_a + team_fouls_b
+
+    timeouts_a = extract_timeouts(all_chars, "A")
+    timeouts_b = extract_timeouts(all_chars, "B")
+    all_timeouts = timeouts_a + timeouts_b
+
+    # 3. Delete existing data for this match (re-processing)
+    delete_match(conn, match_id)
+
+    # 4. Insert all data
+    insert_match(conn, match_info, source_pdf=source_pdf)
+    insert_referees(conn, match_id, referees)
+    insert_officials(conn, match_id, officials)
+    insert_players(conn, match_id, all_players)
+    insert_personal_fouls(conn, match_id, all_personal_fouls)
+    insert_team_fouls(conn, match_id, all_team_fouls)
+    insert_timeouts(conn, match_id, all_timeouts)
+    insert_quarter_scores(conn, match_id, quarter_scores)
+    insert_running_score(conn, match_id, rs_records)
+
+    # 5. Compute and insert scoring events
+    scoring_events = compute_scoring_events(rs_records, all_players, match_id)
+    insert_scoring_events(conn, scoring_events)
+
+    # 6. Compute and insert player game stats
+    compute_player_game_stats(conn, match_id)
+
+    record_counts = {
+        "running_score": len(rs_records),
+        "scoring_events": len(scoring_events),
+        "players": len(all_players),
+        "personal_fouls": len(all_personal_fouls),
+        "team_fouls": len(all_team_fouls),
+        "timeouts": len(all_timeouts),
+    }
+
+    return match_id, record_counts
+
+
+# ---------------------------------------------------------------------------
+# Batch processing
+# ---------------------------------------------------------------------------
+
+def process_directory(pdf_dir, db_path, force=False):
+    """Batch process all PDFs in a directory."""
+    conn = sqlite3.connect(db_path)
+    create_schema(conn)
+
+    pdf_files = sorted(glob.glob(os.path.join(pdf_dir, "*.pdf")))
+    if not pdf_files:
+        print(f"Nincs PDF fájl: {pdf_dir}")
+        conn.close()
+        return
+
+    print(f"Feldolgozás: {len(pdf_files)} PDF → {db_path}")
+    print()
+
+    success_count = 0
+    error_count = 0
+
+    for pdf_path in pdf_files:
+        filename = os.path.basename(pdf_path)
+
+        # Check if already processed
+        if not force:
+            existing = conn.execute(
+                "SELECT match_id FROM matches WHERE source_pdf = ?", (filename,)
+            ).fetchone()
+            if existing:
+                print(f"  ⏭  {filename} (már feldolgozva: {existing[0]})")
+                conn.execute("""
+                    INSERT INTO extraction_log (match_id, source_pdf, status)
+                    VALUES (?, ?, 'skipped')
+                """, (existing[0], filename))
+                conn.commit()
+                continue
+
+        start = time.time()
+        try:
+            match_id, counts = process_single_pdf(pdf_path, conn)
+            duration_ms = int((time.time() - start) * 1000)
+
+            conn.execute("""
+                INSERT INTO extraction_log (match_id, source_pdf, status, duration_ms, record_counts)
+                VALUES (?, ?, 'success', ?, ?)
+            """, (match_id, filename, duration_ms, json.dumps(counts)))
+            conn.commit()
+
+            score_a = conn.execute("SELECT score_a FROM matches WHERE match_id=?", (match_id,)).fetchone()[0]
+            score_b = conn.execute("SELECT score_b FROM matches WHERE match_id=?", (match_id,)).fetchone()[0]
+            print(f"  ✓  {filename} → {match_id} ({score_a}-{score_b}) [{duration_ms}ms]")
+            success_count += 1
+
+        except Exception as e:
+            conn.rollback()
+            conn.execute("""
+                INSERT INTO extraction_log (source_pdf, status, error_message)
+                VALUES (?, 'error', ?)
+            """, (filename, str(e)))
+            conn.commit()
+            print(f"  ✗  {filename} — HIBA: {e}")
+            error_count += 1
+
+    # Summary
+    print()
+    total_matches = conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
+    print(f"Összesen: {total_matches} meccs az adatbázisban")
+    print(f"  Sikeres: {success_count}, Hibás: {error_count}, Kihagyott: {len(pdf_files) - success_count - error_count}")
     conn.close()
 
 
@@ -925,82 +1460,90 @@ def write_db(db_path, running_score, match_info, referees, officials,
 # Main
 # ---------------------------------------------------------------------------
 
+def print_summary(conn, match_id):
+    """Print extraction summary for a single match."""
+    m = conn.execute("SELECT * FROM matches WHERE match_id=?", (match_id,)).fetchone()
+    if not m:
+        return
+    # m columns: match_id, team_a, team_b, venue, match_date, match_time,
+    #            score_a, score_b, winner, closure_timestamp, source_pdf, extracted_at
+    print(f"\n  {m[1]} vs {m[2]}")
+    print(f"  {m[3]}, {m[4]} {m[5]}")
+    print(f"  Végeredmény: {m[6]} - {m[7]}")
+
+    # Scoring events verification
+    se_total_a = conn.execute(
+        "SELECT COALESCE(SUM(points),0) FROM scoring_events WHERE match_id=? AND team='A'",
+        (match_id,)).fetchone()[0]
+    se_total_b = conn.execute(
+        "SELECT COALESCE(SUM(points),0) FROM scoring_events WHERE match_id=? AND team='B'",
+        (match_id,)).fetchone()[0]
+    match_ok = (se_total_a == m[6] and se_total_b == m[7])
+    check = "✓" if match_ok else "✗"
+    print(f"\n  Scoring events ellenőrzés: {check}")
+    print(f"    scoring_events összeg: {se_total_a}-{se_total_b}")
+    print(f"    match végeredmény:     {m[6]}-{m[7]}")
+
+    # Player game stats top scorers
+    rows = conn.execute("""
+        SELECT team, jersey_number, name, points, fg2_made, fg3_made, ft_made, ft_attempted
+        FROM player_game_stats WHERE match_id=? ORDER BY points DESC LIMIT 5
+    """, (match_id,)).fetchall()
+    if rows:
+        print(f"\n  Top pontszerzők:")
+        for team, jn, name, pts, fg2, fg3, ftm, fta in rows:
+            t = "A" if team == "A" else "B"
+            ft_str = f"{ftm}/{fta}" if fta > 0 else "–"
+            print(f"    [{t}] #{jn} {name}: {pts}p (2PT:{fg2} 3PT:{fg3} BÜ:{ft_str})")
+
+
 if __name__ == "__main__":
-    print("Extracting scoresheet data...")
-    all_chars, all_circles = extract_all_from_pdf(PDF_PATH)
+    parser = argparse.ArgumentParser(
+        description="MKOSZ jegyzőkönyv PDF → SQLite feldolgozó")
+    parser.add_argument("pdf_dir", nargs="?", default=None,
+                        help="Könyvtár PDF fájlokkal (batch mód)")
+    parser.add_argument("--db", default=None,
+                        help="Adatbázis fájl útvonala")
+    parser.add_argument("--force", action="store_true",
+                        help="Már feldolgozott PDF-ek újrafeldolgozása")
+    parser.add_argument("--single", type=str, default=None,
+                        help="Egyetlen PDF fájl feldolgozása")
+    args = parser.parse_args()
 
-    # Running score
-    rs_records = extract_running_score(all_chars, all_circles)
+    # Determine mode
+    if args.single:
+        # Single file mode
+        pdf_path = args.single
+        db_path = args.db or DEFAULT_DB_PATH
+    elif args.pdf_dir:
+        # Batch directory mode
+        db_path = args.db or os.path.join(args.pdf_dir, "season.sqlite")
+        process_directory(args.pdf_dir, db_path, force=args.force)
+        exit(0)
+    else:
+        # Default: process the bundled test PDF
+        pdf_path = DEFAULT_PDF_PATH
+        db_path = args.db or DEFAULT_DB_PATH
 
-    # Match info
-    match_info = extract_match_info(all_chars)
+    # Single file processing
+    print(f"Feldolgozás: {pdf_path}")
+    conn = sqlite3.connect(db_path)
+    create_schema(conn)
 
-    # Referees & Officials
-    referees = extract_referees(all_chars)
-    officials = extract_officials(all_chars)
+    start = time.time()
+    match_id, counts = process_single_pdf(pdf_path, conn)
+    duration_ms = int((time.time() - start) * 1000)
 
-    # Quarter scores
-    quarter_scores = extract_quarter_scores(all_chars)
+    conn.execute("""
+        INSERT INTO extraction_log (match_id, source_pdf, status, duration_ms, record_counts)
+        VALUES (?, ?, 'success', ?, ?)
+    """, (match_id, os.path.basename(pdf_path), duration_ms, json.dumps(counts)))
+    conn.commit()
 
-    # Players
-    players_a = extract_players(all_chars, all_circles, "A", TEAM_A_PLAYERS, TEAM_A_COACH)
-    players_b = extract_players(all_chars, all_circles, "B", TEAM_B_PLAYERS, TEAM_B_COACH)
-    all_players = players_a + players_b
+    print(f"\n→ {db_path} ({duration_ms}ms)")
+    print(f"  match_id: {match_id}")
+    for table, count in counts.items():
+        print(f"  {table}: {count}")
 
-    # Personal fouls (including coach technical fouls)
-    fouls_a = extract_personal_fouls(all_chars, all_circles, "A", TEAM_A_PLAYERS, FOUL_SLOTS_A, all_players, TEAM_A_COACH)
-    fouls_b = extract_personal_fouls(all_chars, all_circles, "B", TEAM_B_PLAYERS, FOUL_SLOTS_B, all_players, TEAM_B_COACH)
-    all_personal_fouls = fouls_a + fouls_b
-
-    # Team fouls
-    team_fouls_a = extract_team_fouls(all_chars, "A")
-    team_fouls_b = extract_team_fouls(all_chars, "B")
-    all_team_fouls = team_fouls_a + team_fouls_b
-
-    # Timeouts
-    timeouts_a = extract_timeouts(all_chars, "A")
-    timeouts_b = extract_timeouts(all_chars, "B")
-    all_timeouts = timeouts_a + timeouts_b
-
-    # Write everything
-    write_db(DB_PATH, rs_records, match_info, referees, officials,
-             all_players, all_personal_fouls, all_team_fouls, all_timeouts, quarter_scores)
-
-    # --- Summary ---
-    print(f"\n→ {DB_PATH}")
-    print(f"\nrunning_score: {len(rs_records)} records")
-
-    print(f"\nmatch_info:")
-    print(f"  {match_info['team_a']} vs {match_info['team_b']}")
-    print(f"  {match_info['venue']}, {match_info['match_date']} {match_info['match_time']}")
-    print(f"  Végeredmény: {match_info['score_a']} - {match_info['score_b']}")
-
-    print(f"\nreferees: {len(referees)}")
-    for r in referees:
-        print(f"  {r['role']}: {r['name']}")
-
-    print(f"\nofficials: {len(officials)}")
-    for o in officials:
-        print(f"  {o['role']}: {o['name']}")
-
-    print(f"\nplayers: {len(all_players)} ({len(players_a)} A + {len(players_b)} B)")
-    for p in all_players:
-        starter_mark = "★" if p["starter"] else " "
-        q = f"Q{p['entry_quarter']}" if p["entry_quarter"] else "  "
-        role = f"({p['role']})" if p["role"] != "player" else ""
-        print(f"  {p['team']} {starter_mark} #{str(p['jersey_number'] or '-'):>2s} {q} {p['name']} {role}")
-
-    print(f"\npersonal_fouls: {len(all_personal_fouls)}")
-    print(f"  A: {len(fouls_a)}, B: {len(fouls_b)}")
-
-    print(f"\nteam_fouls:")
-    for f in all_team_fouls:
-        print(f"  {f['team']} Q{f['quarter']}: {f['foul_count']}")
-
-    print(f"\ntimeouts: {len(all_timeouts)}")
-    for t in all_timeouts:
-        print(f"  {t['team']} Q{t['quarter']}: {t['minute']}. perc")
-
-    print(f"\nquarter_scores:")
-    for q in quarter_scores:
-        print(f"  {q['quarter']}. negyed: A {q['score_a']} - B {q['score_b']}")
+    print_summary(conn, match_id)
+    conn.close()
