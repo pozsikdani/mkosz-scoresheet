@@ -174,19 +174,22 @@ def extract_all_from_pdf(pdf_path):
 # Additionally, M*/B*-1 boundaries (4th value in each group) are shifted
 # left by an extra 2px (total -4px) because some PDFs position the tens
 # digit of B-team jersey numbers slightly left of the B*-1 column.
+# The A*-2/M* boundary (3rd value in each group) is shifted right by +3px
+# to widen A*-2 from 21px to 24px, accommodating 3-digit (100+) scores
+# that would otherwise spill into the minute column.
 COL_BOUNDS = [
     # Első félidő — 1. oszlopcsoport (A1-1, A1-2, M1, B1-1, B1-2)
-    479, 501, 522, 539, 562,
+    479, 501, 525, 539, 562,
     # Első félidő — 2. oszlopcsoport (A2-1, A2-2, M2, B2-1, B2-2)
-    584, 603, 625, 642, 663,
+    584, 603, 628, 642, 663,
     # Második félidő — 1. oszlopcsoport
-    685, 706, 727, 745, 767,
+    685, 706, 730, 745, 767,
     # Második félidő — 2. oszlopcsoport
-    790, 809, 830, 847, 868,
+    790, 809, 833, 847, 868,
     # Hosszabbítás — 1. oszlopcsoport
-    889, 910, 931, 949, 971,
+    889, 910, 934, 949, 971,
     # Hosszabbítás — 2. oszlopcsoport
-    992, 1012, 1033, 1051, 1074,
+    992, 1012, 1036, 1051, 1074,
     1097,
 ]
 
@@ -234,16 +237,17 @@ def extract_running_score(all_chars, all_circles, template=None):
         template = detect_template(all_chars)
     off = template["off_body"]
     row_top = ROW_TOP + off
+    rh = template.get("row_height", ROW_HEIGHT)
 
-    # y upper bound: row 42 bottom = row_top + NUM_ROWS * ROW_HEIGHT
-    y_max = row_top + NUM_ROWS * ROW_HEIGHT + 2  # small margin
+    # y upper bound: row 42 bottom = row_top + NUM_ROWS * rh
+    y_max = row_top + NUM_ROWS * rh + 2  # small margin
     y_min = row_top - 8
     raw_chars = [ch for ch in all_chars if ch["x"] >= 480 and y_min < ch["y"] < y_max]
     rs_circles = [(x0, y0, x1, y1) for x0, y0, x1, y1 in all_circles
                   if x0 >= 475 and y0 >= y_min - 10 and y1 <= y_max + 5]
 
     def _get_row_local(y):
-        r = int((y - row_top) / ROW_HEIGHT) + 1
+        r = int((y - row_top) / rh) + 1
         return max(1, min(r, NUM_ROWS))
 
     cells = {}
@@ -416,16 +420,26 @@ def detect_template(all_chars):
     """Detect PDF template type based on match_id vertical position.
 
     Returns a y-offset dict:
-        TYPE1 (match_id F at y≈178): offset_header=0, offset_body=0
-        TYPE2 (match_id F at y≈168): offset_header=-10, offset_body=-20
+        TYPE1 (match_id F at y≈178): off_id=0, off_body=0
+        TYPE2 (match_id F at y≈168): off_id=-10, off_body=-20
+        TYPE3 (match_id F at y≈160, grid at y≈317): off_id=-18, off_body=5,
+               off_footer=-103 (non-uniform: header up, body down, footer far up)
 
-    The offset values describe how much TYPE2 coordinates are shifted UP
-    relative to TYPE1 (i.e. TYPE2_y = TYPE1_y + offset).
+    The offset values describe how much coordinates are shifted relative to
+    TYPE1 (i.e. actual_y = TYPE1_y + offset).
     """
     f_chars = [ch for ch in all_chars
                if ch["c"] == "F" and ch["x"] < 40 and 150 < ch["y"] < 200]
-    if f_chars and f_chars[0]["y"] < 173:
+    if f_chars and f_chars[0]["y"] < 165:
+        # Could be TYPE3 — verify by checking grid start position.
+        # TYPE3 grid starts at y≈317 (shifted DOWN), TYPE2 at y≈292 (shifted UP).
+        grid_chars = [ch for ch in all_chars
+                      if ch["x"] >= 480 and 300 < ch["y"] < 400 and ch["c"].isdigit()]
+        if grid_chars and min(ch["y"] for ch in grid_chars) > 315:
+            return {"name": "TYPE3", "off_id": -18, "off_body": 5, "off_footer": -103, "row_height": 24.31}
         # TYPE2
+        return {"name": "TYPE2", "off_id": -10, "off_body": -20}
+    if f_chars and f_chars[0]["y"] < 173:
         return {"name": "TYPE2", "off_id": -10, "off_body": -20}
     return {"name": "TYPE1", "off_id": 0, "off_body": 0}
 
@@ -436,38 +450,46 @@ def extract_match_info(all_chars, template=None):
         template = detect_template(all_chars)
     off_id = template["off_id"]
     off = template["off_body"]
+    off_footer = template.get("off_footer", off)
 
     def blue_text(x_min, x_max, y_min, y_max, gap=2.0):
         chars = collect_chars_in_rect(all_chars, x_min, x_max, y_min, y_max,
                                       color_filter=OFFICIAL_BLUE)
         return assemble_text(chars, gap_threshold=gap)
 
-    # Team names — y≈83-95 (same for both templates)
+    # Team names — y≈83-95 (same for all templates)
     team_a = blue_text(90, 600, 80, 100)
     team_b = blue_text(600, 900, 80, 100)
 
-    # Venue — y≈126-136 (same for both templates)
+    # Venue — y≈126-136 (same for all templates)
     venue = blue_text(200, 500, 123, 140)
 
-    # Match ID — TYPE1: y≈175-185, TYPE2: y≈165-175
+    # Match ID — TYPE1: y≈175-185, TYPE2: y≈165-175, TYPE3: y≈155-165
     match_id = blue_text(20, 200, 172 + off_id, 190 + off_id)
 
-    # Date and time — TYPE1: y≈205-215, TYPE2: y≈185-195
+    # Date and time — TYPE1: y≈205-215, TYPE2: y≈185-195, TYPE3: y≈168-178
     match_date = blue_text(200, 360, 202 + off, 220 + off)
     match_time = blue_text(360, 450, 202 + off, 220 + off)
+    if not match_date and template["name"] == "TYPE3":
+        # TYPE3 date is near the match_id area, not the body area
+        match_date = blue_text(200, 360, 165, 180)
+        match_time = blue_text(360, 450, 165, 180)
 
-    # Final score — TYPE1: y≈1548-1565, TYPE2: y≈1528-1545
-    score_chars_a = collect_chars_in_rect(all_chars, 698, 730, 1548 + off, 1565 + off)
+    # Final score — TYPE1: y≈1548-1565, TYPE3: y≈1445-1460 (x shifted +40px)
+    if template["name"] == "TYPE3":
+        score_chars_a = collect_chars_in_rect(all_chars, 730, 770, 1445, 1460)
+        score_chars_b = collect_chars_in_rect(all_chars, 940, 970, 1445, 1460)
+    else:
+        score_chars_a = collect_chars_in_rect(all_chars, 698, 730, 1548 + off_footer, 1565 + off_footer)
+        score_chars_b = collect_chars_in_rect(all_chars, 908, 935, 1548 + off_footer, 1565 + off_footer)
     score_a_text = assemble_number([c for c in score_chars_a if c["c"].isdigit()])
-
-    score_chars_b = collect_chars_in_rect(all_chars, 908, 935, 1548 + off, 1565 + off)
     score_b_text = assemble_number([c for c in score_chars_b if c["c"].isdigit()])
 
-    # Winner — TYPE1: y≈1575-1590, TYPE2: y≈1555-1570
-    winner = blue_text(650, 900, 1572 + off, 1595 + off)
+    # Winner — TYPE1: y≈1575-1590, TYPE3: y≈1470-1490
+    winner = blue_text(650, 900, 1572 + off_footer, 1595 + off_footer)
 
-    # Closure timestamp — TYPE1: y≈1620-1635, TYPE2: y≈1600-1615
-    closure = blue_text(900, 1080, 1618 + off, 1640 + off)
+    # Closure timestamp — TYPE1: y≈1620-1635, TYPE3: y≈1505-1520
+    closure = blue_text(900, 1080, 1618 + off_footer, 1640 + off_footer)
 
     return {
         "match_id": match_id,
@@ -516,7 +538,7 @@ def extract_officials(all_chars, template=None):
     """Extract officials (scorer, timekeeper, etc.) from the footer."""
     if template is None:
         template = detect_template(all_chars)
-    off = template["off_body"]
+    off = template.get("off_footer", template["off_body"])
 
     officials = []
     roles = [
@@ -542,7 +564,7 @@ def extract_quarter_scores(all_chars, template=None):
     """Extract quarter-by-quarter scores from the footer."""
     if template is None:
         template = detect_template(all_chars)
-    off = template["off_body"]
+    off = template.get("off_footer", template["off_body"])
 
     scores = []
     quarter_rows = [
@@ -1297,6 +1319,60 @@ SCORING_COLOR_QUARTER = {
 }
 
 
+def _try_repair_score(score_str, current_score):
+    """Try to repair a truncated or inflated score value.
+
+    Returns the repaired integer score if a unique valid repair is found,
+    or None if repair fails.
+
+    Truncated (pts < 0): score was cut short (e.g. "10" when it should be "106").
+      Try appending each digit 0-9 to find one where 1 <= delta <= 3.
+
+    Inflated (pts > 10): a stray digit was concatenated (e.g. "841" for "84").
+      Try removing the last char, then the first char.
+    """
+    try:
+        val = int(score_str)
+    except ValueError:
+        return None
+
+    pts = val - current_score
+
+    if pts < 0:
+        # Truncated: try appending digits 0-9
+        candidates = []
+        for d in range(10):
+            candidate = int(score_str + str(d))
+            delta = candidate - current_score
+            if 1 <= delta <= 3:
+                candidates.append(candidate)
+        if len(candidates) == 1:
+            return candidates[0]
+
+    elif pts > 10:
+        # Inflated: try removing last char, then first char
+        if len(score_str) > 1:
+            trimmed = score_str[:-1]
+            try:
+                candidate = int(trimmed)
+                delta = candidate - current_score
+                if 1 <= delta <= 3:
+                    return candidate
+            except ValueError:
+                pass
+
+            trimmed = score_str[1:]
+            try:
+                candidate = int(trimmed)
+                delta = candidate - current_score
+                if 1 <= delta <= 3:
+                    return candidate
+            except ValueError:
+                pass
+
+    return None
+
+
 def compute_scoring_events(rs_records, players_list, match_id):
     """Transform raw running_score records into structured scoring events.
 
@@ -1395,7 +1471,30 @@ def compute_scoring_events(rs_records, players_list, match_id):
                         if pts == 0:
                             score_a = new_score  # Reference entry, skip
                         elif pts < 0 or pts > 10:
-                            pass  # Backwards or huge gap → likely garbage, DON'T update accumulator
+                            # Attempt repair: truncated or inflated score
+                            repaired = _try_repair_score(score_val, score_a)
+                            if repaired is not None:
+                                new_score = repaired
+                                pts = new_score - score_a
+                                score_a = new_score
+                                if pts == 3 or (jersey_circled and pts > 0):
+                                    shot_type = "3FG"
+                                elif pts == 1:
+                                    shot_type = "FT"
+                                elif pts == 2:
+                                    shot_type = "2FG"
+                                else:
+                                    shot_type = "MULTI"
+                                seq += 1
+                                events.append({
+                                    "match_id": match_id, "event_seq": seq,
+                                    "quarter": quarter, "minute": minute_str,
+                                    "team": "A", "jersey_number": int(jersey),
+                                    "license_number": player_lookup.get(("A", jersey)),
+                                    "points": pts, "shot_type": shot_type, "made": 1,
+                                    "score_a": score_a, "score_b": score_b,
+                                })
+                            # else: truly garbage, skip (don't update accumulator)
                         else:
                             score_a = new_score
                             if pts == 3 or (jersey_circled and pts > 0):
@@ -1452,7 +1551,30 @@ def compute_scoring_events(rs_records, players_list, match_id):
                         if pts == 0:
                             score_b = new_score  # Reference entry, skip
                         elif pts < 0 or pts > 10:
-                            pass  # Backwards or huge gap → likely garbage, DON'T update accumulator
+                            # Attempt repair: truncated or inflated score
+                            repaired = _try_repair_score(score_val, score_b)
+                            if repaired is not None:
+                                new_score = repaired
+                                pts = new_score - score_b
+                                score_b = new_score
+                                if pts == 3 or (jersey_circled and pts > 0):
+                                    shot_type = "3FG"
+                                elif pts == 1:
+                                    shot_type = "FT"
+                                elif pts == 2:
+                                    shot_type = "2FG"
+                                else:
+                                    shot_type = "MULTI"
+                                seq += 1
+                                events.append({
+                                    "match_id": match_id, "event_seq": seq,
+                                    "quarter": quarter, "minute": minute_str if sa is None else None,
+                                    "team": "B", "jersey_number": int(jersey),
+                                    "license_number": player_lookup.get(("B", jersey)),
+                                    "points": pts, "shot_type": shot_type, "made": 1,
+                                    "score_a": score_a, "score_b": score_b,
+                                })
+                            # else: truly garbage, skip (don't update accumulator)
                         else:
                             score_b = new_score
                             if pts == 3 or (jersey_circled and pts > 0):

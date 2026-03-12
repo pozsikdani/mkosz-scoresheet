@@ -137,22 +137,32 @@ PDF letöltés: https://hunbasketimg.webpont.com/pdf/{season}/{competition}_{gam
 3. **Digit szűrés**: A nevek nem tartalmaznak számjegyeket; ez megakadályozza, hogy a balra csúszott mezszám első digitje a név részeként jelenjen meg
 
 ### PDF template detekció
-- Két template létezik: TYPE1 (`off=0`) és TYPE2 (`off_body=-20px`)
-- A detekció a match_id "F" karakterének y-pozíciója alapján történik (413 vs 393)
+- Három template létezik: TYPE1 (`off_body=0`), TYPE2 (`off_body=-20`), TYPE3 (`off_body=5, row_height=24.31`)
+- TYPE3 (VMG DSE hazai meccsek, Közép A): eltérő y-offsetek — header feljebb, grid lejjebb, footer jóval feljebb
+- TYPE3 saját `row_height=24.31` (vs. 26.05) — kisebb sortávolság, nélküle sorok összekeverednek
+- TYPE3 saját `off_footer=-103` — az eredmény és záradék eltérő y-pozícióban
+- A detekció: match_id "F" karakter y-pozíció + grid-start y-pozíció kombináció
 - `COL_BOUNDS` — a running score grid oszlophatárai, néhol -4px korrekcióval
 
-## Pontossági metrikák (2025-26 szezon, 360 meccs)
+## Pontossági metrikák (2025-26 szezon, 369 meccs)
 
-| Csoport | SE (scoring events) | PGS (player game stats) |
-|---------|:---:|:---:|
-| Kiemelt | 86/90 (96%) | — |
-| Közép A | 62/64 (97%) | — |
-| **Közép B** | **71/72 (99%)** | **71/72** |
-| Kelet | 69/71 (97%) | — |
-| Nyugat | 63/63 **(100%)** | — |
-| **Összesen** | **351/360 (97.5%)** | **344/360 (95.6%)** |
+| Csoport | Meccs | SE (scoring events) |
+|---------|------:|:---:|
+| Kiemelt | 90 | 90/90 **(100%)** |
+| Közép A | 72 | 70/72 **(97.2%)** |
+| Közép B | 72 | 72/72 **(100%)** |
+| Kelet | 71 | 71/71 **(100%)** |
+| Nyugat | 63 | 63/63 **(100%)** |
+| **Összesen** | **368** | **366/368 (99.5%)** |
 
-A hibák jellemzően -2 vagy -3 pont eltérések, a running score grid szélén csonkított mezszámok miatt.
+**7 képes PDF** (Nyugat, Óbudai Egyetem Kandó SC hazai meccsek): a jegyzőkönyvet egyetlen raszterképként exportálták (1400×2000px), nem tartalmaz kinyerhető szöveget. Érintett csapatok: Kandó SC (7 meccs hiányzik) + mind a 7 ellenfele (1-1 vendég meccs hiányzik).
+
+**2 TYPE3 scoring eltérés** (F2KA-0095: -6, F2KA-0163: -2/-2): a forrás PDF running score grid hiányos (a végső pontok nem szerepelnek a gridben). A meccs-eredmény (`matches.score_a/b`) korrekt, csak a `scoring_events` granularitás érintett.
+
+Korábbi javítások:
+- COL_BOUNDS A*-2/M* határ +3px jobbra tolása (3 jegyű eredmények befogadása)
+- `_try_repair_score()` safety net: csonkított/felfújt eredményértékek javítása
+- TYPE3 template support (8 VMG DSE hazai meccs)
 
 ## Hasznos lekérdezések
 
@@ -193,6 +203,64 @@ FROM matches m
 JOIN quarter_scores qs ON qs.match_id = m.match_id AND qs.quarter = '1';
 ```
 
+### Scoring run keresés (egy csapat leghosszabb pontozási sorozata válasz nélkül)
+
+A "run" = egymást követő made kosarak, ahol az ellenfél nem szerez pontot.
+
+**Logika:** A `scoring_events` táblában (csak `made=1` sorok) minden ellenfél-kosárnál új run kezdődik. A window function `SUM(CASE WHEN is_opponent THEN 1 ELSE 0 END) OVER (ORDER BY event_seq)` ad egy `opp_run_id`-t; a csapat egymást követő kosárai azonos `opp_run_id`-val rendelkeznek → GROUP BY és SUM(points).
+
+**FONTOS:** A run a `scoring_events` sorrendjéből jön, NEM az azt megelőző kosárból. A run első eleme az ellenfél utolsó pontja UTÁNI első csapat-kosár. Gyakori hiba: a run elé bevenni egy korábbi kosarat, ami még az ellenfél utolsó pontja előtt történt.
+
+```sql
+-- Paraméterek: TEAM_PATTERN = csapatnév LIKE minta, COMP_PREFIX = match_id prefix (pl. F2KE)
+WITH team_games AS (
+    SELECT m.match_id, m.match_date,
+           CASE WHEN m.team_a LIKE '%TEAM_PATTERN%' THEN 'A' ELSE 'B' END as t_team
+    FROM matches m
+    WHERE m.match_id LIKE 'COMP_PREFIX%'
+      AND (m.team_a LIKE '%TEAM_PATTERN%' OR m.team_b LIKE '%TEAM_PATTERN%')
+),
+made_events AS (
+    SELECT se.match_id, se.event_seq, se.quarter, se.points,
+           tg.match_date, tg.t_team,
+           CASE WHEN se.team = tg.t_team THEN 1 ELSE 0 END as is_team,
+           CASE WHEN tg.t_team = 'A' THEN se.score_a ELSE se.score_b END as t_score,
+           CASE WHEN tg.t_team = 'A' THEN se.score_b ELSE se.score_a END as opp_score
+    FROM scoring_events se
+    JOIN team_games tg ON se.match_id = tg.match_id
+    WHERE se.made = 1
+),
+with_run_id AS (
+    SELECT *,
+           SUM(CASE WHEN is_team = 0 THEN 1 ELSE 0 END) OVER (
+               PARTITION BY match_id ORDER BY event_seq
+           ) as opp_run_id
+    FROM made_events
+)
+SELECT match_id, match_date, opp_run_id,
+       MIN(quarter) as start_q, MAX(quarter) as end_q,
+       SUM(points) as run_points,
+       COUNT(*) as baskets,
+       MIN(t_score) - (SELECT points FROM with_run_id w2
+           WHERE w2.match_id = r.match_id AND w2.event_seq = MIN(r.event_seq)
+       ) as score_before,
+       MAX(t_score) as score_after,
+       MIN(opp_score) as opp_frozen
+FROM with_run_id r
+WHERE is_team = 1
+GROUP BY match_id, opp_run_id
+HAVING run_points >= 8
+ORDER BY run_points DESC
+LIMIT 10;
+```
+
+A run lebontásához (ki dobta a pontokat):
+```sql
+-- A fenti lekérdezés egy run-jának részletei (match_id + opp_run_id alapján)
+-- Szűrd a with_run_id CTE-t: WHERE is_team = 1 AND match_id = ? AND opp_run_id = ?
+-- JOIN players ON license_number a pontos névért
+```
+
 ### Liga pontkirályok
 ```sql
 SELECT license_number, name,
@@ -211,7 +279,7 @@ LIMIT 20;
 
 ```
 PDF → PyMuPDF karakter-kinyerés
-  → Template detekció (TYPE1/TYPE2)
+  → Template detekció (TYPE1/TYPE2/TYPE3)
   → extract_match_info()          → matches tábla
   → extract_referees()            → referees tábla
   → extract_officials()           → officials tábla
@@ -235,7 +303,8 @@ PDF → PyMuPDF karakter-kinyerés
 
 ## Ismert limitációk / Következő lépések
 
-1. **~2.5% SE hiba** — A running score grid szélén csonkított számjegyek néha nem párosíthatók vissza. Javítható a COL_BOUNDS finomhangolásával vagy OCR-alapú fallback-kel.
-2. **Hosszabbítás (OT)** — A kód kezeli, de kevés OT meccs volt a tesztelésben.
-3. **Más bajnokságok** — A rendszer elvileg bármely MKOSZ bajnokságra működik (NB1, U20, stb.), de csak NB2-re volt tesztelve. Más bajnokságok más PDF template-et használhatnak.
-4. **README.md elavult** — Egyetlen meccsre vonatkozik, a teljes pipeline-t ez a CLAUDE.md dokumentálja.
+1. **7 képes PDF (Nyugat, Kandó SC hazai)** — Az egész oldal egyetlen raszterképként van exportálva, PyMuPDF nem tud szöveget kinyerni. OCR-rel feldolgozható lenne. Érintett: Kandó SC (7 meccs) + 7 ellenfél (1-1 meccs).
+2. **2 TYPE3 hiányos grid** — F2KA-0095 és F2KA-0163 running score gridje nem tartalmazza az utolsó pontokat. A meccs-eredmény korrekt, csak a scoring_events részletesség érintett.
+3. **Hosszabbítás (OT)** — A kód kezeli, de kevés OT meccs volt a tesztelésben.
+4. **Más bajnokságok** — A rendszer elvileg bármely MKOSZ bajnokságra működik (NB1, U20, stb.), de csak NB2-re volt tesztelve. Más bajnokságok más PDF template-et használhatnak.
+5. **README.md elavult** — Egyetlen meccsre vonatkozik, a teljes pipeline-t ez a CLAUDE.md dokumentálja.
