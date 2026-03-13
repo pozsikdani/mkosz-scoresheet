@@ -989,7 +989,7 @@ def get_calendar_data_db(conn, cfg, tp):
     } for r in rows] if rows else None
 
 
-def generate_team_dashboard(stats, cfg):
+def generate_team_dashboard(stats, cfg, team_key=None):
     """Generate team-level dashboard HTML."""
     d = stats
     games = d["games"]
@@ -1169,12 +1169,7 @@ def generate_team_dashboard(stats, cfg):
   .scenario-tbl {{ width:100%; border-collapse:collapse; font-size:0.82rem; }}
   .scenario-tbl td {{ padding:8px 10px; border-bottom:1px solid var(--border); }}
   .scenario-tbl tr:last-child td {{ border-bottom:none; }}
-  .back-link {{
-    display:inline-flex; align-items:center; gap:6px; margin-bottom:16px;
-    color:var(--text-dim); text-decoration:none; font-size:0.85rem;
-    transition:color 0.2s;
-  }}
-  .back-link:hover {{ color:var(--accent); }}
+  {NAV_CSS}
   .mb20 {{ margin-bottom:20px; }}
   @media (max-width:900px) {{
     .grid-2,.grid-3,.grid-4,.grid-5 {{ grid-template-columns:1fr; }}
@@ -1185,7 +1180,7 @@ def generate_team_dashboard(stats, cfg):
 </head>
 <body>
 <div class="dashboard">
-  <a href="index.html" class="back-link">← Vissza az áttekintőhöz</a>
+  {_nav_html(active_key=team_key, depth=1)}
   <div class="header">
     <div class="header-info">
       <h1>{team_name}</h1>
@@ -1373,7 +1368,7 @@ new Chart(document.getElementById('shotPie').getContext('2d'), {{
     return html
 
 
-def generate_calendar(matches, cfg):
+def generate_calendar(matches, cfg, team_key=None):
     """Generate calendar HTML page. matches = list of dicts from scrape or DB."""
     # Parse matches into dict keyed by (year, month, day)
     match_by_date = {}
@@ -1499,8 +1494,7 @@ def generate_calendar(matches, cfg):
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:24px}}
 .dashboard{{max-width:960px;margin:0 auto}}
-.back-link{{display:inline-block;color:var(--accent);text-decoration:none;font-size:.82rem;font-weight:600;margin-bottom:20px;opacity:.7;transition:opacity .2s}}
-.back-link:hover{{opacity:1}}
+{NAV_CSS}
 
 /* Header */
 .header{{
@@ -1634,7 +1628,7 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
 </head>
 <body>
 <div class="dashboard">
-  <a href="index.html" class="back-link">&larr; Vissza az áttekintőhöz</a>
+  {_nav_html(active_key=team_key, depth=1)}
   <div class="header">
     <div>
       <h1>Menetrend</h1>
@@ -1682,7 +1676,7 @@ def _nav_html(active_key=None, depth=0):
 NAV_CSS = """
 .site-nav {
   display:flex; align-items:center; justify-content:space-between;
-  max-width:900px; margin:0 auto 28px; padding:14px 0;
+  margin:0 auto 28px; padding:14px 0;
   border-bottom:1px solid rgba(255,255,255,0.06);
 }
 .nav-logo {
@@ -2090,7 +2084,7 @@ def generate_team(team_key):
 
     # Team dashboard
     team_stats = get_team_stats(conn, cfg, tp)
-    team_html = generate_team_dashboard(team_stats, cfg)
+    team_html = generate_team_dashboard(team_stats, cfg, team_key=team_key)
     with open(os.path.join(out_dir, "csapat.html"), "w", encoding="utf-8") as f:
         f.write(team_html)
     print(f"\n  ✓ csapat.html (csapat dashboard)")
@@ -2106,7 +2100,7 @@ def generate_team(team_key):
         print(f"  ⚠ Scraping sikertelen, SQLite fallback...")
         cal_data = get_calendar_data_db(conn, cfg, tp)
     if cal_data:
-        cal_html = generate_calendar(cal_data, cfg)
+        cal_html = generate_calendar(cal_data, cfg, team_key=team_key)
         with open(os.path.join(out_dir, "naptar.html"), "w", encoding="utf-8") as f:
             f.write(cal_html)
         print(f"  ✓ naptar.html (meccsnaptár, {len(cal_data)} meccs)")

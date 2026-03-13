@@ -16,8 +16,32 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:24px}
 .dashboard{max-width:960px;margin:0 auto}
-.back-link{display:inline-block;color:var(--accent);text-decoration:none;font-size:.82rem;font-weight:600;margin-bottom:20px;opacity:.7;transition:opacity .2s}
-.back-link:hover{opacity:1}
+
+.site-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  margin:0 auto 28px; padding:14px 0;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+}
+.nav-logo {
+  font-weight:900; font-size:1rem; letter-spacing:1.5px;
+  color:var(--accent); text-decoration:none;
+  transition:opacity .2s;
+}
+.nav-logo:hover { opacity:0.8; }
+.nav-links { display:flex; gap:24px; }
+.nav-links a, .nav-links .nav-link {
+  font-size:0.82rem; font-weight:600; color:var(--text-dim);
+  text-decoration:none; text-transform:uppercase; letter-spacing:0.8px;
+  transition:color .2s;
+}
+.nav-links a:hover { color:var(--text); }
+.nav-links a.active { color:var(--accent); }
+.nav-links .disabled { opacity:0.3; cursor:default; }
+@media(max-width:600px) {
+  .site-nav { flex-direction:column; gap:12px; text-align:center; }
+  .nav-links { gap:16px; flex-wrap:wrap; justify-content:center; }
+}
+
 
 /* Header */
 .header{
@@ -151,7 +175,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 </head>
 <body>
 <div class="dashboard">
-  <a href="index.html" class="back-link">&larr; Vissza az áttekintőhöz</a>
+  <nav class="site-nav"><a href="../index.html" class="nav-logo">KÖZGÁZ BASKETBALL</a><div class="nav-links"><a href="../dashboards/index.html">Öregek NB2</a><a href="../dashboards-a/index.html" class="active">Fiatalok NB2</a><span class="nav-link disabled">Leftoverz</span></div></nav>
   <div class="header">
     <div>
       <h1>Menetrend</h1>
