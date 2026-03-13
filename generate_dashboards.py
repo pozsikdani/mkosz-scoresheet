@@ -1,30 +1,67 @@
 #!/usr/bin/env python3
-"""Generate individual player dashboards for KÖZGÁZ B (NB2 Kelet 2025/26)."""
+"""Generate individual player dashboards for any team in any NB2 group."""
 
 import sqlite3
 import os
 import json
 import re
+import sys
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "nb2_full.sqlite")
-OUT_DIR = os.path.join(os.path.dirname(__file__), "dashboards")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nb2_full.sqlite")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-TEAM_PATTERN = "%KÖZGÁZ%"
-COMP_PREFIX = "F2KE%"
+# ---- TEAM CONFIGURATIONS ----
+TEAMS = {
+    "kozgaz-b": {
+        "team_pattern": "%KÖZGÁZ%DSK/B%",
+        "team_pattern_broad": "%KÖZGÁZ%",  # for groups where only one KÖZGÁZ team plays
+        "comp_prefix": "F2KE%",
+        "team_name": "KÖZGÁZ SC ÉS DSK/B",
+        "team_short": "KÖZGÁZ B",
+        "group_name": "NB2 Kelet",
+        "out_dir": "dashboards",
+    },
+    "kozgaz-a": {
+        "team_pattern": "%KÖZGÁZ%DSK/A%",
+        "team_pattern_broad": "%KÖZGÁZ%",
+        "comp_prefix": "F2KB%",
+        "team_name": "KÖZGÁZ SC ÉS DSK/A",
+        "team_short": "KÖZGÁZ A",
+        "group_name": "NB2 Közép B",
+        "out_dir": "dashboards-a",
+    },
+}
+
 
 def slugify(name):
-    """Convert name to filename-safe slug."""
     s = name.lower().strip()
-    for src, dst in [("á","a"),("é","e"),("í","i"),("ó","o"),("ö","o"),("ő","o"),("ú","u"),("ü","u"),("ű","u")]:
+    for src, dst in [("á","a"),("é","e"),("í","i"),("ó","o"),("ö","o"),("ő","o"),
+                     ("ú","u"),("ü","u"),("ű","u")]:
         s = s.replace(src, dst)
     s = re.sub(r"[^a-z0-9]+", "-", s)
     return s.strip("-")
 
+
 def get_connection():
     return sqlite3.connect(DB_PATH)
 
-def get_roster(conn):
-    """Get all players with summary stats."""
+
+def _team_like(conn, cfg):
+    """Determine which LIKE pattern to use. If broad pattern matches exactly
+    one team in the competition, use it (simpler queries). Otherwise use specific."""
+    broad = cfg["team_pattern_broad"]
+    prefix = cfg["comp_prefix"]
+    rows = conn.execute("""
+        SELECT DISTINCT team_a FROM matches WHERE match_id LIKE ? AND team_a LIKE ?
+        UNION
+        SELECT DISTINCT team_b FROM matches WHERE match_id LIKE ? AND team_b LIKE ?
+    """, (prefix, broad, prefix, broad)).fetchall()
+    if len(rows) == 1:
+        return broad
+    return cfg["team_pattern"]
+
+
+def get_roster(conn, cfg, tp):
     return conn.execute("""
         WITH kg AS (
             SELECT m.match_id,
@@ -44,11 +81,11 @@ def get_roster(conn):
         JOIN kg ON pgs.match_id = kg.match_id AND pgs.team = kg.kg_team
         GROUP BY pgs.license_number
         ORDER BY total_pts DESC
-    """, (TEAM_PATTERN, COMP_PREFIX, TEAM_PATTERN, TEAM_PATTERN)).fetchall()
+    """, (tp, cfg["comp_prefix"], tp, tp)).fetchall()
 
-def get_game_log(conn, license_number):
-    """Get per-game data for a player, including DNP games."""
-    all_games = conn.execute("""
+
+def get_game_log(conn, cfg, tp, license_number):
+    return conn.execute("""
         WITH kg AS (
             SELECT m.match_id, m.match_date,
                    CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as kg_team,
@@ -66,12 +103,10 @@ def get_game_log(conn, license_number):
             ON pgs.match_id = kg.match_id AND pgs.license_number = ?
             AND pgs.team = kg.kg_team
         ORDER BY kg.match_date
-    """, (TEAM_PATTERN, TEAM_PATTERN, TEAM_PATTERN, TEAM_PATTERN, TEAM_PATTERN,
-          COMP_PREFIX, TEAM_PATTERN, TEAM_PATTERN, license_number)).fetchall()
-    return all_games
+    """, (tp, tp, tp, tp, tp, cfg["comp_prefix"], tp, tp, license_number)).fetchall()
 
-def get_quarter_stats(conn, license_number):
-    """Points per quarter from scoring events."""
+
+def get_quarter_stats(conn, cfg, tp, license_number):
     return conn.execute("""
         WITH kg AS (
             SELECT m.match_id,
@@ -87,10 +122,10 @@ def get_quarter_stats(conn, license_number):
         JOIN kg ON se.match_id = kg.match_id AND se.team = kg.kg_team
         WHERE se.license_number = ?
         GROUP BY se.quarter ORDER BY se.quarter
-    """, (TEAM_PATTERN, COMP_PREFIX, TEAM_PATTERN, TEAM_PATTERN, license_number)).fetchall()
+    """, (tp, cfg["comp_prefix"], tp, tp, license_number)).fetchall()
 
-def get_opponent_ppg(conn, license_number):
-    """PPG by opponent."""
+
+def get_opponent_ppg(conn, cfg, tp, license_number):
     return conn.execute("""
         WITH kg AS (
             SELECT m.match_id,
@@ -107,10 +142,10 @@ def get_opponent_ppg(conn, license_number):
         WHERE pgs.license_number = ?
         GROUP BY kg.opponent
         ORDER BY ppg DESC
-    """, (TEAM_PATTERN, TEAM_PATTERN, COMP_PREFIX, TEAM_PATTERN, TEAM_PATTERN, license_number)).fetchall()
+    """, (tp, tp, cfg["comp_prefix"], tp, tp, license_number)).fetchall()
 
-def get_tech_unsport(conn, license_number):
-    """Technical and unsportsmanlike fouls."""
+
+def get_tech_unsport(conn, cfg, tp, license_number):
     rows = conn.execute("""
         WITH kg AS (
             SELECT m.match_id,
@@ -125,30 +160,36 @@ def get_tech_unsport(conn, license_number):
         JOIN players p ON p.match_id = pf.match_id AND p.team = pf.team
             AND p.jersey_number = pf.jersey_number
         WHERE p.license_number = ? AND pf.foul_category IN ('T','U')
-    """, (TEAM_PATTERN, COMP_PREFIX, TEAM_PATTERN, TEAM_PATTERN, license_number)).fetchone()
+    """, (tp, cfg["comp_prefix"], tp, tp, license_number)).fetchone()
     return (rows[0] or 0, rows[1] or 0)
+
 
 def shorten_opponent(name):
     """Shorten long opponent names for charts."""
+    n = name.strip()
+    # Known shortenings
     replacements = {
         "BKG-PRIMA AKADÉMIA DEBRECEN": "BKG-Prima Deb.",
         "BKG-VERESEGYHÁZ": "BKG-Veresegyh.",
         "SUNSHINE-NYÍKSE": "Sunshine-NYÍKSE",
         "BUDAPESTI BIKÁK": "Bp. Bikák",
         "KÖZGÁZ SC ÉS DSK/B": "Közgáz B",
+        "KÖZGÁZ SC ÉS DSK/A": "Közgáz A",
+        "VASAS AKADÉMIA BUDAPEST": "Vasas Akad.",
+        "EGER KOSÁRLABDA CLUB": "Eger KC",
     }
     for k, v in replacements.items():
-        if k in name.upper():
+        if k in n.upper():
             return v
     # Title case, max 20 chars
-    n = name.title()
-    if len(n) > 20:
-        n = n[:18] + "."
-    return n
+    t = n.title()
+    if len(t) > 20:
+        t = t[:18] + "."
+    return t
+
 
 def generate_insights(name, games_played, ppg, fg3, ft_made, ft_att, pf_per_game,
                        max_pts, quarter_pts, opp_data, game_log, total_pts, starts):
-    """Generate textual insights for a player."""
     strengths = []
     weaknesses = []
 
@@ -167,7 +208,6 @@ def generate_insights(name, games_played, ppg, fg3, ft_made, ft_att, pf_per_game
     if max_pts >= 20:
         strengths.append(f'Nagy meccsekre képes (csúcs: {max_pts} pont)')
 
-    # Last 3 games form
     played = [g for g in game_log if g[6] is not None]
     if len(played) >= 3:
         last3 = played[-3:]
@@ -177,7 +217,6 @@ def generate_insights(name, games_played, ppg, fg3, ft_made, ft_att, pf_per_game
         elif last3_ppg < ppg * 0.6 and ppg > 3:
             weaknesses.append(f'Formaesés: utolsó 3 meccs {last3_ppg} PPG')
 
-    # Scoring variance
     pts_list = [g[6] for g in game_log if g[6] is not None]
     if len(pts_list) >= 5:
         mn, mx = min(pts_list), max(pts_list)
@@ -189,13 +228,11 @@ def generate_insights(name, games_played, ppg, fg3, ft_made, ft_att, pf_per_game
     if pf_per_game >= 3:
         weaknesses.append(f'Faultgondok: {pf_per_game} fault/meccs')
 
-    # Weak opponent
     if opp_data:
         worst = opp_data[-1]
         if worst[1] <= ppg * 0.5 and worst[2] >= 2:
             weaknesses.append(f'{shorten_opponent(worst[0])} ellen gyenge: {worst[1]} PPG')
 
-    # Quarter weakness
     q_dict = {str(q[0]): q[1] for q in quarter_pts if str(q[0]) in ('1','2','3','4')}
     if q_dict and games_played > 0:
         q_ppg = {k: round(v/games_played, 1) for k, v in q_dict.items()}
@@ -216,34 +253,28 @@ def generate_insights(name, games_played, ppg, fg3, ft_made, ft_att, pf_per_game
     return strengths[:5], weaknesses[:5]
 
 
-def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport):
-    """Generate the full HTML dashboard for one player."""
+def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport, cfg):
     lic, name, jersey, games, total_pts, ppg, fg2, fg3, ft_m, ft_a, pf, max_pts, starts = player_data
 
     ft_pct = round(100*ft_m/ft_a) if ft_a > 0 else 0
     pf_pg = round(pf/games, 1)
 
-    # Team scores for share calculation
     played_games = [g for g in game_log if g[6] is not None]
     total_team_pts = sum(g[4] for g in played_games)
     share_pct = round(100*total_pts/total_team_pts, 1) if total_team_pts > 0 else 0
 
-    # Points from each shot type
     pts_3fg = fg3 * 3
     pts_2fg = fg2 * 2
     pts_ft = ft_m
 
-    # Quarter data (Q1-Q4 only)
     q_pts = {str(q[0]): q[1] for q in quarter_stats if str(q[0]) in ('1','2','3','4')}
     q_3fg = {str(q[0]): q[2] for q in quarter_stats if str(q[0]) in ('1','2','3','4')}
     q_data = [q_pts.get(str(i), 0) for i in range(1, 5)]
     q_3fg_data = [q_3fg.get(str(i), 0) for i in range(1, 5)]
 
-    # Opponent chart data
     opp_labels = [shorten_opponent(o[0]) for o in opp_stats]
     opp_ppg_data = [o[1] for o in opp_stats]
 
-    # Game log JS data
     js_games = []
     for g in game_log:
         match_id, date, hv, opp, kg_score, opp_score, pts, f2, f3, ftm, fta, pfg, starter = g
@@ -263,17 +294,15 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
             js_games.append({
                 "date": date[5:].replace("-", "."),
                 "opp": shorten_opponent(opp),
-                "res": "L" if not win else "W",
+                "res": "W" if win else "L",
                 "pts": None
             })
 
-    # Insights
     strengths, weaknesses = generate_insights(
         name, games, ppg, fg3, ft_m, ft_a, pf_pg, max_pts,
         quarter_stats, opp_stats, game_log, total_pts, starts
     )
 
-    # Build opponent bar colors
     opp_colors_bg = []
     opp_colors_border = []
     for val in opp_ppg_data:
@@ -288,12 +317,8 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
             opp_colors_border.append("#e17055")
 
     max_opp_ppg = max(opp_ppg_data) if opp_ppg_data else 10
-
-    # Point bar colors in trend chart
     trend_pts = [g["pts"] for g in js_games if g["pts"] is not None]
     trend_max = max(trend_pts) if trend_pts else 1
-
-    # Shot distribution bar widths (relative to max)
     shot_max = max(pts_3fg, pts_2fg, pts_ft, 1)
     bar_3fg = round(100 * pts_3fg / shot_max)
     bar_2fg = round(100 * pts_2fg / shot_max)
@@ -305,6 +330,9 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
         if tech > 0: parts.append(f"{tech} technikai")
         if unsport > 0: parts.append(f"{unsport} sportszerűtlen")
         tech_text = f' | {", ".join(parts)} hiba'
+
+    team_display = cfg["team_name"]
+    group_display = cfg["group_name"]
 
     html = f"""<!DOCTYPE html>
 <html lang="hu">
@@ -324,7 +352,6 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
   * {{ margin:0; padding:0; box-sizing:border-box; }}
   body {{ font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px; }}
   .dashboard {{ max-width:1200px; margin:0 auto; }}
-
   .header {{
     display:flex; align-items:center; gap:28px; padding:32px;
     background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 100%);
@@ -355,10 +382,8 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
   .header-stat .val.green {{ color:var(--green); }}
   .header-stat .val.pink {{ color:var(--accent3); }}
   .header-stat .label {{ font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:2px; }}
-
   .grid {{ display:grid; gap:20px; }}
   .grid-2 {{ grid-template-columns:1fr 1fr; }}
-  .grid-3 {{ grid-template-columns:1fr 1fr 1fr; }}
   .grid-4 {{ grid-template-columns:1fr 1fr 1fr 1fr; }}
   .card {{
     background:var(--card); border-radius:16px; padding:24px;
@@ -366,39 +391,31 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
   }}
   .card:hover {{ background:var(--card-hover); }}
   .card h3 {{ font-size:0.8rem; text-transform:uppercase; letter-spacing:1.2px; color:var(--text-dim); margin-bottom:16px; font-weight:600; }}
-
   .mini-stat {{ text-align:center; }}
   .mini-stat .big {{ font-size:2rem; font-weight:800; }}
   .mini-stat .desc {{ font-size:0.75rem; color:var(--text-dim); margin-top:4px; }}
-
   .game-log {{ width:100%; border-collapse:collapse; font-size:0.82rem; }}
   .game-log th {{ text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; }}
   .game-log td {{ padding:8px 10px; border-bottom:1px solid var(--border); }}
   .game-log tr:last-child td {{ border-bottom:none; }}
   .game-log tr:hover {{ background:rgba(108,92,231,0.06); }}
-
   .badge {{ display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; }}
   .badge.w {{ background:rgba(0,184,148,0.15); color:var(--green); }}
   .badge.l {{ background:rgba(225,112,85,0.15); color:var(--red); }}
   .badge.dnp {{ background:rgba(139,141,160,0.15); color:var(--text-dim); }}
-
   .bar-cell {{ position:relative; }}
   .bar-bg {{ position:absolute; left:0; top:50%; transform:translateY(-50%); height:22px; border-radius:4px; opacity:0.2; }}
   .bar-val {{ position:relative; z-index:1; font-weight:600; }}
-
   .chart-wrap {{ position:relative; width:100%; }}
   .chart-wrap.h250 {{ height:250px; }}
-
   .shot-row {{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }}
   .shot-label {{ font-size:0.8rem; font-weight:600; width:40px; flex-shrink:0; }}
   .shot-bar-outer {{ flex:1; height:28px; background:rgba(255,255,255,0.04); border-radius:8px; overflow:hidden; }}
   .shot-bar-inner {{ height:100%; border-radius:8px; display:flex; align-items:center; padding-left:10px; font-size:0.75rem; font-weight:700; color:#fff; }}
   .shot-pct {{ font-size:0.8rem; font-weight:600; width:45px; text-align:right; flex-shrink:0; }}
-
   .mb20 {{ margin-bottom:20px; }}
-
   @media (max-width:900px) {{
-    .grid-2,.grid-3,.grid-4 {{ grid-template-columns:1fr; }}
+    .grid-2,.grid-4 {{ grid-template-columns:1fr; }}
     .header {{ flex-direction:column; text-align:center; }}
     .header-stats {{ margin-left:0; justify-content:center; }}
   }}
@@ -406,12 +423,11 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
 </head>
 <body>
 <div class="dashboard">
-
   <div class="header">
     <div class="header-info">
       <h1>{name}</h1>
       <div class="subtitle">
-        <span>#{jersey}</span> &nbsp;|&nbsp; KÖZGÁZ SC ÉS DSK/B &nbsp;|&nbsp; NB2 Kelet &nbsp;|&nbsp; 2025/26 alapszakasz{tech_text}
+        <span>#{jersey}</span> &nbsp;|&nbsp; {team_display} &nbsp;|&nbsp; {group_display} &nbsp;|&nbsp; 2025/26 alapszakasz{tech_text}
       </div>
     </div>
     <div class="header-stats">
@@ -421,14 +437,12 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
       <div class="header-stat"><div class="val" style="color:var(--accent4)">{max_pts}</div><div class="label">Csúcs</div></div>
     </div>
   </div>
-
   <div class="grid grid-4 mb20">
     <div class="card mini-stat"><div class="big" style="color:var(--accent)">{total_pts}</div><div class="desc">Összes pont</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent2)">{ft_pct}%</div><div class="desc">FT% ({ft_m}/{ft_a})</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent3)">{pf_pg}</div><div class="desc">Fault / meccs</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent4)">{share_pct}%</div><div class="desc">Csapat pont részesedés</div></div>
   </div>
-
   <div class="grid grid-2 mb20">
     <div class="card">
       <h3>Pontszerzés meccsenként</h3>
@@ -456,7 +470,6 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
       <div style="margin-top:20px;"><div class="chart-wrap" style="height:160px;"><canvas id="shotPie"></canvas></div></div>
     </div>
   </div>
-
   <div class="grid grid-2 mb20">
     <div class="card">
       <h3>Negyedenkénti teljesítmény</h3>
@@ -467,7 +480,6 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
       <div class="chart-wrap h250"><canvas id="opponentChart"></canvas></div>
     </div>
   </div>
-
   <div class="card mb20">
     <h3>Meccsenként részletezve</h3>
     <table class="game-log">
@@ -475,7 +487,6 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
       <tbody id="gameLogBody"></tbody>
     </table>
   </div>
-
   <div class="card mb20">
     <h3>Elemzői meglátások</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:0.85rem;line-height:1.7;">
@@ -493,9 +504,7 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
       </div>
     </div>
   </div>
-
 </div>
-
 <script>
 Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
@@ -600,52 +609,15 @@ new Chart(document.getElementById('opponentChart').getContext('2d'), {{
     return html
 
 
-def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
-    conn = get_connection()
-    roster = get_roster(conn)
-
-    generated = []
-    for player in roster:
-        lic = player[0]
-        name = player[1]
-        slug = slugify(name)
-
-        game_log = get_game_log(conn, lic)
-        quarter_stats = get_quarter_stats(conn, lic)
-        opp_stats = get_opponent_ppg(conn, lic)
-        tech, unsport = get_tech_unsport(conn, lic)
-
-        html = generate_html(player, game_log, quarter_stats, opp_stats, tech, unsport)
-
-        filename = f"{slug}.html"
-        filepath = os.path.join(OUT_DIR, filename)
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(html)
-
-        generated.append((name, filename, player[3], player[5]))  # name, file, games, ppg
-        print(f"  ✓ {name} → {filename}")
-
-    # Generate index page
-    index_html = generate_index(generated)
-    with open(os.path.join(OUT_DIR, "index.html"), "w", encoding="utf-8") as f:
-        f.write(index_html)
-    print(f"\n  ✓ index.html (csapat áttekintő)")
-
-    conn.close()
-    print(f"\nÖsszesen {len(generated)} dashboard generálva → {OUT_DIR}/")
-
-
-def generate_index(players):
-    """Generate team index page linking to all player dashboards."""
+def generate_index(players, cfg):
     cards = ""
     for i, (name, filename, games, ppg) in enumerate(players):
         rank = i + 1
         cards += f"""
       <a href="{filename}" class="player-card">
         <div class="rank">#{rank}</div>
-        <div class="player-name">{name}</div>
-        <div class="player-meta">{games} meccs &nbsp;|&nbsp; {ppg} PPG</div>
+        <div class="pinfo"><div class="player-name">{name}</div>
+        <div class="player-meta">{games} meccs &nbsp;|&nbsp; {ppg} PPG</div></div>
       </a>"""
 
     return f"""<!DOCTYPE html>
@@ -653,7 +625,7 @@ def generate_index(players):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KÖZGÁZ B — Játékos Dashboardok 2025/26</title>
+<title>{cfg["team_short"]} — Játékos Dashboardok 2025/26</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
   :root {{
@@ -676,7 +648,6 @@ def generate_index(players):
   }}
   .team-header .sub {{ color:var(--text-dim); margin-top:6px; font-size:0.95rem; }}
   .team-header .sub span {{ color:var(--accent2); font-weight:600; }}
-
   .player-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }}
   .player-card {{
     display:flex; align-items:center; gap:16px;
@@ -688,10 +659,7 @@ def generate_index(players):
     background:var(--card-hover); border-color:var(--accent);
     transform:translateY(-2px); box-shadow:0 8px 24px rgba(108,92,231,0.15);
   }}
-  .rank {{
-    font-size:1.1rem; font-weight:800; color:var(--accent);
-    min-width:36px;
-  }}
+  .rank {{ font-size:1.1rem; font-weight:800; color:var(--accent); min-width:36px; }}
   .player-name {{ font-weight:700; font-size:0.95rem; }}
   .player-meta {{ font-size:0.75rem; color:var(--text-dim); margin-top:2px; }}
 </style>
@@ -699,14 +667,78 @@ def generate_index(players):
 <body>
 <div class="container">
   <div class="team-header">
-    <h1>KÖZGÁZ SC ÉS DSK/B</h1>
-    <div class="sub">NB2 Kelet &nbsp;|&nbsp; <span>2025/26 alapszakasz</span> &nbsp;|&nbsp; Játékos dashboardok</div>
+    <h1>{cfg["team_name"]}</h1>
+    <div class="sub">{cfg["group_name"]} &nbsp;|&nbsp; <span>2025/26 alapszakasz</span> &nbsp;|&nbsp; Játékos dashboardok</div>
   </div>
   <div class="player-grid">{cards}
   </div>
 </div>
 </body>
 </html>"""
+
+
+def generate_team(team_key):
+    cfg = TEAMS[team_key]
+    out_dir = os.path.join(BASE_DIR, cfg["out_dir"])
+    os.makedirs(out_dir, exist_ok=True)
+
+    conn = get_connection()
+    tp = _team_like(conn, cfg)
+    print(f"\n{'='*50}")
+    print(f"  {cfg['team_name']} — {cfg['group_name']}")
+    print(f"  Pattern: {tp}  |  Comp: {cfg['comp_prefix']}")
+    print(f"{'='*50}")
+
+    roster = get_roster(conn, cfg, tp)
+    if not roster:
+        print(f"  ⚠ Nincs játékos adat!")
+        conn.close()
+        return
+
+    generated = []
+    for player in roster:
+        lic = player[0]
+        name = player[1]
+        slug = slugify(name)
+
+        game_log = get_game_log(conn, cfg, tp, lic)
+        quarter_stats = get_quarter_stats(conn, cfg, tp, lic)
+        opp_stats = get_opponent_ppg(conn, cfg, tp, lic)
+        tech, unsport = get_tech_unsport(conn, cfg, tp, lic)
+
+        html = generate_html(player, game_log, quarter_stats, opp_stats, tech, unsport, cfg)
+
+        filename = f"{slug}.html"
+        filepath = os.path.join(out_dir, filename)
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(html)
+
+        generated.append((name, filename, player[3], player[5]))
+        print(f"  ✓ {name} → {filename}")
+
+    index_html = generate_index(generated, cfg)
+    with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
+        f.write(index_html)
+    print(f"\n  ✓ index.html")
+
+    conn.close()
+    print(f"  Összesen {len(generated)} dashboard → {cfg['out_dir']}/")
+
+
+def main():
+    if len(sys.argv) > 1:
+        for key in sys.argv[1:]:
+            if key in TEAMS:
+                generate_team(key)
+            elif key == "all":
+                for k in TEAMS:
+                    generate_team(k)
+            else:
+                print(f"  ⚠ Ismeretlen csapat: {key}. Elérhető: {', '.join(TEAMS.keys())}, all")
+    else:
+        # Default: generate all
+        for k in TEAMS:
+            generate_team(k)
 
 
 if __name__ == "__main__":

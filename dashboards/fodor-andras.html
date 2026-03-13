@@ -16,7 +16,6 @@
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px; }
   .dashboard { max-width:1200px; margin:0 auto; }
-
   .header {
     display:flex; align-items:center; gap:28px; padding:32px;
     background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 100%);
@@ -47,10 +46,8 @@
   .header-stat .val.green { color:var(--green); }
   .header-stat .val.pink { color:var(--accent3); }
   .header-stat .label { font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
-
   .grid { display:grid; gap:20px; }
   .grid-2 { grid-template-columns:1fr 1fr; }
-  .grid-3 { grid-template-columns:1fr 1fr 1fr; }
   .grid-4 { grid-template-columns:1fr 1fr 1fr 1fr; }
   .card {
     background:var(--card); border-radius:16px; padding:24px;
@@ -58,39 +55,31 @@
   }
   .card:hover { background:var(--card-hover); }
   .card h3 { font-size:0.8rem; text-transform:uppercase; letter-spacing:1.2px; color:var(--text-dim); margin-bottom:16px; font-weight:600; }
-
   .mini-stat { text-align:center; }
   .mini-stat .big { font-size:2rem; font-weight:800; }
   .mini-stat .desc { font-size:0.75rem; color:var(--text-dim); margin-top:4px; }
-
   .game-log { width:100%; border-collapse:collapse; font-size:0.82rem; }
   .game-log th { text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; }
   .game-log td { padding:8px 10px; border-bottom:1px solid var(--border); }
   .game-log tr:last-child td { border-bottom:none; }
   .game-log tr:hover { background:rgba(108,92,231,0.06); }
-
   .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; }
   .badge.w { background:rgba(0,184,148,0.15); color:var(--green); }
   .badge.l { background:rgba(225,112,85,0.15); color:var(--red); }
   .badge.dnp { background:rgba(139,141,160,0.15); color:var(--text-dim); }
-
   .bar-cell { position:relative; }
   .bar-bg { position:absolute; left:0; top:50%; transform:translateY(-50%); height:22px; border-radius:4px; opacity:0.2; }
   .bar-val { position:relative; z-index:1; font-weight:600; }
-
   .chart-wrap { position:relative; width:100%; }
   .chart-wrap.h250 { height:250px; }
-
   .shot-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
   .shot-label { font-size:0.8rem; font-weight:600; width:40px; flex-shrink:0; }
   .shot-bar-outer { flex:1; height:28px; background:rgba(255,255,255,0.04); border-radius:8px; overflow:hidden; }
   .shot-bar-inner { height:100%; border-radius:8px; display:flex; align-items:center; padding-left:10px; font-size:0.75rem; font-weight:700; color:#fff; }
   .shot-pct { font-size:0.8rem; font-weight:600; width:45px; text-align:right; flex-shrink:0; }
-
   .mb20 { margin-bottom:20px; }
-
   @media (max-width:900px) {
-    .grid-2,.grid-3,.grid-4 { grid-template-columns:1fr; }
+    .grid-2,.grid-4 { grid-template-columns:1fr; }
     .header { flex-direction:column; text-align:center; }
     .header-stats { margin-left:0; justify-content:center; }
   }
@@ -98,7 +87,6 @@
 </head>
 <body>
 <div class="dashboard">
-
   <div class="header">
     <div class="header-info">
       <h1>FODOR ANDRÁS</h1>
@@ -113,14 +101,12 @@
       <div class="header-stat"><div class="val" style="color:var(--accent4)">6</div><div class="label">Csúcs</div></div>
     </div>
   </div>
-
   <div class="grid grid-4 mb20">
     <div class="card mini-stat"><div class="big" style="color:var(--accent)">35</div><div class="desc">Összes pont</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent2)">38%</div><div class="desc">FT% (3/8)</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent3)">2.6</div><div class="desc">Fault / meccs</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent4)">3.0%</div><div class="desc">Csapat pont részesedés</div></div>
   </div>
-
   <div class="grid grid-2 mb20">
     <div class="card">
       <h3>Pontszerzés meccsenként</h3>
@@ -148,7 +134,6 @@
       <div style="margin-top:20px;"><div class="chart-wrap" style="height:160px;"><canvas id="shotPie"></canvas></div></div>
     </div>
   </div>
-
   <div class="grid grid-2 mb20">
     <div class="card">
       <h3>Negyedenkénti teljesítmény</h3>
@@ -159,7 +144,6 @@
       <div class="chart-wrap h250"><canvas id="opponentChart"></canvas></div>
     </div>
   </div>
-
   <div class="card mb20">
     <h3>Meccsenként részletezve</h3>
     <table class="game-log">
@@ -167,7 +151,6 @@
       <tbody id="gameLogBody"></tbody>
     </table>
   </div>
-
   <div class="card mb20">
     <h3>Elemzői meglátások</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:0.85rem;line-height:1.7;">
@@ -185,9 +168,7 @@
       </div>
     </div>
   </div>
-
 </div>
-
 <script>
 Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
