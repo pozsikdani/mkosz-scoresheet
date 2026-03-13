@@ -1,7 +1,7 @@
 # MKOSZ Scoresheet Extractor — Project Documentation
 
 > Ez a fájl azért készült, hogy egy új Claude session (vagy bárki más) teljes kontextust kapjon a projektről.
-> Utolsó frissítés: 2026-03-13.
+> Utolsó frissítés: 2026-03-14.
 
 ## Mi ez a projekt?
 
@@ -37,14 +37,16 @@ mkosz-scoresheet/
 │   ├── hun3kob_*.pdf        # NB2 Közép B (72 meccs)
 │   ├── hun3k_*.pdf          # NB2 Kelet (72 meccs)
 │   └── hun3n_*.pdf          # NB2 Nyugat (72 meccs)
-├── generate_dashboards.py   # Játékos + csapat dashboard generátor (Chart.js HTML)
+├── generate_dashboards.py   # Játékos + csapat + naptár dashboard generátor (Chart.js HTML)
 ├── dashboards/              # KÖZGÁZ B generált dashboardok (GitHub Pages)
-│   ├── index.html           # Áttekintő oldal (csapat kártya + játékos lista)
+│   ├── index.html           # Áttekintő oldal (csapat kártya + naptár kártya + játékos lista)
 │   ├── csapat.html          # Csapat statisztikák dashboard
+│   ├── naptar.html          # Meccsnaptár (havi nézet, MKOSZ-ról scrape-elve)
 │   └── *.html               # 18 egyéni játékos dashboard
 ├── dashboards-a/            # KÖZGÁZ A generált dashboardok (GitHub Pages)
 │   ├── index.html
 │   ├── csapat.html
+│   ├── naptar.html
 │   └── *.html               # 18 egyéni játékos dashboard
 ├── kadocsa_dashboard.html   # Eredeti önálló Kadocsa Márton dashboard (legacy, superseded by dashboards/)
 ├── nb2_full.sqlite          # Teljes NB2 adatbázis (gitignore-ban, regenerálható)
@@ -354,23 +356,26 @@ python3 generate_dashboards.py kozgaz-a      # Csak KÖZGÁZ A
 ```
 
 ### Csapat konfiguráció (TEAMS dict)
-| Kulcs | team_pattern | comp_prefix | out_dir |
-|-------|-------------|-------------|---------|
-| `kozgaz-b` | `%KÖZGÁZ%DSK/B%` | `F2KE%` | `dashboards/` |
-| `kozgaz-a` | `%KÖZGÁZ%DSK/A%` | `F2KB%` | `dashboards-a/` |
+| Kulcs | team_pattern | comp_prefix | out_dir | mkosz_comp | mkosz_team_id |
+|-------|-------------|-------------|---------|------------|---------------|
+| `kozgaz-b` | `%KÖZGÁZ%DSK/B%` | `F2KE%` | `dashboards/` | `hun3k` | `9239` |
+| `kozgaz-a` | `%KÖZGÁZ%DSK/A%` | `F2KB%` | `dashboards-a/` | `hun3kob` | `9219` |
+
+Minden csapatnak van `mkosz_season`, `mkosz_comp`, `mkosz_team_id` mezője a meccsnaptár scraping-hez.
 
 Új csapat hozzáadása: TEAMS dict bővítése + `python3 generate_dashboards.py <key>`.
 
 ### Generált fájlok csapatonként
 - **`csapat.html`** — Csapat dashboard: W-L mérleg, negyedenkénti átlagok, pontmegoszlás (2FG/3FG/FT), forgatókönyvek (félidő/3Q vezet/hátrányban), top 5 saját + kapott scoring run, meccsnapló, fun facts
-- **`index.html`** — Áttekintő: kiemelt csapat kártya + játékos lista pontátlag szerint
+- **`naptar.html`** — Meccsnaptár: havi naptár nézet, MKOSZ weboldalról scrape-elve. Lejátszott meccsek zöld (W) / piros (L) badge-dzsel és színes eredménnyel, jövőbeli meccsek lila háttérrel. @ prefix idegenbeli meccsekhez. Hazai/idegen mérleg a headerben.
+- **`index.html`** — Áttekintő: csapat statisztikák kártya + meccsnaptár kártya + játékos lista pontátlag szerint
 - **`{slug}.html`** — Játékos dashboard: pontszerzés trend, dobásmegoszlás, negyedenkénti teljesítmény, ellenfél-elemzés, meccsnapló, erősségek/gyengeségek
 
 ### GitHub Pages linkek
-| Csapat | Index | Csapat dashboard |
-|--------|-------|-----------------|
-| KÖZGÁZ B | [dashboards/](https://pozsikdani.github.io/mkosz-scoresheet/dashboards/) | [dashboards/csapat.html](https://pozsikdani.github.io/mkosz-scoresheet/dashboards/csapat.html) |
-| KÖZGÁZ A | [dashboards-a/](https://pozsikdani.github.io/mkosz-scoresheet/dashboards-a/) | [dashboards-a/csapat.html](https://pozsikdani.github.io/mkosz-scoresheet/dashboards-a/csapat.html) |
+| Csapat | Index | Csapat dashboard | Meccsnaptár |
+|--------|-------|-----------------|-------------|
+| KÖZGÁZ B | [dashboards/](https://pozsikdani.github.io/mkosz-scoresheet/dashboards/) | [csapat.html](https://pozsikdani.github.io/mkosz-scoresheet/dashboards/csapat.html) | [naptar.html](https://pozsikdani.github.io/mkosz-scoresheet/dashboards/naptar.html) |
+| KÖZGÁZ A | [dashboards-a/](https://pozsikdani.github.io/mkosz-scoresheet/dashboards-a/) | [csapat.html](https://pozsikdani.github.io/mkosz-scoresheet/dashboards-a/csapat.html) | [naptar.html](https://pozsikdani.github.io/mkosz-scoresheet/dashboards-a/naptar.html) |
 
 **Google Sites beágyazás**: `<iframe src="https://pozsikdani.github.io/mkosz-scoresheet/dashboards/" width="100%" height="800"></iframe>`
 
@@ -397,10 +402,30 @@ TEAMS config dict
      │   → get_tech_unsport()    — technikai/sportszerűtlen faultok
      │   → generate_insights()   — erősségek/gyengeségek szöveges elemzés
      │   → generate_html()       — egyéni HTML dashboard
-     → get_team_stats()          — csapat szintű lekérdezések (record, negyedek, run-ok, forgatókönyvek, lövések, fun facts)
+     → get_team_stats()          — csapat szintű lekérdezések
      → generate_team_dashboard() — csapat HTML dashboard
-     → generate_index()          — áttekintő HTML (csapat kártya + játékos grid)
+     → scrape_schedule()         — MKOSZ weboldalról menetrend scraping
+     │   └─ fallback: get_calendar_data_db() — SQLite-ból ha scraping sikertelen
+     → generate_calendar()       — havi naptár HTML (lejátszott + jövőbeli meccsek)
+     → generate_index()          — áttekintő HTML (csapat + naptár kártya + játékos grid)
 ```
+
+### Meccsnaptár scraping (naptar.html)
+
+A `scrape_schedule(cfg)` függvény közvetlenül az MKOSZ weboldalról húzza a menetrend adatokat:
+
+**URL minta**: `https://mkosz.hu/bajnoksag-musor/{season}/{comp}/phase/0/csapat/{team_id}`
+
+**Működés**:
+- Az MKOSZ oldal statikus HTML-t ad (nem JS-alapú), `<table class='box-table responsive'>` struktúrában
+- Regex-szel parse-ol: csapatnevek a `title` attribútumból, magyar dátum (`"2025. október 7."` → `2025-10-07`), időpont, eredmény (ha van), match_id (href-ből)
+- Lejátszott meccsek: zöld/piros háttér + W/L badge + színes eredmény (zöld/piros)
+- Jövőbeli meccsek: lila háttér, ellenfél + időpont, eredmény nélkül
+- Ha a scraping sikertelen (hálózati hiba), SQLite fallback (`get_calendar_data_db()`)
+
+**Magyar dátum parse**: `HU_MONTHS_PARSE` dict (`{"január":1, ..., "december":12}`)
+
+**Ellenfél rövidítések**: `CALENDAR_SHORT` dict + `calendar_short_name()` függvény — rövid nevek a naptár cellákhoz (pl. "BKG-PRIMA AKADÉMIA DEBRECEN" → "Debrecen"). Away meccsekhez `@` prefix (pl. `@Debrecen`).
 
 ### Fontos implementációs részletek
 - **Shot classification**: A `player_game_stats` és a csapat dashboard a `points` delta alapján osztályoz (points=3→3FG, points=2→2FG, points=1→FT), NEM a `shot_type` oszlop alapján. A `shot_type` oszlop néha pontatlan (pl. continuation FT-k 3FG-ként jelölve).
@@ -415,22 +440,25 @@ TEAMS config dict
 4. **Más bajnokságok** — A rendszer elvileg bármely MKOSZ bajnokságra működik (NB1, U20, stb.), de csak NB2-re volt tesztelve. Más bajnokságok más PDF template-et használhatnak.
 5. **README.md elavult** — Egyetlen meccsre vonatkozik, a teljes pipeline-t ez a CLAUDE.md dokumentálja.
 6. **`shot_type` oszlop megbízhatatlan** — A `scoring_events.shot_type` a running score grid színezéséből jön, ami néha pontatlan (pl. continuation FT-k 3FG-nek jelölve). Mindig a `points` delta-t használd osztályozásra, NE a `shot_type`-ot.
-7. **Alapszakasz adatok** — A dashboardok jelenleg a 2025/26-os alapszakasz adatait tartalmazzák. Rájátszás/playoff meccsek hozzáadásához a comp_prefix/match_id szűrést kell módosítani.
+7. **Alapszakasz adatok** — A játékos/csapat dashboardok jelenleg a 2025/26-os alapszakasz adatait tartalmazzák (SQLite-ból). A meccsnaptár viszont az MKOSZ weboldalról scrape-el, tehát automatikusan frissül ha rájátszás meccseket kiírnak.
+8. **MKOSZ scraping** — A naptár az MKOSZ oldal HTML struktúrájától függ. Ha az MKOSZ megváltoztatja a táblázat formátumát, a regex-eket frissíteni kell a `scrape_schedule()` függvényben.
 
 ## Lehetséges továbbfejlesztések
 
 - Játékos dashboardokon "Vissza" link az indexre
 - Összesített liga-szintű dashboard (összes csapat)
-- Playoff/rájátszás meccsek integrálása
+- Playoff/rájátszás játékos statisztikák integrálása a dashboardokba (SQLite oldalon)
 - Dobáshatékonyság (FG%, 3FG%) hozzáadása a dashboardokhoz
 - Percenkénti statisztikák (ha a playing time elérhető lenne)
 - Meccs-összefoglaló oldal egy adott meccshez (mindkét csapat nézőpontjából)
+- Naptárban meccsre kattintva részletes stat popup / link a játékos dashboardokhoz
 
-## Aktuális állapot (2026-03-13)
+## Aktuális állapot (2026-03-14)
 
 Minden működik és szinkronban van:
 - ✅ `nb2_full.sqlite` — 368 meccs feldolgozva (alapszakasz, 2025/26)
-- ✅ Dashboardok — 18+18 játékos + 2 csapat dashboard generálva
+- ✅ Dashboardok — 18+18 játékos + 2 csapat + 2 naptár dashboard generálva
+- ✅ Meccsnaptár — MKOSZ weboldalról scrape-elve, lejátszott + jövőbeli meccsek
 - ✅ GitHub Pages — aktív, dashboardok publikusan elérhetők
 - ✅ Google Sites embed — beágyazva a kozgazkosar.hu-n
 - ✅ Minden commit pusholva a GitHub-ra
