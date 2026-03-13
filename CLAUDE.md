@@ -9,6 +9,19 @@ Automatikus feldolgozó rendszer, ami a **Magyar Kosárlabda Szövetség (MKOSZ)
 
 A rendszer képes egy teljes bajnokság összes jegyzőkönyvét automatikusan letölteni az MKOSZ weboldaláról és feldolgozni.
 
+**Tulajdonos kontextus**: A projekt tulajdonosa a **KÖZGÁZ SC ÉS DSK** kosárlabda csapat tagja/edzője. Két csapat érintett:
+- **KÖZGÁZ A** (NB2 Közép B csoport) — a magasabb szintű csapat
+- **KÖZGÁZ B** (NB2 Kelet csoport) — a második csapat
+
+A dashboardok és elemzések elsősorban e két csapatra készülnek, a csapat weboldalán (https://www.kozgazkosar.hu/ — Google Sites) beágyazva jelennek meg.
+
+## Repo & hosting
+
+- **GitHub**: https://github.com/pozsikdani/mkosz-scoresheet
+- **GitHub Pages** (aktív): https://pozsikdani.github.io/mkosz-scoresheet/
+- **gh CLI**: `/opt/homebrew/bin/gh` (nem a default úton)
+- **Nyelv**: Python 3, HTML/JS (Chart.js), SQLite
+
 ## Fájlstruktúra
 
 ```
@@ -33,6 +46,7 @@ mkosz-scoresheet/
 │   ├── index.html
 │   ├── csapat.html
 │   └── *.html               # 18 egyéni játékos dashboard
+├── kadocsa_dashboard.html   # Eredeti önálló Kadocsa Márton dashboard (legacy, superseded by dashboards/)
 ├── nb2_full.sqlite          # Teljes NB2 adatbázis (gitignore-ban, regenerálható)
 └── season.sqlite            # Csak Közgáz meccsek (gitignore-ban)
 ```
@@ -130,6 +144,22 @@ PDF letöltés: https://hunbasketimg.webpont.com/pdf/{season}/{competition}_{gam
 
 ## Fontos tervezési döntések
 
+### team_a = hazai, team_b = vendég
+- `matches.team_a` mindig a **hazai** csapat, `team_b` a **vendég**
+- `scoring_events.team` és `player_game_stats.team` értéke 'A' vagy 'B' — ehhez igazodik
+- Amikor egy KÖZGÁZ meccs adatait nézzük: `CASE WHEN team_a LIKE '%KÖZGÁZ%' THEN 'A' ELSE 'B' END` adja a KÖZGÁZ team kódját
+
+### match_id prefixek (bajnokság azonosítás)
+| Prefix | Bajnokság |
+|--------|-----------|
+| `F2KI` | NB2 Kiemelt |
+| `F2KA` | NB2 Közép A |
+| `F2KB` | NB2 Közép B |
+| `F2KE` | NB2 Kelet |
+| `F2NY` | NB2 Nyugat |
+
+A `match_id` formátum: `{prefix}-{sorszám}`, pl. `F2KB-0011`.
+
 ### license_number az egyedi azonosító
 - A `license_number` (MKOSZ igazolásszám) az EGYETLEN megbízható játékos-azonosító
 - Egy játékos **különböző mezszámot viselhet** különböző meccseken
@@ -168,10 +198,12 @@ PDF letöltés: https://hunbasketimg.webpont.com/pdf/{season}/{competition}_{gam
 
 **2 TYPE3 scoring eltérés** (F2KA-0095: -6, F2KA-0163: -2/-2): a forrás PDF running score grid hiányos (a végső pontok nem szerepelnek a gridben). A meccs-eredmény (`matches.score_a/b`) korrekt, csak a `scoring_events` granularitás érintett.
 
-Korábbi javítások:
-- COL_BOUNDS A*-2/M* határ +3px jobbra tolása (3 jegyű eredmények befogadása)
-- `_try_repair_score()` safety net: csonkított/felfújt eredményértékek javítása
-- TYPE3 template support (8 VMG DSE hazai meccs)
+Korábbi javítások (kronológiai sorrendben):
+1. COL_BOUNDS A*-2/M* határ +3px jobbra tolása (3 jegyű eredmények befogadása)
+2. `_try_repair_score()` safety net: csonkított/felfújt eredményértékek javítása
+3. TYPE3 template support (8 VMG DSE hazai meccs)
+4. **Shot classification fix** (`compute_player_game_stats()`, ~1722. sor): `shot_type` oszlop helyett `points` delta alapú osztályozás. A `shot_type='3FG'` néha 1 vagy 2 pontos eseményeknél is megjelent (continuation FT-k). Javítás: `points=3→fg3, points=2→fg2, points=1→ft_made, points∈{0,1}→ft_attempted`. Liga-szinten 2721 eseményt érintett.
+5. **Game log query fix**: `get_game_log()` a 6. paraméterben `COMP_PREFIX`-et kap (nem `TEAM_PATTERN`-t) a `match_id LIKE ?` feltételhez — különben üres eredmény
 
 ## Hasznos lekérdezések
 
@@ -334,19 +366,71 @@ python3 generate_dashboards.py kozgaz-a      # Csak KÖZGÁZ A
 - **`index.html`** — Áttekintő: kiemelt csapat kártya + játékos lista pontátlag szerint
 - **`{slug}.html`** — Játékos dashboard: pontszerzés trend, dobásmegoszlás, negyedenkénti teljesítmény, ellenfél-elemzés, meccsnapló, erősségek/gyengeségek
 
-### GitHub Pages
-- URL: `https://pozsikdani.github.io/mkosz-scoresheet/dashboards/` (B) és `dashboards-a/` (A)
-- Google Sites beágyazás: `<iframe src="..." width="100%" height="800"></iframe>`
+### GitHub Pages linkek
+| Csapat | Index | Csapat dashboard |
+|--------|-------|-----------------|
+| KÖZGÁZ B | [dashboards/](https://pozsikdani.github.io/mkosz-scoresheet/dashboards/) | [dashboards/csapat.html](https://pozsikdani.github.io/mkosz-scoresheet/dashboards/csapat.html) |
+| KÖZGÁZ A | [dashboards-a/](https://pozsikdani.github.io/mkosz-scoresheet/dashboards-a/) | [dashboards-a/csapat.html](https://pozsikdani.github.io/mkosz-scoresheet/dashboards-a/csapat.html) |
+
+**Google Sites beágyazás**: `<iframe src="https://pozsikdani.github.io/mkosz-scoresheet/dashboards/" width="100%" height="800"></iframe>`
+
+### Frissítési pipeline
+```bash
+# Ha új meccsek kerültek az MKOSZ-re:
+python3 download_scoresheets.py x2526 hun3k ./pdfs/         # Kelet (KÖZGÁZ B)
+python3 download_scoresheets.py x2526 hun3kob ./pdfs/       # Közép B (KÖZGÁZ A)
+python3 extract_scoresheet.py ./pdfs/ --db nb2_full.sqlite  # Feldolgozás
+python3 generate_dashboards.py all                          # Dashboardok újragenerálás
+git add dashboards/ dashboards-a/ && git commit && git push # GitHub Pages frissül
+```
+
+### generate_dashboards.py architektúra
+```
+TEAMS config dict
+  → generate_team(team_key)
+     → _team_like()              — broad vs specific LIKE pattern
+     → get_roster()              — roster lekérdezés (player_game_stats)
+     → Játékosonként:
+     │   → get_game_log()        — meccsenként stat
+     │   → get_quarter_stats()   — negyedenkénti scoring_events
+     │   → get_opponent_ppg()    — ellenfél elleni átlag
+     │   → get_tech_unsport()    — technikai/sportszerűtlen faultok
+     │   → generate_insights()   — erősségek/gyengeségek szöveges elemzés
+     │   → generate_html()       — egyéni HTML dashboard
+     → get_team_stats()          — csapat szintű lekérdezések (record, negyedek, run-ok, forgatókönyvek, lövések, fun facts)
+     → generate_team_dashboard() — csapat HTML dashboard
+     → generate_index()          — áttekintő HTML (csapat kártya + játékos grid)
+```
 
 ### Fontos implementációs részletek
 - **Shot classification**: A `player_game_stats` és a csapat dashboard a `points` delta alapján osztályoz (points=3→3FG, points=2→2FG, points=1→FT), NEM a `shot_type` oszlop alapján. A `shot_type` oszlop néha pontatlan (pl. continuation FT-k 3FG-ként jelölve).
 - **`_team_like()` pattern**: Ha a comp_prefix-ben csak egy KÖZGÁZ csapat szerepel, a broad pattern (`%KÖZGÁZ%`) elég; ha kettő is lenne, a specifikus pattern kell (`%KÖZGÁZ%DSK/B%`).
 - **Scoring run logika**: Window function-nel `opp_run_id`-t számol, a run az ellenfél utolsó pontja UTÁN kezdődik (lásd fentebb a Scoring run fejezetet).
 
-## Ismert limitációk / Következő lépések
+## Ismert limitációk
 
 1. **7 képes PDF (Nyugat, Kandó SC hazai)** — Az egész oldal egyetlen raszterképként van exportálva, PyMuPDF nem tud szöveget kinyerni. OCR-rel feldolgozható lenne. Érintett: Kandó SC (7 meccs) + 7 ellenfél (1-1 meccs).
 2. **2 TYPE3 hiányos grid** — F2KA-0095 és F2KA-0163 running score gridje nem tartalmazza az utolsó pontokat. A meccs-eredmény korrekt, csak a scoring_events részletesség érintett.
 3. **Hosszabbítás (OT)** — A kód kezeli, de kevés OT meccs volt a tesztelésben.
 4. **Más bajnokságok** — A rendszer elvileg bármely MKOSZ bajnokságra működik (NB1, U20, stb.), de csak NB2-re volt tesztelve. Más bajnokságok más PDF template-et használhatnak.
 5. **README.md elavult** — Egyetlen meccsre vonatkozik, a teljes pipeline-t ez a CLAUDE.md dokumentálja.
+6. **`shot_type` oszlop megbízhatatlan** — A `scoring_events.shot_type` a running score grid színezéséből jön, ami néha pontatlan (pl. continuation FT-k 3FG-nek jelölve). Mindig a `points` delta-t használd osztályozásra, NE a `shot_type`-ot.
+7. **Alapszakasz adatok** — A dashboardok jelenleg a 2025/26-os alapszakasz adatait tartalmazzák. Rájátszás/playoff meccsek hozzáadásához a comp_prefix/match_id szűrést kell módosítani.
+
+## Lehetséges továbbfejlesztések
+
+- Játékos dashboardokon "Vissza" link az indexre
+- Összesített liga-szintű dashboard (összes csapat)
+- Playoff/rájátszás meccsek integrálása
+- Dobáshatékonyság (FG%, 3FG%) hozzáadása a dashboardokhoz
+- Percenkénti statisztikák (ha a playing time elérhető lenne)
+- Meccs-összefoglaló oldal egy adott meccshez (mindkét csapat nézőpontjából)
+
+## Aktuális állapot (2026-03-13)
+
+Minden működik és szinkronban van:
+- ✅ `nb2_full.sqlite` — 368 meccs feldolgozva (alapszakasz, 2025/26)
+- ✅ Dashboardok — 18+18 játékos + 2 csapat dashboard generálva
+- ✅ GitHub Pages — aktív, dashboardok publikusan elérhetők
+- ✅ Google Sites embed — beágyazva a kozgazkosar.hu-n
+- ✅ Minden commit pusholva a GitHub-ra
