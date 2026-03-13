@@ -120,7 +120,9 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .match-info{display:flex;flex-direction:column;gap:1px;margin-top:6px}
 .match-opp{font-size:.74rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .match-time{font-size:.62rem;color:var(--text-dim)}
-.match-score{font-size:.72rem;font-weight:700;color:var(--accent2);margin-top:1px}
+.match-score{font-size:.72rem;font-weight:700;margin-top:1px}
+.match-score.win{color:var(--green)}
+.match-score.loss{color:var(--red)}
 
 /* Away indicator */
 .cal-day.away .match-opp{color:var(--text-dim)}
@@ -182,21 +184,21 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
   <div class="match-info">
     <span class="match-opp">@Monori</span>
     <span class="match-time">19:00</span>
-    <span class="match-score">46-88</span>
+    <span class="match-score loss">46-88</span>
   </div>
 </div><div class="cal-day"><span class="day-num">4</span></div><div class="cal-day"><span class="day-num">5</span></div><div class="cal-day"><span class="day-num">6</span></div><div class="cal-day"><span class="day-num">7</span></div><div class="cal-day"><span class="day-num">8</span></div><div class="cal-day"><span class="day-num">9</span></div><div class="cal-day"><span class="day-num">10</span></div><div class="cal-day"><span class="day-num">11</span></div><div class="cal-day"><span class="day-num">12</span></div><div class="cal-day"><span class="day-num">13</span></div><div class="cal-day"><span class="day-num">14</span></div><div class="cal-day"><span class="day-num">15</span></div><div class="cal-day has-match loss away">
   <span class="day-num">16</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">@Kőbánya</span>
     <span class="match-time">20:45</span>
-    <span class="match-score">74-96</span>
+    <span class="match-score loss">74-96</span>
   </div>
 </div><div class="cal-day"><span class="day-num">17</span></div><div class="cal-day"><span class="day-num">18</span></div><div class="cal-day"><span class="day-num">19</span></div><div class="cal-day"><span class="day-num">20</span></div><div class="cal-day"><span class="day-num">21</span></div><div class="cal-day has-match loss home">
   <span class="day-num">22</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">Malév</span>
     <span class="match-time">20:15</span>
-    <span class="match-score">63-94</span>
+    <span class="match-score loss">63-94</span>
   </div>
 </div><div class="cal-day"><span class="day-num">23</span></div><div class="cal-day"><span class="day-num">24</span></div><div class="cal-day"><span class="day-num">25</span></div><div class="cal-day"><span class="day-num">26</span></div><div class="cal-day"><span class="day-num">27</span></div><div class="cal-day"><span class="day-num">28</span></div><div class="cal-day"><span class="day-num">29</span></div><div class="cal-day"><span class="day-num">30</span></div><div class="cal-day"><span class="day-num">31</span></div><div class="cal-day empty"></div><div class="cal-day empty"></div>
     </div>
@@ -210,28 +212,28 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
   <div class="match-info">
     <span class="match-opp">Józsefváro</span>
     <span class="match-time">18:45</span>
-    <span class="match-score">75-80</span>
+    <span class="match-score loss">75-80</span>
   </div>
 </div><div class="cal-day"><span class="day-num">7</span></div><div class="cal-day"><span class="day-num">8</span></div><div class="cal-day"><span class="day-num">9</span></div><div class="cal-day"><span class="day-num">10</span></div><div class="cal-day"><span class="day-num">11</span></div><div class="cal-day"><span class="day-num">12</span></div><div class="cal-day"><span class="day-num">13</span></div><div class="cal-day"><span class="day-num">14</span></div><div class="cal-day"><span class="day-num">15</span></div><div class="cal-day has-match loss away">
   <span class="day-num">16</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">@Békési</span>
     <span class="match-time">17:30</span>
-    <span class="match-score">59-106</span>
+    <span class="match-score loss">59-106</span>
   </div>
 </div><div class="cal-day"><span class="day-num">17</span></div><div class="cal-day"><span class="day-num">18</span></div><div class="cal-day"><span class="day-num">19</span></div><div class="cal-day"><span class="day-num">20</span></div><div class="cal-day"><span class="day-num">21</span></div><div class="cal-day"><span class="day-num">22</span></div><div class="cal-day has-match loss away">
   <span class="day-num">23</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">@Dunaharasz</span>
     <span class="match-time">15:00</span>
-    <span class="match-score">44-110</span>
+    <span class="match-score loss">44-110</span>
   </div>
 </div><div class="cal-day"><span class="day-num">24</span></div><div class="cal-day"><span class="day-num">25</span></div><div class="cal-day"><span class="day-num">26</span></div><div class="cal-day has-match loss home">
   <span class="day-num">27</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">VBW</span>
     <span class="match-time">18:45</span>
-    <span class="match-score">80-92</span>
+    <span class="match-score loss">80-92</span>
   </div>
 </div><div class="cal-day"><span class="day-num">28</span></div><div class="cal-day"><span class="day-num">29</span></div><div class="cal-day"><span class="day-num">30</span></div>
     </div>
@@ -245,14 +247,14 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
   <div class="match-info">
     <span class="match-opp">@Szolnok</span>
     <span class="match-time">19:00</span>
-    <span class="match-score">42-103</span>
+    <span class="match-score loss">42-103</span>
   </div>
 </div><div class="cal-day"><span class="day-num">6</span></div><div class="cal-day"><span class="day-num">7</span></div><div class="cal-day"><span class="day-num">8</span></div><div class="cal-day"><span class="day-num">9</span></div><div class="cal-day"><span class="day-num">10</span></div><div class="cal-day has-match loss home">
   <span class="day-num">11</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">Monori</span>
     <span class="match-time">18:45</span>
-    <span class="match-score">71-116</span>
+    <span class="match-score loss">71-116</span>
   </div>
 </div><div class="cal-day"><span class="day-num">12</span></div><div class="cal-day"><span class="day-num">13</span></div><div class="cal-day"><span class="day-num">14</span></div><div class="cal-day"><span class="day-num">15</span></div><div class="cal-day"><span class="day-num">16</span></div><div class="cal-day"><span class="day-num">17</span></div><div class="cal-day"><span class="day-num">18</span></div><div class="cal-day"><span class="day-num">19</span></div><div class="cal-day"><span class="day-num">20</span></div><div class="cal-day"><span class="day-num">21</span></div><div class="cal-day"><span class="day-num">22</span></div><div class="cal-day"><span class="day-num">23</span></div><div class="cal-day"><span class="day-num">24</span></div><div class="cal-day"><span class="day-num">25</span></div><div class="cal-day"><span class="day-num">26</span></div><div class="cal-day"><span class="day-num">27</span></div><div class="cal-day"><span class="day-num">28</span></div><div class="cal-day"><span class="day-num">29</span></div><div class="cal-day"><span class="day-num">30</span></div><div class="cal-day"><span class="day-num">31</span></div><div class="cal-day empty"></div><div class="cal-day empty"></div><div class="cal-day empty"></div><div class="cal-day empty"></div>
     </div>
@@ -266,21 +268,21 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
   <div class="match-info">
     <span class="match-opp">@Józsefváro</span>
     <span class="match-time">20:20</span>
-    <span class="match-score">60-55</span>
+    <span class="match-score win">60-55</span>
   </div>
 </div><div class="cal-day"><span class="day-num">15</span></div><div class="cal-day"><span class="day-num">16</span></div><div class="cal-day"><span class="day-num">17</span></div><div class="cal-day"><span class="day-num">18</span></div><div class="cal-day has-match loss home">
   <span class="day-num">19</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">Kőbánya</span>
     <span class="match-time">20:15</span>
-    <span class="match-score">77-79</span>
+    <span class="match-score loss">77-79</span>
   </div>
 </div><div class="cal-day"><span class="day-num">20</span></div><div class="cal-day"><span class="day-num">21</span></div><div class="cal-day has-match loss away">
   <span class="day-num">22</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">@Malév</span>
     <span class="match-time">20:00</span>
-    <span class="match-score">44-84</span>
+    <span class="match-score loss">44-84</span>
   </div>
 </div><div class="cal-day"><span class="day-num">23</span></div><div class="cal-day"><span class="day-num">24</span></div><div class="cal-day"><span class="day-num">25</span></div><div class="cal-day"><span class="day-num">26</span></div><div class="cal-day"><span class="day-num">27</span></div><div class="cal-day"><span class="day-num">28</span></div><div class="cal-day"><span class="day-num">29</span></div><div class="cal-day"><span class="day-num">30</span></div><div class="cal-day"><span class="day-num">31</span></div><div class="cal-day empty"></div>
     </div>
@@ -294,21 +296,21 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
   <div class="match-info">
     <span class="match-opp">Békési</span>
     <span class="match-time">18:45</span>
-    <span class="match-score">80-56</span>
+    <span class="match-score win">80-56</span>
   </div>
 </div><div class="cal-day"><span class="day-num">12</span></div><div class="cal-day"><span class="day-num">13</span></div><div class="cal-day"><span class="day-num">14</span></div><div class="cal-day"><span class="day-num">15</span></div><div class="cal-day"><span class="day-num">16</span></div><div class="cal-day"><span class="day-num">17</span></div><div class="cal-day"><span class="day-num">18</span></div><div class="cal-day has-match loss home">
   <span class="day-num">19</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">Dunaharasz</span>
     <span class="match-time">18:45</span>
-    <span class="match-score">63-91</span>
+    <span class="match-score loss">63-91</span>
   </div>
 </div><div class="cal-day"><span class="day-num">20</span></div><div class="cal-day"><span class="day-num">21</span></div><div class="cal-day"><span class="day-num">22</span></div><div class="cal-day"><span class="day-num">23</span></div><div class="cal-day"><span class="day-num">24</span></div><div class="cal-day"><span class="day-num">25</span></div><div class="cal-day"><span class="day-num">26</span></div><div class="cal-day has-match loss away">
   <span class="day-num">27</span><span class="match-badge l">L</span>
   <div class="match-info">
     <span class="match-opp">@VBW</span>
     <span class="match-time">20:30</span>
-    <span class="match-score">66-82</span>
+    <span class="match-score loss">66-82</span>
   </div>
 </div><div class="cal-day"><span class="day-num">28</span></div><div class="cal-day empty"></div>
     </div>
@@ -322,7 +324,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
   <div class="match-info">
     <span class="match-opp">Szolnok</span>
     <span class="match-time">18:45</span>
-    <span class="match-score">68-90</span>
+    <span class="match-score loss">68-90</span>
   </div>
 </div><div class="cal-day"><span class="day-num">6</span></div><div class="cal-day"><span class="day-num">7</span></div><div class="cal-day"><span class="day-num">8</span></div><div class="cal-day"><span class="day-num">9</span></div><div class="cal-day"><span class="day-num">10</span></div><div class="cal-day"><span class="day-num">11</span></div><div class="cal-day"><span class="day-num">12</span></div><div class="cal-day"><span class="day-num">13</span></div><div class="cal-day"><span class="day-num">14</span></div><div class="cal-day"><span class="day-num">15</span></div><div class="cal-day"><span class="day-num">16</span></div><div class="cal-day"><span class="day-num">17</span></div><div class="cal-day"><span class="day-num">18</span></div><div class="cal-day"><span class="day-num">19</span></div><div class="cal-day"><span class="day-num">20</span></div><div class="cal-day"><span class="day-num">21</span></div><div class="cal-day"><span class="day-num">22</span></div><div class="cal-day"><span class="day-num">23</span></div><div class="cal-day"><span class="day-num">24</span></div><div class="cal-day"><span class="day-num">25</span></div><div class="cal-day"><span class="day-num">26</span></div><div class="cal-day"><span class="day-num">27</span></div><div class="cal-day"><span class="day-num">28</span></div><div class="cal-day"><span class="day-num">29</span></div><div class="cal-day"><span class="day-num">30</span></div><div class="cal-day"><span class="day-num">31</span></div><div class="cal-day empty"></div><div class="cal-day empty"></div><div class="cal-day empty"></div><div class="cal-day empty"></div><div class="cal-day empty"></div>
     </div>

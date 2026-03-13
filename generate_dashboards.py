@@ -1427,7 +1427,8 @@ def generate_calendar(matches, cfg):
                     wl = "win" if mi["win"] else "loss"
                     badge = "W" if mi["win"] else "L"
                     bc = "w" if mi["win"] else "l"
-                    score_line = f'<span class="match-score">{mi["score"]}</span>'
+                    sc_class = "win" if mi["win"] else "loss"
+                    score_line = f'<span class="match-score {sc_class}">{mi["score"]}</span>'
                 else:
                     wl = "upcoming"
                     badge = ""
@@ -1595,7 +1596,9 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
 .match-info{{display:flex;flex-direction:column;gap:1px;margin-top:6px}}
 .match-opp{{font-size:.74rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 .match-time{{font-size:.62rem;color:var(--text-dim)}}
-.match-score{{font-size:.72rem;font-weight:700;color:var(--accent2);margin-top:1px}}
+.match-score{{font-size:.72rem;font-weight:700;margin-top:1px}}
+.match-score.win{{color:var(--green)}}
+.match-score.loss{{color:var(--red)}}
 
 /* Away indicator */
 .cal-day.away .match-opp{{color:var(--text-dim)}}
