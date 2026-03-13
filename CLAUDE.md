@@ -1,7 +1,7 @@
 # MKOSZ Scoresheet Extractor — Project Documentation
 
 > Ez a fájl azért készült, hogy egy új Claude session (vagy bárki más) teljes kontextust kapjon a projektről.
-> Utolsó frissítés: 2026-03-12.
+> Utolsó frissítés: 2026-03-13.
 
 ## Mi ez a projekt?
 
@@ -24,6 +24,15 @@ mkosz-scoresheet/
 │   ├── hun3kob_*.pdf        # NB2 Közép B (72 meccs)
 │   ├── hun3k_*.pdf          # NB2 Kelet (72 meccs)
 │   └── hun3n_*.pdf          # NB2 Nyugat (72 meccs)
+├── generate_dashboards.py   # Játékos + csapat dashboard generátor (Chart.js HTML)
+├── dashboards/              # KÖZGÁZ B generált dashboardok (GitHub Pages)
+│   ├── index.html           # Áttekintő oldal (csapat kártya + játékos lista)
+│   ├── csapat.html          # Csapat statisztikák dashboard
+│   └── *.html               # 18 egyéni játékos dashboard
+├── dashboards-a/            # KÖZGÁZ A generált dashboardok (GitHub Pages)
+│   ├── index.html
+│   ├── csapat.html
+│   └── *.html               # 18 egyéni játékos dashboard
 ├── nb2_full.sqlite          # Teljes NB2 adatbázis (gitignore-ban, regenerálható)
 └── season.sqlite            # Csak Közgáz meccsek (gitignore-ban)
 ```
@@ -300,6 +309,39 @@ PDF → PyMuPDF karakter-kinyerés
   → compute_player_game_stats()   → player_game_stats tábla
      └─ JOIN on license_number (jersey fallback)
 ```
+
+## Dashboard generátor (generate_dashboards.py)
+
+Interaktív HTML dashboardokat generál Chart.js-sel, GitHub Pages-en hostolva.
+
+### Használat
+```bash
+python3 generate_dashboards.py all           # Mindkét csapat
+python3 generate_dashboards.py kozgaz-b      # Csak KÖZGÁZ B
+python3 generate_dashboards.py kozgaz-a      # Csak KÖZGÁZ A
+```
+
+### Csapat konfiguráció (TEAMS dict)
+| Kulcs | team_pattern | comp_prefix | out_dir |
+|-------|-------------|-------------|---------|
+| `kozgaz-b` | `%KÖZGÁZ%DSK/B%` | `F2KE%` | `dashboards/` |
+| `kozgaz-a` | `%KÖZGÁZ%DSK/A%` | `F2KB%` | `dashboards-a/` |
+
+Új csapat hozzáadása: TEAMS dict bővítése + `python3 generate_dashboards.py <key>`.
+
+### Generált fájlok csapatonként
+- **`csapat.html`** — Csapat dashboard: W-L mérleg, negyedenkénti átlagok, pontmegoszlás (2FG/3FG/FT), forgatókönyvek (félidő/3Q vezet/hátrányban), top 5 saját + kapott scoring run, meccsnapló, fun facts
+- **`index.html`** — Áttekintő: kiemelt csapat kártya + játékos lista pontátlag szerint
+- **`{slug}.html`** — Játékos dashboard: pontszerzés trend, dobásmegoszlás, negyedenkénti teljesítmény, ellenfél-elemzés, meccsnapló, erősségek/gyengeségek
+
+### GitHub Pages
+- URL: `https://pozsikdani.github.io/mkosz-scoresheet/dashboards/` (B) és `dashboards-a/` (A)
+- Google Sites beágyazás: `<iframe src="..." width="100%" height="800"></iframe>`
+
+### Fontos implementációs részletek
+- **Shot classification**: A `player_game_stats` és a csapat dashboard a `points` delta alapján osztályoz (points=3→3FG, points=2→2FG, points=1→FT), NEM a `shot_type` oszlop alapján. A `shot_type` oszlop néha pontatlan (pl. continuation FT-k 3FG-ként jelölve).
+- **`_team_like()` pattern**: Ha a comp_prefix-ben csak egy KÖZGÁZ csapat szerepel, a broad pattern (`%KÖZGÁZ%`) elég; ha kettő is lenne, a specifikus pattern kell (`%KÖZGÁZ%DSK/B%`).
+- **Scoring run logika**: Window function-nel `opp_run_id`-t számol, a run az ellenfél utolsó pontja UTÁN kezdődik (lásd fentebb a Scoring run fejezetet).
 
 ## Ismert limitációk / Következő lépések
 
