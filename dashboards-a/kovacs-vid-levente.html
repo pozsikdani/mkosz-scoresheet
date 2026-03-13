@@ -78,6 +78,12 @@
   .shot-bar-inner { height:100%; border-radius:8px; display:flex; align-items:center; padding-left:10px; font-size:0.75rem; font-weight:700; color:#fff; }
   .shot-pct { font-size:0.8rem; font-weight:600; width:45px; text-align:right; flex-shrink:0; }
   .mb20 { margin-bottom:20px; }
+  .back-link {
+    display:inline-block; color:var(--text-dim); text-decoration:none;
+    font-size:0.82rem; font-weight:600; margin-bottom:16px; opacity:0.7;
+    transition:color 0.2s, opacity 0.2s;
+  }
+  .back-link:hover { color:var(--accent); opacity:1; }
   @media (max-width:900px) {
     .grid-2,.grid-4 { grid-template-columns:1fr; }
     .header { flex-direction:column; text-align:center; }
@@ -87,6 +93,7 @@
 </head>
 <body>
 <div class="dashboard">
+  <a href="index.html" class="back-link">&larr; Csapat áttekintő</a>
   <div class="header">
     <div class="header-info">
       <h1>KOVÁCS VID LEVENTE</h1>
