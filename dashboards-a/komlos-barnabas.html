@@ -97,7 +97,7 @@
     <div class="header-stats">
       <div class="header-stat"><div class="val accent">3.8</div><div class="label">PPG</div></div>
       <div class="header-stat"><div class="val green">5</div><div class="label">Meccs</div></div>
-      <div class="header-stat"><div class="val pink">3</div><div class="label">3FG</div></div>
+      <div class="header-stat"><div class="val pink">2</div><div class="label">3FG</div></div>
       <div class="header-stat"><div class="val" style="color:var(--accent4)">7</div><div class="label">Csúcs</div></div>
     </div>
   </div>
@@ -117,17 +117,17 @@
       <div style="margin-top:20px;">
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent)">3FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:90%;background:var(--accent);">3 db</div></div>
-          <div class="shot-pct" style="color:var(--accent)">9 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:50%;background:var(--accent);">2 db</div></div>
+          <div class="shot-pct" style="color:var(--accent)">6 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent2)">2FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:100%;background:var(--accent2);">5 db</div></div>
-          <div class="shot-pct" style="color:var(--accent2)">10 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:100%;background:var(--accent2);">6 db</div></div>
+          <div class="shot-pct" style="color:var(--accent2)">12 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent4)">FT</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:10%;background:var(--accent4);">1/2</div></div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:8%;background:var(--accent4);">1/2</div></div>
           <div class="shot-pct" style="color:var(--accent4)">1 pt</div>
         </div>
       </div>
@@ -174,7 +174,7 @@ Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
 Chart.defaults.font.family="'Inter',sans-serif";
 
-const games = [{"date": "10.03", "opp": "Monori Se", "res": "L", "pts": 7, "fg2": 1, "fg3": 2, "ft": "0/0", "pf": 4, "share": 15.2, "start": true}, {"date": "10.16", "opp": "Kőbánya Oldboys", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 1, "share": 0.0, "start": true}, {"date": "10.22", "opp": "Malév Sc", "res": "L", "pts": 3, "fg2": 1, "fg3": 0, "ft": "1/2", "pf": 0, "share": 4.8, "start": false}, {"date": "11.06", "opp": "Józsefvárosi Kc", "res": "L", "pts": null}, {"date": "11.16", "opp": "Békési Szsk", "res": "L", "pts": null}, {"date": "11.23", "opp": "Dunaharaszti Mtk Ii.", "res": "L", "pts": 5, "fg2": 1, "fg3": 1, "ft": "0/0", "pf": 2, "share": 11.4, "start": true}, {"date": "11.27", "opp": "Vbw Cekk Cegléd", "res": "L", "pts": 4, "fg2": 2, "fg3": 0, "ft": "0/0", "pf": 3, "share": 5.0, "start": true}, {"date": "12.05", "opp": "Szolnok Evolution", "res": "L", "pts": null}, {"date": "12.11", "opp": "Monori Se", "res": "L", "pts": null}, {"date": "01.14", "opp": "Józsefvárosi Kc", "res": "W", "pts": null}, {"date": "01.19", "opp": "Kőbánya Oldboys", "res": "L", "pts": null}, {"date": "01.22", "opp": "Malév Sc", "res": "L", "pts": null}, {"date": "02.11", "opp": "Békési Szsk", "res": "W", "pts": null}, {"date": "02.19", "opp": "Dunaharaszti Mtk Ii.", "res": "L", "pts": null}, {"date": "02.27", "opp": "Vbw Cekk Cegléd", "res": "L", "pts": null}, {"date": "03.05", "opp": "Szolnok Evolution", "res": "L", "pts": null}];
+const games = [{"date": "10.03", "opp": "Monori Se", "res": "L", "pts": 7, "fg2": 2, "fg3": 1, "ft": "0/0", "pf": 4, "share": 15.2, "start": true}, {"date": "10.16", "opp": "Kőbánya Oldboys", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 1, "share": 0.0, "start": true}, {"date": "10.22", "opp": "Malév Sc", "res": "L", "pts": 3, "fg2": 1, "fg3": 0, "ft": "1/2", "pf": 0, "share": 4.8, "start": false}, {"date": "11.06", "opp": "Józsefvárosi Kc", "res": "L", "pts": null}, {"date": "11.16", "opp": "Békési Szsk", "res": "L", "pts": null}, {"date": "11.23", "opp": "Dunaharaszti Mtk Ii.", "res": "L", "pts": 5, "fg2": 1, "fg3": 1, "ft": "0/0", "pf": 2, "share": 11.4, "start": true}, {"date": "11.27", "opp": "Vbw Cekk Cegléd", "res": "L", "pts": 4, "fg2": 2, "fg3": 0, "ft": "0/0", "pf": 3, "share": 5.0, "start": true}, {"date": "12.05", "opp": "Szolnok Evolution", "res": "L", "pts": null}, {"date": "12.11", "opp": "Monori Se", "res": "L", "pts": null}, {"date": "01.14", "opp": "Józsefvárosi Kc", "res": "W", "pts": null}, {"date": "01.19", "opp": "Kőbánya Oldboys", "res": "L", "pts": null}, {"date": "01.22", "opp": "Malév Sc", "res": "L", "pts": null}, {"date": "02.11", "opp": "Békési Szsk", "res": "W", "pts": null}, {"date": "02.19", "opp": "Dunaharaszti Mtk Ii.", "res": "L", "pts": null}, {"date": "02.27", "opp": "Vbw Cekk Cegléd", "res": "L", "pts": null}, {"date": "03.05", "opp": "Szolnok Evolution", "res": "L", "pts": null}];
 const maxPts = 7;
 
 const tbody = document.getElementById('gameLogBody');
@@ -222,8 +222,8 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {
 new Chart(document.getElementById('shotPie').getContext('2d'), {
   type:'doughnut',
   data: {
-    labels:['3FG (9 pt)','2FG (10 pt)','FT (1 pt)'],
-    datasets:[{ data:[9,10,1], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }]
+    labels:['3FG (6 pt)','2FG (12 pt)','FT (1 pt)'],
+    datasets:[{ data:[6,12,1], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }]
   },
   options: { responsive:true, maintainAspectRatio:false, cutout:'60%',
     plugins:{ legend:{ position:'right', labels:{ padding:12, usePointStyle:true, font:{size:11} } } }

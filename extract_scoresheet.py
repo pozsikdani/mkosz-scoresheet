@@ -1720,10 +1720,10 @@ def compute_player_game_stats(conn, match_id):
         LEFT JOIN (
             SELECT match_id, team, license_number, jersey_number,
                 SUM(points) AS points,
-                SUM(CASE WHEN shot_type='2FG' AND made=1 THEN 1 ELSE 0 END) AS fg2_made,
-                SUM(CASE WHEN shot_type='3FG' AND made=1 THEN 1 ELSE 0 END) AS fg3_made,
-                SUM(CASE WHEN shot_type='FT' AND made=1 THEN 1 ELSE 0 END) AS ft_made,
-                SUM(CASE WHEN shot_type='FT' THEN 1 ELSE 0 END) AS ft_att
+                SUM(CASE WHEN made=1 AND points=2 THEN 1 ELSE 0 END) AS fg2_made,
+                SUM(CASE WHEN made=1 AND points=3 THEN 1 ELSE 0 END) AS fg3_made,
+                SUM(CASE WHEN made=1 AND points=1 THEN 1 ELSE 0 END) AS ft_made,
+                SUM(CASE WHEN points IN (0,1) THEN 1 ELSE 0 END) AS ft_att
             FROM scoring_events
             WHERE match_id = ?
             GROUP BY match_id, team,

@@ -97,13 +97,13 @@
     <div class="header-stats">
       <div class="header-stat"><div class="val accent">15.0</div><div class="label">PPG</div></div>
       <div class="header-stat"><div class="val green">4</div><div class="label">Meccs</div></div>
-      <div class="header-stat"><div class="val pink">9</div><div class="label">3FG</div></div>
+      <div class="header-stat"><div class="val pink">3</div><div class="label">3FG</div></div>
       <div class="header-stat"><div class="val" style="color:var(--accent4)">20</div><div class="label">Csúcs</div></div>
     </div>
   </div>
   <div class="grid grid-4 mb20">
     <div class="card mini-stat"><div class="big" style="color:var(--accent)">60</div><div class="desc">Összes pont</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">62%</div><div class="desc">FT% (10/16)</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">65%</div><div class="desc">FT% (11/17)</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent3)">2.5</div><div class="desc">Fault / meccs</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent4)">21.7%</div><div class="desc">Csapat pont részesedés</div></div>
   </div>
@@ -117,18 +117,18 @@
       <div style="margin-top:20px;">
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent)">3FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:90%;background:var(--accent);">9 db</div></div>
-          <div class="shot-pct" style="color:var(--accent)">27 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:22%;background:var(--accent);">3 db</div></div>
+          <div class="shot-pct" style="color:var(--accent)">9 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent2)">2FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:100%;background:var(--accent2);">15 db</div></div>
-          <div class="shot-pct" style="color:var(--accent2)">30 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:100%;background:var(--accent2);">20 db</div></div>
+          <div class="shot-pct" style="color:var(--accent2)">40 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent4)">FT</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:33%;background:var(--accent4);">10/16</div></div>
-          <div class="shot-pct" style="color:var(--accent4)">10 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:28%;background:var(--accent4);">11/17</div></div>
+          <div class="shot-pct" style="color:var(--accent4)">11 pt</div>
         </div>
       </div>
       <div style="margin-top:20px;"><div class="chart-wrap" style="height:160px;"><canvas id="shotPie"></canvas></div></div>
@@ -174,7 +174,7 @@ Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
 Chart.defaults.font.family="'Inter',sans-serif";
 
-const games = [{"date": "10.03", "opp": "Monori Se", "res": "L", "pts": null}, {"date": "10.16", "opp": "Kőbánya Oldboys", "res": "L", "pts": null}, {"date": "10.22", "opp": "Malév Sc", "res": "L", "pts": null}, {"date": "11.06", "opp": "Józsefvárosi Kc", "res": "L", "pts": null}, {"date": "11.16", "opp": "Békési Szsk", "res": "L", "pts": null}, {"date": "11.23", "opp": "Dunaharaszti Mtk Ii.", "res": "L", "pts": null}, {"date": "11.27", "opp": "Vbw Cekk Cegléd", "res": "L", "pts": null}, {"date": "12.05", "opp": "Szolnok Evolution", "res": "L", "pts": null}, {"date": "12.11", "opp": "Monori Se", "res": "L", "pts": null}, {"date": "01.14", "opp": "Józsefvárosi Kc", "res": "W", "pts": null}, {"date": "01.19", "opp": "Kőbánya Oldboys", "res": "L", "pts": null}, {"date": "01.22", "opp": "Malév Sc", "res": "L", "pts": null}, {"date": "02.11", "opp": "Békési Szsk", "res": "W", "pts": 11, "fg2": 4, "fg3": 1, "ft": "0/3", "pf": 3, "share": 13.8, "start": false}, {"date": "02.19", "opp": "Dunaharaszti Mtk Ii.", "res": "L", "pts": 19, "fg2": 4, "fg3": 3, "ft": "6/7", "pf": 4, "share": 30.2, "start": true}, {"date": "02.27", "opp": "Vbw Cekk Cegléd", "res": "L", "pts": 20, "fg2": 6, "fg3": 2, "ft": "2/4", "pf": 2, "share": 30.3, "start": true}, {"date": "03.05", "opp": "Szolnok Evolution", "res": "L", "pts": 10, "fg2": 1, "fg3": 3, "ft": "2/2", "pf": 1, "share": 14.7, "start": true}];
+const games = [{"date": "10.03", "opp": "Monori Se", "res": "L", "pts": null}, {"date": "10.16", "opp": "Kőbánya Oldboys", "res": "L", "pts": null}, {"date": "10.22", "opp": "Malév Sc", "res": "L", "pts": null}, {"date": "11.06", "opp": "Józsefvárosi Kc", "res": "L", "pts": null}, {"date": "11.16", "opp": "Békési Szsk", "res": "L", "pts": null}, {"date": "11.23", "opp": "Dunaharaszti Mtk Ii.", "res": "L", "pts": null}, {"date": "11.27", "opp": "Vbw Cekk Cegléd", "res": "L", "pts": null}, {"date": "12.05", "opp": "Szolnok Evolution", "res": "L", "pts": null}, {"date": "12.11", "opp": "Monori Se", "res": "L", "pts": null}, {"date": "01.14", "opp": "Józsefvárosi Kc", "res": "W", "pts": null}, {"date": "01.19", "opp": "Kőbánya Oldboys", "res": "L", "pts": null}, {"date": "01.22", "opp": "Malév Sc", "res": "L", "pts": null}, {"date": "02.11", "opp": "Békési Szsk", "res": "W", "pts": 11, "fg2": 4, "fg3": 1, "ft": "0/3", "pf": 3, "share": 13.8, "start": false}, {"date": "02.19", "opp": "Dunaharaszti Mtk Ii.", "res": "L", "pts": 19, "fg2": 6, "fg3": 0, "ft": "7/8", "pf": 4, "share": 30.2, "start": true}, {"date": "02.27", "opp": "Vbw Cekk Cegléd", "res": "L", "pts": 20, "fg2": 6, "fg3": 2, "ft": "2/4", "pf": 2, "share": 30.3, "start": true}, {"date": "03.05", "opp": "Szolnok Evolution", "res": "L", "pts": 10, "fg2": 4, "fg3": 0, "ft": "2/2", "pf": 1, "share": 14.7, "start": true}];
 const maxPts = 20;
 
 const tbody = document.getElementById('gameLogBody');
@@ -222,8 +222,8 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {
 new Chart(document.getElementById('shotPie').getContext('2d'), {
   type:'doughnut',
   data: {
-    labels:['3FG (27 pt)','2FG (30 pt)','FT (10 pt)'],
-    datasets:[{ data:[27,30,10], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }]
+    labels:['3FG (9 pt)','2FG (40 pt)','FT (11 pt)'],
+    datasets:[{ data:[9,40,11], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }]
   },
   options: { responsive:true, maintainAspectRatio:false, cutout:'60%',
     plugins:{ legend:{ position:'right', labels:{ padding:12, usePointStyle:true, font:{size:11} } } }

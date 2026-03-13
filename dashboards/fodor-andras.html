@@ -97,7 +97,7 @@
     <div class="header-stats">
       <div class="header-stat"><div class="val accent">2.2</div><div class="label">PPG</div></div>
       <div class="header-stat"><div class="val green">16</div><div class="label">Meccs</div></div>
-      <div class="header-stat"><div class="val pink">1</div><div class="label">3FG</div></div>
+      <div class="header-stat"><div class="val pink">0</div><div class="label">3FG</div></div>
       <div class="header-stat"><div class="val" style="color:var(--accent4)">6</div><div class="label">Csúcs</div></div>
     </div>
   </div>
@@ -117,17 +117,17 @@
       <div style="margin-top:20px;">
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent)">3FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:10%;background:var(--accent);">1 db</div></div>
-          <div class="shot-pct" style="color:var(--accent)">3 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:0%;background:var(--accent);">0 db</div></div>
+          <div class="shot-pct" style="color:var(--accent)">0 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent2)">2FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:100%;background:var(--accent2);">15 db</div></div>
-          <div class="shot-pct" style="color:var(--accent2)">30 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:100%;background:var(--accent2);">16 db</div></div>
+          <div class="shot-pct" style="color:var(--accent2)">32 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent4)">FT</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:10%;background:var(--accent4);">3/8</div></div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:9%;background:var(--accent4);">3/8</div></div>
           <div class="shot-pct" style="color:var(--accent4)">3 pt</div>
         </div>
       </div>
@@ -174,7 +174,7 @@ Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
 Chart.defaults.font.family="'Inter',sans-serif";
 
-const games = [{"date": "10.07", "opp": "Sunshine-NYÍKSE", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 0, "share": 0.0, "start": false}, {"date": "10.09", "opp": "Újpest-Mt", "res": "W", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 3, "share": 2.2, "start": true}, {"date": "10.16", "opp": "Blf Se", "res": "L", "pts": 4, "fg2": 1, "fg3": 1, "ft": "0/0", "pf": 4, "share": 5.4, "start": true}, {"date": "10.22", "opp": "Szerencs Vse", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 4, "share": 0.0, "start": true}, {"date": "11.06", "opp": "BKG-Prima Deb.", "res": "L", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 4, "share": 2.8, "start": false}, {"date": "11.20", "opp": "Bp. Bikák", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 1, "share": 0.0, "start": false}, {"date": "11.25", "opp": "BKG-Veresegyh.", "res": "L", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 3, "share": 2.8, "start": false}, {"date": "12.06", "opp": "Fke Sas", "res": "L", "pts": 4, "fg2": 2, "fg3": 0, "ft": "0/0", "pf": 4, "share": 6.2, "start": false}, {"date": "01.09", "opp": "Sunshine-NYÍKSE", "res": "W", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 2, "share": 2.9, "start": true}, {"date": "01.15", "opp": "Blf Se", "res": "L", "pts": 4, "fg2": 2, "fg3": 0, "ft": "0/0", "pf": 4, "share": 5.1, "start": true}, {"date": "01.22", "opp": "Szerencs Vse", "res": "L", "pts": 1, "fg2": 0, "fg3": 0, "ft": "1/2", "pf": 1, "share": 1.5, "start": false}, {"date": "01.29", "opp": "Újpest-Mt", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 1, "share": 0.0, "start": false}, {"date": "02.17", "opp": "Bp. Bikák", "res": "L", "pts": 5, "fg2": 2, "fg3": 0, "ft": "1/2", "pf": 2, "share": 8.5, "start": false}, {"date": "02.19", "opp": "BKG-Prima Deb.", "res": "W", "pts": 6, "fg2": 3, "fg3": 0, "ft": "0/2", "pf": 1, "share": 7.4, "start": false}, {"date": "03.01", "opp": "BKG-Veresegyh.", "res": "L", "pts": 1, "fg2": 0, "fg3": 0, "ft": "1/2", "pf": 4, "share": 1.0, "start": false}, {"date": "03.03", "opp": "Fke Sas", "res": "W", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 3, "share": 2.1, "start": false}];
+const games = [{"date": "10.07", "opp": "Sunshine-NYÍKSE", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 0, "share": 0.0, "start": false}, {"date": "10.09", "opp": "Újpest-Mt", "res": "W", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 3, "share": 2.2, "start": true}, {"date": "10.16", "opp": "Blf Se", "res": "L", "pts": 4, "fg2": 2, "fg3": 0, "ft": "0/0", "pf": 4, "share": 5.4, "start": true}, {"date": "10.22", "opp": "Szerencs Vse", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 4, "share": 0.0, "start": true}, {"date": "11.06", "opp": "BKG-Prima Deb.", "res": "L", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 4, "share": 2.8, "start": false}, {"date": "11.20", "opp": "Bp. Bikák", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 1, "share": 0.0, "start": false}, {"date": "11.25", "opp": "BKG-Veresegyh.", "res": "L", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 3, "share": 2.8, "start": false}, {"date": "12.06", "opp": "Fke Sas", "res": "L", "pts": 4, "fg2": 2, "fg3": 0, "ft": "0/0", "pf": 4, "share": 6.2, "start": false}, {"date": "01.09", "opp": "Sunshine-NYÍKSE", "res": "W", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 2, "share": 2.9, "start": true}, {"date": "01.15", "opp": "Blf Se", "res": "L", "pts": 4, "fg2": 2, "fg3": 0, "ft": "0/0", "pf": 4, "share": 5.1, "start": true}, {"date": "01.22", "opp": "Szerencs Vse", "res": "L", "pts": 1, "fg2": 0, "fg3": 0, "ft": "1/2", "pf": 1, "share": 1.5, "start": false}, {"date": "01.29", "opp": "Újpest-Mt", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 1, "share": 0.0, "start": false}, {"date": "02.17", "opp": "Bp. Bikák", "res": "L", "pts": 5, "fg2": 2, "fg3": 0, "ft": "1/2", "pf": 2, "share": 8.5, "start": false}, {"date": "02.19", "opp": "BKG-Prima Deb.", "res": "W", "pts": 6, "fg2": 3, "fg3": 0, "ft": "0/2", "pf": 1, "share": 7.4, "start": false}, {"date": "03.01", "opp": "BKG-Veresegyh.", "res": "L", "pts": 1, "fg2": 0, "fg3": 0, "ft": "1/2", "pf": 4, "share": 1.0, "start": false}, {"date": "03.03", "opp": "Fke Sas", "res": "W", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/0", "pf": 3, "share": 2.1, "start": false}];
 const maxPts = 6;
 
 const tbody = document.getElementById('gameLogBody');
@@ -222,8 +222,8 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {
 new Chart(document.getElementById('shotPie').getContext('2d'), {
   type:'doughnut',
   data: {
-    labels:['3FG (3 pt)','2FG (30 pt)','FT (3 pt)'],
-    datasets:[{ data:[3,30,3], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }]
+    labels:['3FG (0 pt)','2FG (32 pt)','FT (3 pt)'],
+    datasets:[{ data:[0,32,3], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }]
   },
   options: { responsive:true, maintainAspectRatio:false, cutout:'60%',
     plugins:{ legend:{ position:'right', labels:{ padding:12, usePointStyle:true, font:{size:11} } } }
