@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KÖZGÁZ B — Játékos Dashboardok 2025/26</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  :root {
+    --bg:#0f1117; --card:#1a1d27; --card-hover:#22263a;
+    --accent:#6c5ce7; --accent2:#00cec9; --text:#e8e8f0; --text-dim:#8b8da0;
+    --border:rgba(255,255,255,0.06);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px; }
+  .container { max-width:900px; margin:0 auto; }
+  .team-header {
+    text-align:center; padding:40px 20px 30px;
+    background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 100%);
+    border-radius:20px; margin-bottom:30px; border:1px solid var(--border);
+  }
+  .team-header h1 {
+    font-size:2.2rem; font-weight:900;
+    background:linear-gradient(135deg,#fff 30%,var(--accent) 100%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .team-header .sub { color:var(--text-dim); margin-top:6px; font-size:0.95rem; }
+  .team-header .sub span { color:var(--accent2); font-weight:600; }
+
+  .player-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+  .player-card {
+    display:flex; align-items:center; gap:16px;
+    background:var(--card); border-radius:14px; padding:18px 20px;
+    border:1px solid var(--border); text-decoration:none; color:var(--text);
+    transition:all 0.2s;
+  }
+  .player-card:hover {
+    background:var(--card-hover); border-color:var(--accent);
+    transform:translateY(-2px); box-shadow:0 8px 24px rgba(108,92,231,0.15);
+  }
+  .rank {
+    font-size:1.1rem; font-weight:800; color:var(--accent);
+    min-width:36px;
+  }
+  .player-name { font-weight:700; font-size:0.95rem; }
+  .player-meta { font-size:0.75rem; color:var(--text-dim); margin-top:2px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="team-header">
+    <h1>KÖZGÁZ SC ÉS DSK/B</h1>
+    <div class="sub">NB2 Kelet &nbsp;|&nbsp; <span>2025/26 alapszakasz</span> &nbsp;|&nbsp; Játékos dashboardok</div>
+  </div>
+  <div class="player-grid">
+      <a href="lenart-zoltan.html" class="player-card">
+        <div class="rank">#1</div>
+        <div class="player-name">LÉNÁRT ZOLTÁN</div>
+        <div class="player-meta">15 meccs &nbsp;|&nbsp; 17.9 PPG</div>
+      </a>
+      <a href="bartus-gergely.html" class="player-card">
+        <div class="rank">#2</div>
+        <div class="player-name">BARTUS GERGELY</div>
+        <div class="player-meta">15 meccs &nbsp;|&nbsp; 12.3 PPG</div>
+      </a>
+      <a href="kadocsa-marton.html" class="player-card">
+        <div class="rank">#3</div>
+        <div class="player-name">KADOCSA MÁRTON</div>
+        <div class="player-meta">13 meccs &nbsp;|&nbsp; 9.4 PPG</div>
+      </a>
+      <a href="bernacchini-daniel.html" class="player-card">
+        <div class="rank">#4</div>
+        <div class="player-name">BERNACCHINI DÁNIEL</div>
+        <div class="player-meta">12 meccs &nbsp;|&nbsp; 9.3 PPG</div>
+      </a>
+      <a href="toth-szabolcs-akos.html" class="player-card">
+        <div class="rank">#5</div>
+        <div class="player-name">TÓTH SZABOLCS ÁKOS</div>
+        <div class="player-meta">15 meccs &nbsp;|&nbsp; 6.3 PPG</div>
+      </a>
+      <a href="dudas-gergo.html" class="player-card">
+        <div class="rank">#6</div>
+        <div class="player-name">DUDÁS GERGŐ</div>
+        <div class="player-meta">10 meccs &nbsp;|&nbsp; 6.5 PPG</div>
+      </a>
+      <a href="alfarag-osama-faraj.html" class="player-card">
+        <div class="rank">#7</div>
+        <div class="player-name">ALFARAG OSAMA FARAJ</div>
+        <div class="player-meta">9 meccs &nbsp;|&nbsp; 7.0 PPG</div>
+      </a>
+      <a href="bencze-mate.html" class="player-card">
+        <div class="rank">#8</div>
+        <div class="player-name">BENCZE MÁTÉ</div>
+        <div class="player-meta">9 meccs &nbsp;|&nbsp; 4.7 PPG</div>
+      </a>
+      <a href="kovacs-kristof.html" class="player-card">
+        <div class="rank">#9</div>
+        <div class="player-name">KOVÁCS KRISTÓF</div>
+        <div class="player-meta">9 meccs &nbsp;|&nbsp; 4.4 PPG</div>
+      </a>
+      <a href="fodor-andras.html" class="player-card">
+        <div class="rank">#10</div>
+        <div class="player-name">FODOR ANDRÁS</div>
+        <div class="player-meta">16 meccs &nbsp;|&nbsp; 2.2 PPG</div>
+      </a>
+      <a href="somogyi-gyorgy.html" class="player-card">
+        <div class="rank">#11</div>
+        <div class="player-name">SOMOGYI GYÖRGY</div>
+        <div class="player-meta">8 meccs &nbsp;|&nbsp; 3.9 PPG</div>
+      </a>
+      <a href="horvath-marton.html" class="player-card">
+        <div class="rank">#12</div>
+        <div class="player-name">HORVÁTH MÁRTON</div>
+        <div class="player-meta">4 meccs &nbsp;|&nbsp; 6.5 PPG</div>
+      </a>
+      <a href="dr-essosy-matyas-miklos.html" class="player-card">
+        <div class="rank">#13</div>
+        <div class="player-name">DR. ESSŐSY MÁTYÁS MIKLÓS</div>
+        <div class="player-meta">3 meccs &nbsp;|&nbsp; 7.7 PPG</div>
+      </a>
+      <a href="matskasi-istvan.html" class="player-card">
+        <div class="rank">#14</div>
+        <div class="player-name">MATSKÁSI ISTVÁN</div>
+        <div class="player-meta">4 meccs &nbsp;|&nbsp; 4.5 PPG</div>
+      </a>
+      <a href="foldes-daniel-gabor.html" class="player-card">
+        <div class="rank">#15</div>
+        <div class="player-name">FÖLDES DÁNIEL GÁBOR</div>
+        <div class="player-meta">3 meccs &nbsp;|&nbsp; 5.0 PPG</div>
+      </a>
+      <a href="virag-barnabas.html" class="player-card">
+        <div class="rank">#16</div>
+        <div class="player-name">VIRÁG BARNABÁS</div>
+        <div class="player-meta">4 meccs &nbsp;|&nbsp; 3.3 PPG</div>
+      </a>
+      <a href="szalay-andras.html" class="player-card">
+        <div class="rank">#17</div>
+        <div class="player-name">SZALAY ANDRÁS</div>
+        <div class="player-meta">2 meccs &nbsp;|&nbsp; 3.0 PPG</div>
+      </a>
+      <a href="szakacs-aron-laszlo.html" class="player-card">
+        <div class="rank">#18</div>
+        <div class="player-name">SZAKÁCS ÁRON LÁSZLÓ</div>
+        <div class="player-meta">2 meccs &nbsp;|&nbsp; 2.0 PPG</div>
+      </a>
+  </div>
+</div>
+</body>
+</html>
