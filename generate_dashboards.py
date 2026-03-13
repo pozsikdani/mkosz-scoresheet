@@ -1950,11 +1950,10 @@ def generate_homepage(team_summaries):
 
 def generate_index(players, cfg, team_key=None):
     cards = ""
-    for i, (name, filename, games, ppg) in enumerate(players):
-        rank = i + 1
+    for name, filename, games, ppg, jersey in players:
         cards += f"""
       <a href="{filename}" class="player-card">
-        <div class="rank">#{rank}</div>
+        <div class="rank">#{jersey}</div>
         <div class="pinfo"><div class="player-name">{name}</div>
         <div class="player-meta">{games} meccs &nbsp;|&nbsp; {ppg} PPG</div></div>
       </a>"""
@@ -2095,7 +2094,7 @@ def generate_team(team_key):
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(html)
 
-        generated.append((name, filename, player[3], player[5]))
+        generated.append((name, filename, player[3], player[5], player[2]))
         print(f"  ✓ {name} → {filename}")
 
     # Team dashboard
