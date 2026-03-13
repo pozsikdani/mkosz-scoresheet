@@ -87,11 +87,18 @@
   .rank { font-size:1.1rem; font-weight:800; color:var(--accent); min-width:36px; }
   .player-name { font-weight:700; font-size:0.95rem; }
   .player-meta { font-size:0.75rem; color:var(--text-dim); margin-top:2px; }
+  .back-link {
+    display:inline-block; color:var(--text-dim); text-decoration:none;
+    font-size:0.82rem; font-weight:600; margin-bottom:16px; opacity:0.7;
+    transition:color 0.2s, opacity 0.2s;
+  }
+  .back-link:hover { color:var(--accent); opacity:1; }
 </style>
 </head>
 <body>
 <div class="container">
   <nav class="site-nav"><a href="../index.html" class="nav-logo">KÖZGÁZ BASKETBALL</a><div class="nav-links"><a href="../dashboards/index.html" class="active">Öregek NB2</a><a href="../dashboards-a/index.html">Fiatalok NB2</a><span class="nav-link disabled">Leftoverz</span></div></nav>
+  <a href="../index.html" class="back-link">&larr; Főoldal</a>
   <div class="team-header">
     <h1>KÖZGÁZ SC ÉS DSK/B</h1>
     <div class="sub">NB2 Kelet &nbsp;|&nbsp; <span>2025/26 alapszakasz</span> &nbsp;|&nbsp; Játékos dashboardok</div>

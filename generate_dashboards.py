@@ -1181,6 +1181,7 @@ def generate_team_dashboard(stats, cfg, team_key=None):
 <body>
 <div class="dashboard">
   {_nav_html(active_key=team_key, depth=1)}
+  <a href="index.html" class="back-link">&larr; Csapat áttekintő</a>
   <div class="header">
     <div class="header-info">
       <h1>{team_name}</h1>
@@ -1629,6 +1630,7 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
 <body>
 <div class="dashboard">
   {_nav_html(active_key=team_key, depth=1)}
+  <a href="index.html" class="back-link">&larr; Csapat áttekintő</a>
   <div class="header">
     <div>
       <h1>Menetrend</h1>
@@ -2015,11 +2017,18 @@ def generate_index(players, cfg, team_key=None):
   .rank {{ font-size:1.1rem; font-weight:800; color:var(--accent); min-width:36px; }}
   .player-name {{ font-weight:700; font-size:0.95rem; }}
   .player-meta {{ font-size:0.75rem; color:var(--text-dim); margin-top:2px; }}
+  .back-link {{
+    display:inline-block; color:var(--text-dim); text-decoration:none;
+    font-size:0.82rem; font-weight:600; margin-bottom:16px; opacity:0.7;
+    transition:color 0.2s, opacity 0.2s;
+  }}
+  .back-link:hover {{ color:var(--accent); opacity:1; }}
 </style>
 </head>
 <body>
 <div class="container">
   {nav}
+  <a href="../index.html" class="back-link">&larr; Főoldal</a>
   <div class="team-header">
     <h1>{cfg["team_name"]}</h1>
     <div class="sub">{cfg["group_name"]} &nbsp;|&nbsp; <span>2025/26 alapszakasz</span> &nbsp;|&nbsp; Játékos dashboardok</div>
