@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KÖZGÁZ B — Csapat Dashboard 2025/26</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  :root {
+    --bg:#0f1117; --card:#1a1d27; --card-hover:#22263a;
+    --accent:#6c5ce7; --accent2:#00cec9; --accent3:#fd79a8; --accent4:#fdcb6e;
+    --text:#e8e8f0; --text-dim:#8b8da0; --green:#00b894; --red:#e17055;
+    --border:rgba(255,255,255,0.06);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px; }
+  .dashboard { max-width:1200px; margin:0 auto; }
+  .header {
+    display:flex; align-items:center; gap:28px; padding:32px;
+    background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 50%,#1a2744 100%);
+    border-radius:20px; margin-bottom:20px; border:1px solid var(--border);
+    position:relative; overflow:hidden;
+  }
+  .header::after {
+    content:''; position:absolute; top:-60%; right:-10%;
+    width:500px; height:500px;
+    background:radial-gradient(circle,rgba(108,92,231,0.12),transparent 70%);
+    pointer-events:none;
+  }
+  .header-info { z-index:1; }
+  .header-info h1 {
+    font-size:2.2rem; font-weight:900; letter-spacing:-0.5px;
+    background:linear-gradient(135deg,#fff 20%,var(--accent) 80%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .header-info .subtitle { font-size:0.95rem; color:var(--text-dim); margin-top:4px; }
+  .header-info .subtitle span { color:var(--accent2); font-weight:600; }
+  .header-stats { display:flex; gap:16px; margin-left:auto; z-index:1; flex-wrap:wrap; }
+  .header-stat {
+    text-align:center; padding:12px 18px; background:rgba(255,255,255,0.04);
+    border-radius:14px; border:1px solid var(--border); min-width:75px;
+  }
+  .header-stat .val { font-size:1.5rem; font-weight:800; color:#fff; }
+  .header-stat .label { font-size:0.65rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
+  .grid { display:grid; gap:20px; }
+  .grid-2 { grid-template-columns:1fr 1fr; }
+  .grid-3 { grid-template-columns:1fr 1fr 1fr; }
+  .grid-4 { grid-template-columns:1fr 1fr 1fr 1fr; }
+  .grid-5 { grid-template-columns:1fr 1fr 1fr 1fr 1fr; }
+  .card {
+    background:var(--card); border-radius:16px; padding:24px;
+    border:1px solid var(--border); transition:background 0.2s;
+  }
+  .card:hover { background:var(--card-hover); }
+  .card h3 { font-size:0.8rem; text-transform:uppercase; letter-spacing:1.2px; color:var(--text-dim); margin-bottom:16px; font-weight:600; }
+  .mini-stat { text-align:center; }
+  .mini-stat .big { font-size:1.8rem; font-weight:800; }
+  .mini-stat .desc { font-size:0.72rem; color:var(--text-dim); margin-top:4px; }
+  .chart-wrap { position:relative; width:100%; }
+  .chart-wrap.h250 { height:250px; }
+  .chart-wrap.h280 { height:280px; }
+  .game-log { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .game-log th { text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; }
+  .game-log td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .game-log tr:last-child td { border-bottom:none; }
+  .game-log tr:hover { background:rgba(108,92,231,0.06); }
+  .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; }
+  .badge.w { background:rgba(0,184,148,0.15); color:var(--green); }
+  .badge.l { background:rgba(225,112,85,0.15); color:var(--red); }
+  .badge.h { background:rgba(108,92,231,0.15); color:var(--accent); }
+  .badge.v { background:rgba(253,203,110,0.15); color:var(--accent4); }
+  .run-tbl { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .run-tbl th { text-align:left; font-size:0.7rem; text-transform:uppercase; color:var(--text-dim); padding:6px 8px; border-bottom:1px solid var(--border); }
+  .run-tbl td { padding:6px 8px; border-bottom:1px solid var(--border); }
+  .run-tbl tr:last-child td { border-bottom:none; }
+  .fact-item {
+    padding:10px 14px; margin-bottom:8px;
+    background:rgba(255,255,255,0.02); border-radius:10px;
+    border-left:3px solid var(--accent); font-size:0.85rem;
+    color:var(--text-dim); line-height:1.5;
+  }
+  .fact-item b { color:#fff; }
+  .scenario-tbl { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .scenario-tbl td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .scenario-tbl tr:last-child td { border-bottom:none; }
+  .back-link {
+    display:inline-flex; align-items:center; gap:6px; margin-bottom:16px;
+    color:var(--text-dim); text-decoration:none; font-size:0.85rem;
+    transition:color 0.2s;
+  }
+  .back-link:hover { color:var(--accent); }
+  .mb20 { margin-bottom:20px; }
+  @media (max-width:900px) {
+    .grid-2,.grid-3,.grid-4,.grid-5 { grid-template-columns:1fr; }
+    .header { flex-direction:column; text-align:center; }
+    .header-stats { margin-left:0; justify-content:center; }
+  }
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <a href="index.html" class="back-link">← Vissza az áttekintőhöz</a>
+  <div class="header">
+    <div class="header-info">
+      <h1>KÖZGÁZ SC ÉS DSK/B</h1>
+      <div class="subtitle">
+        <span>CSAPAT STATISZTIKÁK</span> &nbsp;|&nbsp; NB2 Kelet &nbsp;|&nbsp; 2025/26 alapszakasz
+      </div>
+    </div>
+    <div class="header-stats">
+      <div class="header-stat"><div class="val" style="color:var(--green)">4</div><div class="label">Győzelem</div></div>
+      <div class="header-stat"><div class="val" style="color:var(--red)">12</div><div class="label">Vereség</div></div>
+      <div class="header-stat"><div class="val" style="color:var(--accent)">72.6</div><div class="label">Dobott/m</div></div>
+      <div class="header-stat"><div class="val" style="color:var(--accent3)">83.3</div><div class="label">Kapott/m</div></div>
+      <div class="header-stat"><div class="val" style="color:var(--accent4)">-10.7</div><div class="label">Kül./m</div></div>
+    </div>
+  </div>
+
+  <div class="grid grid-5 mb20">
+    <div class="card mini-stat"><div class="big" style="color:var(--accent)">1162</div><div class="desc">Összes dobott</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent3)">1333</div><div class="desc">Összes kapott</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--green)">97</div><div class="desc">Legtöbb dobott</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--red)">103</div><div class="desc">Legtöbb kapott</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">18</div><div class="desc">Játékos a keretben</div></div>
+  </div>
+
+  <div class="grid grid-2 mb20">
+    <div class="card">
+      <h3>Dobott vs Kapott pontok meccsenként</h3>
+      <div class="chart-wrap h280"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Negyedenkénti átlagok</h3>
+      <div class="chart-wrap h280"><canvas id="quarterChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid grid-2 mb20">
+    <div class="card">
+      <h3>Pontmegoszlás (dobástípus)</h3>
+      <div class="chart-wrap" style="height:200px;"><canvas id="shotPie"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Forgatókönyvek — ha félidőben...</h3>
+      <table class="scenario-tbl">
+        <tr>
+          <td>Félidőben <b style="color:var(--green)">vezet</b></td>
+          <td style="font-weight:800;color:var(--green)">3/4 győzelem</td>
+          <td style="color:var(--text-dim)">75%</td>
+        </tr>
+        <tr>
+          <td>Félidőben <b style="color:var(--red)">hátrányban</b></td>
+          <td style="font-weight:800;color:var(--red)">1/12 fordítás</td>
+          <td style="color:var(--text-dim)">8%</td>
+        </tr>
+        <tr>
+          <td>3 negyed után <b style="color:var(--green)">vezet</b></td>
+          <td style="font-weight:800;color:var(--green)">3/3 győzelem</td>
+          <td style="color:var(--text-dim)">100%</td>
+        </tr>
+        <tr>
+          <td>3 negyed után <b style="color:var(--red)">hátrányban</b></td>
+          <td style="font-weight:800;color:var(--red)">1/12 fordítás</td>
+          <td style="color:var(--text-dim)">8%</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid grid-2 mb20">
+    <div class="card">
+      <h3>Top 5 saját scoring run</h3>
+      <table class="run-tbl">
+        <thead><tr><th>Dátum</th><th>Ellenfél</th><th>Run</th><th>Negyed</th><th>Kosár</th></tr></thead>
+        <tbody><tr><td>10.09</td><td>Újpest-Mt</td><td style="font-weight:800;color:var(--accent)">16-0</td><td>Q2→Q3</td><td>8</td></tr><tr><td>03.03</td><td>Fke Sas</td><td style="font-weight:800;color:var(--accent)">14-0</td><td>Q2</td><td>6</td></tr><tr><td>02.19</td><td>BKG-Prima Deb.</td><td style="font-weight:800;color:var(--accent)">12-0</td><td>Q2→Q3</td><td>5</td></tr><tr><td>03.03</td><td>Fke Sas</td><td style="font-weight:800;color:var(--accent)">11-0</td><td>Q3→Q4</td><td>5</td></tr><tr><td>03.01</td><td>BKG-Veresegyh.</td><td style="font-weight:800;color:var(--accent)">10-0</td><td>Q3</td><td>4</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Top 5 kapott scoring run</h3>
+      <table class="run-tbl">
+        <thead><tr><th>Dátum</th><th>Ellenfél</th><th>Run</th><th>Negyed</th><th>Kosár</th></tr></thead>
+        <tbody><tr><td>11.20</td><td>Bp. Bikák</td><td style="font-weight:800;color:var(--accent)">15-0</td><td>Q3→Q4</td><td>8</td></tr><tr><td>02.17</td><td>Bp. Bikák</td><td style="font-weight:800;color:var(--accent)">15-0</td><td>Q1→Q2</td><td>7</td></tr><tr><td>10.22</td><td>Szerencs Vse</td><td style="font-weight:800;color:var(--accent)">14-0</td><td>Q3</td><td>8</td></tr><tr><td>01.29</td><td>Újpest-Mt</td><td style="font-weight:800;color:var(--accent)">14-0</td><td>Q1</td><td>9</td></tr><tr><td>10.09</td><td>Újpest-Mt</td><td style="font-weight:800;color:var(--accent)">13-0</td><td>Q3</td><td>7</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card mb20">
+    <h3>Meccsek</h3>
+    <table class="game-log">
+      <thead><tr><th>Dátum</th><th></th><th>Ellenfél</th><th>Eredmény</th><th></th><th>Különbség</th></tr></thead>
+      <tbody id="gameLogBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card mb20">
+    <h3>Érdekességek &amp; Fun Facts</h3>
+    <div class="fact-item">Legerősebb negyed: <b>Q4</b> (18.9 pont/meccs)</div><div class="fact-item">Leggyengébb negyed: <b>Q1</b> (16.8 pont/meccs)</div><div class="fact-item">Leghosszabb saját run: <b>16-0</b> (ÚJPEST-MT ellen)</div><div class="fact-item">Leghosszabb kapott run: <b>15-0</b> (BUDAPESTI BIKÁK ellen)</div><div class="fact-item">Félidőben vezetve: <b>3/4 győzelem</b> (75%)</div><div class="fact-item">Félidős hátrányból: <b>1 fordítás 12-ból</b></div><div class="fact-item">Hazai mérleg: <b>1-7</b> | Vendég: <b>3-5</b></div><div class="fact-item"><b>18</b> játékos fordult meg a keretben</div><div class="fact-item">FT%: <b>66%</b> (191/290)</div><div class="fact-item">Top 2 pontszerző (Lénárt Zoltán, Bartus Gergely) a csapat pontjainak <b>39%</b>-át adja</div><div class="fact-item">Legszorosabb meccs: <b>81-78</b> (BKG-Prima Deb., 02.19)</div>
+  </div>
+</div>
+
+<script>
+Chart.defaults.color='#8b8da0';
+Chart.defaults.borderColor='rgba(255,255,255,0.06)';
+Chart.defaults.font.family="'Inter',sans-serif";
+
+const games = [{"date": "10.07", "hv": "H", "opp": "Sunshine-NYÍKSE", "kg": 68, "op": 77, "res": "L"}, {"date": "10.09", "hv": "V", "opp": "Újpest-Mt", "kg": 92, "op": 77, "res": "W"}, {"date": "10.16", "hv": "H", "opp": "Blf Se", "kg": 74, "op": 81, "res": "L"}, {"date": "10.22", "hv": "V", "opp": "Szerencs Vse", "kg": 67, "op": 85, "res": "L"}, {"date": "11.06", "hv": "H", "opp": "BKG-Prima Deb.", "kg": 71, "op": 84, "res": "L"}, {"date": "11.20", "hv": "V", "opp": "Bp. Bikák", "kg": 47, "op": 81, "res": "L"}, {"date": "11.25", "hv": "H", "opp": "BKG-Veresegyh.", "kg": 71, "op": 84, "res": "L"}, {"date": "12.06", "hv": "V", "opp": "Fke Sas", "kg": 64, "op": 80, "res": "L"}, {"date": "01.09", "hv": "V", "opp": "Sunshine-NYÍKSE", "kg": 69, "op": 65, "res": "W"}, {"date": "01.15", "hv": "V", "opp": "Blf Se", "kg": 78, "op": 102, "res": "L"}, {"date": "01.22", "hv": "H", "opp": "Szerencs Vse", "kg": 68, "op": 82, "res": "L"}, {"date": "01.29", "hv": "H", "opp": "Újpest-Mt", "kg": 59, "op": 71, "res": "L"}, {"date": "02.17", "hv": "H", "opp": "Bp. Bikák", "kg": 59, "op": 94, "res": "L"}, {"date": "02.19", "hv": "V", "opp": "BKG-Prima Deb.", "kg": 81, "op": 78, "res": "W"}, {"date": "03.01", "hv": "V", "opp": "BKG-Veresegyh.", "kg": 97, "op": 103, "res": "L"}, {"date": "03.03", "hv": "H", "opp": "Fke Sas", "kg": 97, "op": 89, "res": "W"}];
+const tbody = document.getElementById('gameLogBody');
+games.forEach(g => {
+  const diff = g.kg - g.op;
+  const diffStr = diff > 0 ? '+'+diff : ''+diff;
+  const diffColor = diff > 0 ? 'var(--green)' : 'var(--red)';
+  const barW = Math.min(Math.abs(diff), 40);
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td>'+g.date+'</td>'
+    +'<td><span class="badge '+(g.hv==='H'?'h':'v')+'">'+g.hv+'</span></td>'
+    +'<td>'+g.opp+'</td>'
+    +'<td style="font-weight:700;">'+g.kg+'-'+g.op+'</td>'
+    +'<td><span class="badge '+(g.res==='W'?'w':'l')+'">'+(g.res==='W'?'GY':'V')+'</span></td>'
+    +'<td style="font-weight:700;color:'+diffColor+';">'+diffStr+'</td>';
+  tbody.appendChild(tr);
+});
+
+new Chart(document.getElementById('trendChart').getContext('2d'), {
+  type:'line',
+  data: {
+    labels: ["10.07", "10.09", "10.16", "10.22", "11.06", "11.20", "11.25", "12.06", "01.09", "01.15", "01.22", "01.29", "02.17", "02.19", "03.01", "03.03"],
+    datasets: [{
+      label:'Dobott', data:[68, 92, 74, 67, 71, 47, 71, 64, 69, 78, 68, 59, 59, 81, 97, 97],
+      borderColor:'#6c5ce7', backgroundColor:'rgba(108,92,231,0.1)',
+      fill:true, tension:0.3, pointRadius:5, borderWidth:3,
+      pointBackgroundColor: ["#e17055", "#00b894", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#00b894", "#e17055", "#e17055", "#e17055", "#e17055", "#00b894", "#e17055", "#00b894"],
+      pointBorderColor: ["#e17055", "#00b894", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#00b894", "#e17055", "#e17055", "#e17055", "#e17055", "#00b894", "#e17055", "#00b894"],
+    }, {
+      label:'Kapott', data:[77, 77, 81, 85, 84, 81, 84, 80, 65, 102, 82, 71, 94, 78, 103, 89],
+      borderColor:'#fd79a8', backgroundColor:'rgba(253,121,168,0.05)',
+      fill:true, tension:0.3, pointRadius:4, borderWidth:2, borderDash:[4,3],
+      pointBackgroundColor:'#fd79a8', pointBorderColor:'#fd79a8',
+    }]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins: { legend:{ position:'top', labels:{ usePointStyle:true, font:{size:11} } } },
+    scales: { y:{ beginAtZero:true, max:113, grid:{color:'rgba(255,255,255,0.04)'} }, x:{ grid:{display:false} } }
+  }
+});
+
+new Chart(document.getElementById('quarterChart').getContext('2d'), {
+  type:'bar',
+  data: {
+    labels:['Q1','Q2','Q3','Q4'],
+    datasets: [{
+      label:'Dobott', data:[16.8, 17.9, 18.5, 18.9],
+      backgroundColor:'rgba(108,92,231,0.7)', borderColor:'#6c5ce7', borderWidth:2, borderRadius:6,
+    },{
+      label:'Kapott', data:[19.6, 20.5, 21.8, 20.6],
+      backgroundColor:'rgba(253,121,168,0.5)', borderColor:'#fd79a8', borderWidth:2, borderRadius:6,
+    }]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins: {
+      legend:{ position:'top', labels:{ usePointStyle:true, font:{size:11} } },
+      tooltip: { callbacks: { afterBody: items => {
+        const idx = items[0].dataIndex;
+        const won = [6, 6, 6, 6];
+        const lost = [10, 10, 10, 9];
+        return 'Megnyert negyed: '+won[idx]+' | Elvesztett: '+lost[idx];
+      } } }
+    },
+    scales: { y:{ beginAtZero:true, grid:{color:'rgba(255,255,255,0.04)'} }, x:{ grid:{display:false} } }
+  }
+});
+
+new Chart(document.getElementById('shotPie').getContext('2d'), {
+  type:'doughnut',
+  data: {
+    labels:['3FG (31%  — 357 pt)','2FG (53% — 614 pt)','FT (16% — 191 pt)'],
+    datasets:[{ data:[357,614,191], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }]
+  },
+  options: { responsive:true, maintainAspectRatio:false, cutout:'55%',
+    plugins:{ legend:{ position:'right', labels:{ padding:14, usePointStyle:true, font:{size:11} } } }
+  }
+});
+</script>
+</body>
+</html>

@@ -26,6 +26,27 @@
   }
   .team-header .sub { color:var(--text-dim); margin-top:6px; font-size:0.95rem; }
   .team-header .sub span { color:var(--accent2); font-weight:600; }
+  .team-card {
+    display:flex; align-items:center; gap:20px;
+    background:linear-gradient(135deg,#2d1f4e 0%,#1a2744 100%);
+    border-radius:16px; padding:22px 28px; margin-bottom:24px;
+    border:1px solid rgba(108,92,231,0.3); text-decoration:none; color:var(--text);
+    transition:all 0.25s;
+  }
+  .team-card:hover {
+    border-color:var(--accent); transform:translateY(-2px);
+    box-shadow:0 10px 30px rgba(108,92,231,0.2);
+  }
+  .team-card .team-icon {
+    font-size:2.2rem; min-width:50px; text-align:center;
+  }
+  .team-card .team-title { font-weight:800; font-size:1.1rem; }
+  .team-card .team-desc { font-size:0.78rem; color:var(--text-dim); margin-top:2px; }
+  .team-card .team-arrow {
+    margin-left:auto; font-size:1.4rem; color:var(--accent); opacity:0.5;
+    transition:opacity 0.2s, transform 0.2s;
+  }
+  .team-card:hover .team-arrow { opacity:1; transform:translateX(4px); }
   .player-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
   .player-card {
     display:flex; align-items:center; gap:16px;
@@ -48,6 +69,12 @@
     <h1>KÖZGÁZ SC ÉS DSK/B</h1>
     <div class="sub">NB2 Kelet &nbsp;|&nbsp; <span>2025/26 alapszakasz</span> &nbsp;|&nbsp; Játékos dashboardok</div>
   </div>
+  <a href="csapat.html" class="team-card">
+    <div class="team-icon">📊</div>
+    <div><div class="team-title">Csapat Statisztikák</div>
+    <div class="team-desc">Eredmények, negyedek, run-ok, forgatókönyvek, érdekességek</div></div>
+    <div class="team-arrow">→</div>
+  </a>
   <div class="player-grid">
       <a href="lenart-zoltan.html" class="player-card">
         <div class="rank">#1</div>
