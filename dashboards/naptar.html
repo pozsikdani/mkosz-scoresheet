@@ -7,8 +7,8 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 :root {
-  --bg:#0f1117; --card:#1a1d27; --card-hover:#22263a;
-  --accent:#6c5ce7; --accent2:#00cec9; --accent3:#fd79a8; --accent4:#fdcb6e;
+  --bg:#0a0b0e; --card:#151518; --card-hover:#1e1e24;
+  --accent:#C41E3A; --accent2:#00cec9; --accent3:#ff6b6b; --accent4:#fdcb6e;
   --green:#00b894; --red:#e17055;
   --text:#e8e8f0; --text-dim:#8b8da0;
   --border:rgba(255,255,255,0.06);
@@ -21,14 +21,14 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 
 /* Header */
 .header{
-  background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 50%,#1a2744 100%);
+  background:linear-gradient(135deg,#151518 0%,#2a1218 50%,#1a1518 100%);
   border-radius:20px;padding:32px 28px;margin-bottom:28px;
   border:1px solid var(--border);position:relative;overflow:hidden;
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;
 }
 .header::after{
   content:'';position:absolute;top:-50%;right:-20%;width:60%;height:200%;
-  background:radial-gradient(circle,rgba(108,92,231,.12) 0%,transparent 70%);pointer-events:none;
+  background:radial-gradient(circle,rgba(196,30,58,.12) 0%,transparent 70%);pointer-events:none;
 }
 .header h1{
   font-size:2rem;font-weight:900;letter-spacing:-.5px;
@@ -52,7 +52,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .legend-dot{width:14px;height:14px;border-radius:5px}
 .legend-dot.win{background:rgba(0,184,148,.2);border:1.5px solid var(--green)}
 .legend-dot.loss{background:rgba(225,112,85,.2);border:1.5px solid var(--red)}
-.legend-dot.upcoming{background:rgba(108,92,231,.2);border:1.5px solid var(--accent)}
+.legend-dot.upcoming{background:rgba(139,141,160,.2);border:1.5px solid var(--text-dim)}
 
 /* Record badges */
 .record-row{
@@ -112,8 +112,8 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 
 /* Upcoming (not yet played) */
 .cal-day.has-match.upcoming{
-  border-color:rgba(108,92,231,.3);
-  background:rgba(108,92,231,.06);
+  border-color:rgba(139,141,160,.3);
+  background:rgba(139,141,160,.06);
 }
 .cal-day.upcoming .match-opp{color:var(--accent2)}
 .cal-day.upcoming .match-time{color:var(--text-dim)}

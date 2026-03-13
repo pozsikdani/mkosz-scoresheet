@@ -42,6 +42,13 @@ TEAMS = {
     },
 }
 
+# Navigation structure for the site
+NAV_TEAMS = [
+    {"key": "kozgaz-b", "label": "Öregek NB2", "href": "dashboards"},
+    {"key": "kozgaz-a", "label": "Fiatalok NB2", "href": "dashboards-a"},
+    {"key": "leftoverz", "label": "Leftoverz", "href": "leftoverz"},
+]
+
 # ---- HUNGARIAN CALENDAR CONSTANTS ----
 MONTH_NAMES_HU = {
     1: "JANUÁR", 2: "FEBRUÁR", 3: "MÁRCIUS", 4: "ÁPRILIS",
@@ -388,8 +395,8 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
   :root {{
-    --bg: #0f1117; --card: #1a1d27; --card-hover: #22263a;
-    --accent: #6c5ce7; --accent2: #00cec9; --accent3: #fd79a8; --accent4: #fdcb6e;
+    --bg: #0a0b0e; --card: #151518; --card-hover: #1e1e24;
+    --accent: #C41E3A; --accent2: #00cec9; --accent3: #ff6b6b; --accent4: #fdcb6e;
     --text: #e8e8f0; --text-dim: #8b8da0; --green: #00b894; --red: #e17055;
     --border: rgba(255,255,255,0.06);
   }}
@@ -398,14 +405,14 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
   .dashboard {{ max-width:1200px; margin:0 auto; }}
   .header {{
     display:flex; align-items:center; gap:28px; padding:32px;
-    background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 100%);
+    background:linear-gradient(135deg,#151518 0%,#2a1218 100%);
     border-radius:20px; margin-bottom:20px; border:1px solid var(--border);
     position:relative; overflow:hidden;
   }}
   .header::after {{
     content:''; position:absolute; top:-60%; right:-10%;
     width:400px; height:400px;
-    background:radial-gradient(circle,rgba(108,92,231,0.15),transparent 70%);
+    background:radial-gradient(circle,rgba(196,30,58,0.15),transparent 70%);
     pointer-events:none;
   }}
   .header-info {{ z-index:1; }}
@@ -442,7 +449,7 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
   .game-log th {{ text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; }}
   .game-log td {{ padding:8px 10px; border-bottom:1px solid var(--border); }}
   .game-log tr:last-child td {{ border-bottom:none; }}
-  .game-log tr:hover {{ background:rgba(108,92,231,0.06); }}
+  .game-log tr:hover {{ background:rgba(196,30,58,0.06); }}
   .badge {{ display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; }}
   .badge.w {{ background:rgba(0,184,148,0.15); color:var(--green); }}
   .badge.l {{ background:rgba(225,112,85,0.15); color:var(--red); }}
@@ -577,7 +584,7 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {{
     labels: played.map(g=>g.date),
     datasets: [{{
       label:'Pont', data:played.map(g=>g.pts),
-      borderColor:'#6c5ce7', backgroundColor:'rgba(108,92,231,0.1)',
+      borderColor:'#C41E3A', backgroundColor:'rgba(196,30,58,0.1)',
       fill:true, tension:0.35,
       pointBackgroundColor:played.map(g=>g.res==='W'?'#00b894':'#e17055'),
       pointBorderColor:played.map(g=>g.res==='W'?'#00b894':'#e17055'),
@@ -603,7 +610,7 @@ new Chart(document.getElementById('shotPie').getContext('2d'), {{
   type:'doughnut',
   data: {{
     labels:['3FG ({pts_3fg} pt)','2FG ({pts_2fg} pt)','FT ({pts_ft} pt)'],
-    datasets:[{{ data:[{pts_3fg},{pts_2fg},{pts_ft}], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }}]
+    datasets:[{{ data:[{pts_3fg},{pts_2fg},{pts_ft}], backgroundColor:['#C41E3A','#00cec9','#fdcb6e'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }}]
   }},
   options: {{ responsive:true, maintainAspectRatio:false, cutout:'60%',
     plugins:{{ legend:{{ position:'right', labels:{{ padding:12, usePointStyle:true, font:{{size:11}} }} }} }}
@@ -616,8 +623,8 @@ new Chart(document.getElementById('quarterChart').getContext('2d'), {{
     labels:['Q1','Q2','Q3','Q4'],
     datasets:[{{
       label:'Összes pont', data:{json.dumps(q_data)},
-      backgroundColor:['rgba(108,92,231,0.7)','rgba(108,92,231,0.5)','rgba(108,92,231,0.55)','rgba(108,92,231,0.5)'],
-      borderColor:'#6c5ce7', borderWidth:2, borderRadius:6,
+      backgroundColor:['rgba(196,30,58,0.7)','rgba(196,30,58,0.5)','rgba(196,30,58,0.55)','rgba(196,30,58,0.5)'],
+      borderColor:'#C41E3A', borderWidth:2, borderRadius:6,
     }},{{
       label:'3FG bedobva', data:{json.dumps(q_3fg_data)},
       backgroundColor:'rgba(253,121,168,0.5)', borderColor:'#fd79a8', borderWidth:2, borderRadius:6,
@@ -1086,8 +1093,8 @@ def generate_team_dashboard(stats, cfg):
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
   :root {{
-    --bg:#0f1117; --card:#1a1d27; --card-hover:#22263a;
-    --accent:#6c5ce7; --accent2:#00cec9; --accent3:#fd79a8; --accent4:#fdcb6e;
+    --bg:#0a0b0e; --card:#151518; --card-hover:#1e1e24;
+    --accent:#C41E3A; --accent2:#00cec9; --accent3:#ff6b6b; --accent4:#fdcb6e;
     --text:#e8e8f0; --text-dim:#8b8da0; --green:#00b894; --red:#e17055;
     --border:rgba(255,255,255,0.06);
   }}
@@ -1096,14 +1103,14 @@ def generate_team_dashboard(stats, cfg):
   .dashboard {{ max-width:1200px; margin:0 auto; }}
   .header {{
     display:flex; align-items:center; gap:28px; padding:32px;
-    background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 50%,#1a2744 100%);
+    background:linear-gradient(135deg,#151518 0%,#2a1218 50%,#1a1518 100%);
     border-radius:20px; margin-bottom:20px; border:1px solid var(--border);
     position:relative; overflow:hidden;
   }}
   .header::after {{
     content:''; position:absolute; top:-60%; right:-10%;
     width:500px; height:500px;
-    background:radial-gradient(circle,rgba(108,92,231,0.12),transparent 70%);
+    background:radial-gradient(circle,rgba(196,30,58,0.12),transparent 70%);
     pointer-events:none;
   }}
   .header-info {{ z-index:1; }}
@@ -1142,11 +1149,11 @@ def generate_team_dashboard(stats, cfg):
   .game-log th {{ text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; }}
   .game-log td {{ padding:8px 10px; border-bottom:1px solid var(--border); }}
   .game-log tr:last-child td {{ border-bottom:none; }}
-  .game-log tr:hover {{ background:rgba(108,92,231,0.06); }}
+  .game-log tr:hover {{ background:rgba(196,30,58,0.06); }}
   .badge {{ display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; }}
   .badge.w {{ background:rgba(0,184,148,0.15); color:var(--green); }}
   .badge.l {{ background:rgba(225,112,85,0.15); color:var(--red); }}
-  .badge.h {{ background:rgba(108,92,231,0.15); color:var(--accent); }}
+  .badge.h {{ background:rgba(196,30,58,0.15); color:var(--accent); }}
   .badge.v {{ background:rgba(253,203,110,0.15); color:var(--accent4); }}
   .run-tbl {{ width:100%; border-collapse:collapse; font-size:0.82rem; }}
   .run-tbl th {{ text-align:left; font-size:0.7rem; text-transform:uppercase; color:var(--text-dim); padding:6px 8px; border-bottom:1px solid var(--border); }}
@@ -1305,7 +1312,7 @@ new Chart(document.getElementById('trendChart').getContext('2d'), {{
     labels: {json.dumps(trend_labels)},
     datasets: [{{
       label:'Dobott', data:{json.dumps(kg_scores)},
-      borderColor:'#6c5ce7', backgroundColor:'rgba(108,92,231,0.1)',
+      borderColor:'#C41E3A', backgroundColor:'rgba(196,30,58,0.1)',
       fill:true, tension:0.3, pointRadius:5, borderWidth:3,
       pointBackgroundColor: {json.dumps(["#00b894" if g["res"]=="W" else "#e17055" for g in js_gamelog])},
       pointBorderColor: {json.dumps(["#00b894" if g["res"]=="W" else "#e17055" for g in js_gamelog])},
@@ -1329,7 +1336,7 @@ new Chart(document.getElementById('quarterChart').getContext('2d'), {{
     labels:['Q1','Q2','Q3','Q4'],
     datasets: [{{
       label:'Dobott', data:{json.dumps(q_kg)},
-      backgroundColor:'rgba(108,92,231,0.7)', borderColor:'#6c5ce7', borderWidth:2, borderRadius:6,
+      backgroundColor:'rgba(196,30,58,0.7)', borderColor:'#C41E3A', borderWidth:2, borderRadius:6,
     }},{{
       label:'Kapott', data:{json.dumps(q_op)},
       backgroundColor:'rgba(253,121,168,0.5)', borderColor:'#fd79a8', borderWidth:2, borderRadius:6,
@@ -1354,7 +1361,7 @@ new Chart(document.getElementById('shotPie').getContext('2d'), {{
   type:'doughnut',
   data: {{
     labels:['3FG ({pct_3}%  — {pts_from_3} pt)','2FG ({pct_2}% — {pts_from_2} pt)','FT ({pct_ft}% — {pts_from_ft} pt)'],
-    datasets:[{{ data:[{pts_from_3},{pts_from_2},{pts_from_ft}], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }}]
+    datasets:[{{ data:[{pts_from_3},{pts_from_2},{pts_from_ft}], backgroundColor:['#C41E3A','#00cec9','#fdcb6e'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }}]
   }},
   options: {{ responsive:true, maintainAspectRatio:false, cutout:'55%',
     plugins:{{ legend:{{ position:'right', labels:{{ padding:14, usePointStyle:true, font:{{size:11}} }} }} }}
@@ -1483,8 +1490,8 @@ def generate_calendar(matches, cfg):
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 :root {{
-  --bg:#0f1117; --card:#1a1d27; --card-hover:#22263a;
-  --accent:#6c5ce7; --accent2:#00cec9; --accent3:#fd79a8; --accent4:#fdcb6e;
+  --bg:#0a0b0e; --card:#151518; --card-hover:#1e1e24;
+  --accent:#C41E3A; --accent2:#00cec9; --accent3:#ff6b6b; --accent4:#fdcb6e;
   --green:#00b894; --red:#e17055;
   --text:#e8e8f0; --text-dim:#8b8da0;
   --border:rgba(255,255,255,0.06);
@@ -1497,14 +1504,14 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
 
 /* Header */
 .header{{
-  background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 50%,#1a2744 100%);
+  background:linear-gradient(135deg,#151518 0%,#2a1218 50%,#1a1518 100%);
   border-radius:20px;padding:32px 28px;margin-bottom:28px;
   border:1px solid var(--border);position:relative;overflow:hidden;
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;
 }}
 .header::after{{
   content:'';position:absolute;top:-50%;right:-20%;width:60%;height:200%;
-  background:radial-gradient(circle,rgba(108,92,231,.12) 0%,transparent 70%);pointer-events:none;
+  background:radial-gradient(circle,rgba(196,30,58,.12) 0%,transparent 70%);pointer-events:none;
 }}
 .header h1{{
   font-size:2rem;font-weight:900;letter-spacing:-.5px;
@@ -1528,7 +1535,7 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
 .legend-dot{{width:14px;height:14px;border-radius:5px}}
 .legend-dot.win{{background:rgba(0,184,148,.2);border:1.5px solid var(--green)}}
 .legend-dot.loss{{background:rgba(225,112,85,.2);border:1.5px solid var(--red)}}
-.legend-dot.upcoming{{background:rgba(108,92,231,.2);border:1.5px solid var(--accent)}}
+.legend-dot.upcoming{{background:rgba(139,141,160,.2);border:1.5px solid var(--text-dim)}}
 
 /* Record badges */
 .record-row{{
@@ -1588,8 +1595,8 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
 
 /* Upcoming (not yet played) */
 .cal-day.has-match.upcoming{{
-  border-color:rgba(108,92,231,.3);
-  background:rgba(108,92,231,.06);
+  border-color:rgba(139,141,160,.3);
+  background:rgba(139,141,160,.06);
 }}
 .cal-day.upcoming .match-opp{{color:var(--accent2)}}
 .cal-day.upcoming .match-time{{color:var(--text-dim)}}
@@ -1656,7 +1663,289 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
 </html>"""
 
 
-def generate_index(players, cfg):
+def _nav_html(active_key=None, depth=0):
+    """Generate navigation bar HTML. depth=0 for root, depth=1 for team subdirs."""
+    prefix = "../" if depth == 1 else ""
+    items = f'<a href="{prefix}index.html" class="nav-logo">KÖZGÁZ BASKETBALL</a><div class="nav-links">'
+    for t in NAV_TEAMS:
+        href = f'{prefix}{t["href"]}/index.html'
+        cls = ' class="active"' if t["key"] == active_key else ''
+        disabled = ' class="disabled"' if t["key"] == "leftoverz" else ''
+        if t["key"] == "leftoverz":
+            items += f'<span class="nav-link disabled">{t["label"]}</span>'
+        else:
+            items += f'<a href="{href}"{cls}>{t["label"]}</a>'
+    items += '</div>'
+    return f'<nav class="site-nav">{items}</nav>'
+
+
+NAV_CSS = """
+.site-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  max-width:900px; margin:0 auto 28px; padding:14px 0;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+}
+.nav-logo {
+  font-weight:900; font-size:1rem; letter-spacing:1.5px;
+  color:var(--accent); text-decoration:none;
+  transition:opacity .2s;
+}
+.nav-logo:hover { opacity:0.8; }
+.nav-links { display:flex; gap:24px; }
+.nav-links a, .nav-links .nav-link {
+  font-size:0.82rem; font-weight:600; color:var(--text-dim);
+  text-decoration:none; text-transform:uppercase; letter-spacing:0.8px;
+  transition:color .2s;
+}
+.nav-links a:hover { color:var(--text); }
+.nav-links a.active { color:var(--accent); }
+.nav-links .disabled { opacity:0.3; cursor:default; }
+@media(max-width:600px) {
+  .site-nav { flex-direction:column; gap:12px; text-align:center; }
+  .nav-links { gap:16px; flex-wrap:wrap; justify-content:center; }
+}
+"""
+
+
+def generate_homepage(team_summaries):
+    """Generate the main club homepage with team cards and upcoming matches."""
+    # Build team cards
+    cards_html = ""
+    for ts in team_summaries:
+        w = ts.get("wins", 0)
+        l = ts.get("losses", 0)
+        upcoming = ts.get("upcoming", [])
+        next_match = ""
+        if upcoming:
+            nm = upcoming[0]
+            opp = nm["away_team"] if nm["is_home"] else nm["home_team"]
+            next_match = f'<div class="next-match">Következő: <strong>{calendar_short_name(opp)}</strong> — {nm["date"][5:].replace("-",".")} {nm.get("time","")}</div>'
+
+        record_html = f'<span class="rec-w">{w}W</span> – <span class="rec-l">{l}L</span>'
+
+        cards_html += f"""
+      <a href="{ts['href']}/index.html" class="home-card">
+        <div class="home-card-header">
+          <div class="home-card-title">{ts['label']}</div>
+          <div class="home-card-group">{ts['group']}</div>
+        </div>
+        <div class="home-card-record">{record_html}</div>
+        {next_match}
+        <div class="home-card-arrow">&rarr;</div>
+      </a>"""
+
+    # Build upcoming matches list (all teams combined)
+    all_upcoming = []
+    for ts in team_summaries:
+        for m in ts.get("upcoming", [])[:3]:
+            opp = m["away_team"] if m["is_home"] else m["home_team"]
+            all_upcoming.append({
+                "date": m["date"],
+                "time": m.get("time", ""),
+                "opp": calendar_short_name(opp),
+                "team_short": ts["short"],
+                "is_home": m["is_home"],
+            })
+    all_upcoming.sort(key=lambda x: x["date"])
+    all_upcoming = all_upcoming[:6]
+
+    upcoming_rows = ""
+    for u in all_upcoming:
+        hv = "H" if u["is_home"] else "V"
+        hv_cls = "home" if u["is_home"] else "away"
+        upcoming_rows += f"""
+        <div class="up-row">
+          <div class="up-date">{u['date'][5:].replace('-','.')}</div>
+          <div class="up-time">{u['time']}</div>
+          <div class="up-team">{u['team_short']}</div>
+          <div class="up-opp">{('@' if not u['is_home'] else '')}{u['opp']}</div>
+          <span class="up-badge {hv_cls}">{hv}</span>
+        </div>"""
+
+    upcoming_section = ""
+    if upcoming_rows:
+        upcoming_section = f"""
+    <div class="section-title">KÖVETKEZŐ MECCSEK</div>
+    <div class="upcoming-list">{upcoming_rows}
+    </div>"""
+
+    # Build recent results (all teams combined)
+    all_recent = []
+    for ts in team_summaries:
+        for m in ts.get("recent", [])[-3:]:
+            is_home = m["is_home"]
+            opp = m["away_team"] if is_home else m["home_team"]
+            our = m["home_score"] if is_home else m["away_score"]
+            their = m["away_score"] if is_home else m["home_score"]
+            win = our > their
+            opp_short = calendar_short_name(opp)
+            if is_home:
+                matchup = f'{ts["short"]} – {opp_short}'
+                score_str = f"{our}-{their}"
+            else:
+                matchup = f'{opp_short} – {ts["short"]}'
+                score_str = f"{their}-{our}"
+            all_recent.append({
+                "date": m["date"],
+                "matchup": matchup,
+                "score": score_str,
+                "win": win,
+            })
+    all_recent.sort(key=lambda x: x["date"], reverse=True)
+    all_recent = all_recent[:6]
+
+    recent_rows = ""
+    for r in all_recent:
+        wl = "W" if r["win"] else "L"
+        wl_cls = "w" if r["win"] else "l"
+        sc_cls = "win" if r["win"] else "loss"
+        recent_rows += f"""
+        <div class="res-row">
+          <div class="res-date">{r['date'][5:].replace('-','.')}</div>
+          <div class="res-matchup">{r['matchup']}</div>
+          <div class="res-score {sc_cls}">{r['score']}</div>
+          <span class="res-badge {wl_cls}">{wl}</span>
+        </div>"""
+
+    recent_section = ""
+    if recent_rows:
+        recent_section = f"""
+    <div class="section-title">LEGUTÓBBI EREDMÉNYEK</div>
+    <div class="recent-list">{recent_rows}
+    </div>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Közgáz Basketball</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  :root {{
+    --bg:#0a0b0e; --card:#151518; --card-hover:#1e1e24;
+    --accent:#C41E3A; --accent2:#00cec9; --accent3:#ff6b6b; --accent4:#fdcb6e;
+    --text:#e8e8f0; --text-dim:#8b8da0; --green:#00b894; --red:#e17055;
+    --border:rgba(255,255,255,0.06);
+  }}
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px; }}
+  .container {{ max-width:900px; margin:0 auto; }}
+  {NAV_CSS}
+
+  .hero {{
+    text-align:center; padding:48px 20px 40px;
+    background:linear-gradient(135deg,#151518 0%,#2a1218 100%);
+    border-radius:20px; margin-bottom:36px;
+    border:1px solid rgba(196,30,58,0.15);
+  }}
+  .hero h1 {{
+    font-size:2.6rem; font-weight:900; letter-spacing:2px;
+    background:linear-gradient(135deg,#fff 30%,var(--accent) 100%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  }}
+  .hero .sub {{
+    color:var(--text-dim); margin-top:10px; font-size:0.95rem;
+    letter-spacing:0.5px;
+  }}
+
+  .home-cards {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; margin-bottom:36px; }}
+  .home-card {{
+    background:linear-gradient(135deg,#2a1218 0%,#1a1518 100%);
+    border-radius:16px; padding:24px; text-decoration:none; color:var(--text);
+    border:1px solid rgba(196,30,58,0.2);
+    transition:all .25s; position:relative; overflow:hidden;
+  }}
+  .home-card:hover {{
+    border-color:var(--accent); transform:translateY(-3px);
+    box-shadow:0 12px 32px rgba(196,30,58,0.2);
+  }}
+  .home-card-header {{ margin-bottom:16px; }}
+  .home-card-title {{ font-size:1.3rem; font-weight:800; }}
+  .home-card-group {{ font-size:0.78rem; color:var(--text-dim); margin-top:4px; }}
+  .home-card-record {{ font-size:1.5rem; font-weight:800; margin-bottom:12px; }}
+  .rec-w {{ color:var(--green); }}
+  .rec-l {{ color:var(--red); }}
+  .next-match {{
+    font-size:0.8rem; color:var(--text-dim);
+    padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px;
+  }}
+  .next-match strong {{ color:var(--text); }}
+  .home-card-arrow {{
+    position:absolute; top:24px; right:24px;
+    font-size:1.4rem; color:var(--accent); opacity:0.4;
+    transition:opacity .2s, transform .2s;
+  }}
+  .home-card:hover .home-card-arrow {{ opacity:1; transform:translateX(4px); }}
+  .home-card.placeholder {{
+    opacity:0.35; pointer-events:none;
+    border-style:dashed;
+  }}
+
+  .section-title {{
+    font-size:0.75rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:1.5px; color:var(--text-dim); margin-bottom:14px;
+  }}
+
+  .upcoming-list, .recent-list {{
+    background:var(--card); border-radius:14px; padding:6px;
+    margin-bottom:32px; border:1px solid var(--border);
+  }}
+  .up-row, .res-row {{
+    display:grid; grid-template-columns:60px 48px 70px 1fr auto;
+    align-items:center; padding:12px 16px; gap:8px;
+    border-bottom:1px solid var(--border);
+    font-size:0.85rem;
+  }}
+  .up-row:last-child, .res-row:last-child {{ border-bottom:none; }}
+  .up-date, .res-date {{ color:var(--text-dim); font-size:0.8rem; font-weight:500; }}
+  .up-time {{ color:var(--text-dim); font-size:0.78rem; }}
+  .up-team {{ font-weight:700; font-size:0.78rem; color:var(--accent); }}
+  .up-opp {{ font-weight:600; }}
+  .res-matchup {{ font-weight:600; }}
+  .up-badge, .res-badge {{
+    font-size:0.7rem; font-weight:800; padding:3px 8px; border-radius:6px;
+    text-align:center; min-width:28px;
+  }}
+  .up-badge.home {{ background:rgba(196,30,58,0.15); color:var(--accent); }}
+  .up-badge.away {{ background:rgba(253,203,110,0.15); color:var(--accent4); }}
+  .res-badge.w {{ background:rgba(0,184,148,0.15); color:var(--green); }}
+  .res-badge.l {{ background:rgba(225,112,85,0.15); color:var(--red); }}
+  .res-score.win {{ font-weight:700; color:var(--green); }}
+  .res-score.loss {{ font-weight:700; color:var(--red); }}
+  .res-row {{ grid-template-columns:60px 1fr auto auto; }}
+
+  @media(max-width:600px) {{
+    .hero h1 {{ font-size:1.8rem; }}
+    .home-cards {{ grid-template-columns:1fr; }}
+    .up-row, .res-row {{ font-size:0.78rem; gap:4px; padding:10px 12px; }}
+  }}
+</style>
+</head>
+<body>
+<div class="container">
+  {_nav_html(depth=0)}
+  <div class="hero">
+    <h1>KÖZGÁZ BASKETBALL</h1>
+    <div class="sub">2025/26 szezon</div>
+  </div>
+  <div class="home-cards">
+    {cards_html}
+    <div class="home-card placeholder">
+      <div class="home-card-header">
+        <div class="home-card-title">Leftoverz</div>
+        <div class="home-card-group">Hamarosan...</div>
+      </div>
+    </div>
+  </div>
+  {upcoming_section}
+  {recent_section}
+</div>
+</body>
+</html>"""
+
+
+def generate_index(players, cfg, team_key=None):
     cards = ""
     for i, (name, filename, games, ppg) in enumerate(players):
         rank = i + 1
@@ -1667,6 +1956,7 @@ def generate_index(players, cfg):
         <div class="player-meta">{games} meccs &nbsp;|&nbsp; {ppg} PPG</div></div>
       </a>"""
 
+    nav = _nav_html(active_key=team_key, depth=1)
     return f"""<!DOCTYPE html>
 <html lang="hu">
 <head>
@@ -1676,16 +1966,17 @@ def generate_index(players, cfg):
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
   :root {{
-    --bg:#0f1117; --card:#1a1d27; --card-hover:#22263a;
-    --accent:#6c5ce7; --accent2:#00cec9; --text:#e8e8f0; --text-dim:#8b8da0;
+    --bg:#0a0b0e; --card:#151518; --card-hover:#1e1e24;
+    --accent:#C41E3A; --accent2:#00cec9; --text:#e8e8f0; --text-dim:#8b8da0;
     --border:rgba(255,255,255,0.06);
   }}
   * {{ margin:0; padding:0; box-sizing:border-box; }}
   body {{ font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px; }}
   .container {{ max-width:900px; margin:0 auto; }}
+  {NAV_CSS}
   .team-header {{
     text-align:center; padding:40px 20px 30px;
-    background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 100%);
+    background:linear-gradient(135deg,#151518 0%,#2a1218 100%);
     border-radius:20px; margin-bottom:30px; border:1px solid var(--border);
   }}
   .team-header h1 {{
@@ -1697,14 +1988,14 @@ def generate_index(players, cfg):
   .team-header .sub span {{ color:var(--accent2); font-weight:600; }}
   .team-card {{
     display:flex; align-items:center; gap:20px;
-    background:linear-gradient(135deg,#2d1f4e 0%,#1a2744 100%);
+    background:linear-gradient(135deg,#2a1218 0%,#1a1518 100%);
     border-radius:16px; padding:22px 28px; margin-bottom:24px;
-    border:1px solid rgba(108,92,231,0.3); text-decoration:none; color:var(--text);
+    border:1px solid rgba(196,30,58,0.3); text-decoration:none; color:var(--text);
     transition:all 0.25s;
   }}
   .team-card:hover {{
     border-color:var(--accent); transform:translateY(-2px);
-    box-shadow:0 10px 30px rgba(108,92,231,0.2);
+    box-shadow:0 10px 30px rgba(196,30,58,0.2);
   }}
   .team-card .team-icon {{
     font-size:2.2rem; min-width:50px; text-align:center;
@@ -1725,7 +2016,7 @@ def generate_index(players, cfg):
   }}
   .player-card:hover {{
     background:var(--card-hover); border-color:var(--accent);
-    transform:translateY(-2px); box-shadow:0 8px 24px rgba(108,92,231,0.15);
+    transform:translateY(-2px); box-shadow:0 8px 24px rgba(196,30,58,0.15);
   }}
   .rank {{ font-size:1.1rem; font-weight:800; color:var(--accent); min-width:36px; }}
   .player-name {{ font-weight:700; font-size:0.95rem; }}
@@ -1734,6 +2025,7 @@ def generate_index(players, cfg):
 </head>
 <body>
 <div class="container">
+  {nav}
   <div class="team-header">
     <h1>{cfg["team_name"]}</h1>
     <div class="sub">{cfg["group_name"]} &nbsp;|&nbsp; <span>2025/26 alapszakasz</span> &nbsp;|&nbsp; Játékos dashboardok</div>
@@ -1819,7 +2111,7 @@ def generate_team(team_key):
             f.write(cal_html)
         print(f"  ✓ naptar.html (meccsnaptár, {len(cal_data)} meccs)")
 
-    index_html = generate_index(generated, cfg)
+    index_html = generate_index(generated, cfg, team_key=team_key)
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
         f.write(index_html)
     print(f"  ✓ index.html")
@@ -1827,21 +2119,65 @@ def generate_team(team_key):
     conn.close()
     print(f"  Összesen {len(generated)} játékos + 1 csapat dashboard → {cfg['out_dir']}/")
 
+    # Return schedule data for homepage
+    return cal_data
+
+
+def generate_site():
+    """Generate all team dashboards and the homepage."""
+    team_data = {}
+    for key in TEAMS:
+        cal = generate_team(key)
+        team_data[key] = cal or []
+
+    # Build homepage summaries
+    summaries = []
+    for t in NAV_TEAMS:
+        key = t["key"]
+        if key not in TEAMS:
+            continue
+        cfg = TEAMS[key]
+        matches = team_data.get(key, [])
+        played = [m for m in matches if m.get("played") and m.get("home_score") is not None]
+        upcoming = [m for m in matches if not m.get("played") or m.get("home_score") is None]
+        upcoming.sort(key=lambda x: x["date"])
+
+        wins = sum(1 for m in played if (m["home_score"] > m["away_score"]) == m["is_home"])
+        losses = len(played) - wins
+
+        recent = sorted(played, key=lambda x: x["date"])
+
+        summaries.append({
+            "key": key,
+            "label": t["label"],
+            "href": t["href"],
+            "group": cfg["group_name"],
+            "short": cfg["team_short"],
+            "wins": wins,
+            "losses": losses,
+            "upcoming": upcoming,
+            "recent": recent,
+        })
+
+    hp = generate_homepage(summaries)
+    with open(os.path.join(BASE_DIR, "index.html"), "w", encoding="utf-8") as f:
+        f.write(hp)
+    print(f"\n  ✓ index.html (főoldal)")
+
 
 def main():
     if len(sys.argv) > 1:
-        for key in sys.argv[1:]:
-            if key in TEAMS:
-                generate_team(key)
-            elif key == "all":
-                for k in TEAMS:
-                    generate_team(k)
-            else:
-                print(f"  ⚠ Ismeretlen csapat: {key}. Elérhető: {', '.join(TEAMS.keys())}, all")
+        keys = sys.argv[1:]
+        if "all" in keys or "site" in keys:
+            generate_site()
+        else:
+            for key in keys:
+                if key in TEAMS:
+                    generate_team(key)
+                else:
+                    print(f"  ⚠ Ismeretlen csapat: {key}. Elérhető: {', '.join(TEAMS.keys())}, all, site")
     else:
-        # Default: generate all
-        for k in TEAMS:
-            generate_team(k)
+        generate_site()
 
 
 if __name__ == "__main__":

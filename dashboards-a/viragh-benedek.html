@@ -8,8 +8,8 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
   :root {
-    --bg: #0f1117; --card: #1a1d27; --card-hover: #22263a;
-    --accent: #6c5ce7; --accent2: #00cec9; --accent3: #fd79a8; --accent4: #fdcb6e;
+    --bg: #0a0b0e; --card: #151518; --card-hover: #1e1e24;
+    --accent: #C41E3A; --accent2: #00cec9; --accent3: #ff6b6b; --accent4: #fdcb6e;
     --text: #e8e8f0; --text-dim: #8b8da0; --green: #00b894; --red: #e17055;
     --border: rgba(255,255,255,0.06);
   }
@@ -18,14 +18,14 @@
   .dashboard { max-width:1200px; margin:0 auto; }
   .header {
     display:flex; align-items:center; gap:28px; padding:32px;
-    background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 100%);
+    background:linear-gradient(135deg,#151518 0%,#2a1218 100%);
     border-radius:20px; margin-bottom:20px; border:1px solid var(--border);
     position:relative; overflow:hidden;
   }
   .header::after {
     content:''; position:absolute; top:-60%; right:-10%;
     width:400px; height:400px;
-    background:radial-gradient(circle,rgba(108,92,231,0.15),transparent 70%);
+    background:radial-gradient(circle,rgba(196,30,58,0.15),transparent 70%);
     pointer-events:none;
   }
   .header-info { z-index:1; }
@@ -62,7 +62,7 @@
   .game-log th { text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; }
   .game-log td { padding:8px 10px; border-bottom:1px solid var(--border); }
   .game-log tr:last-child td { border-bottom:none; }
-  .game-log tr:hover { background:rgba(108,92,231,0.06); }
+  .game-log tr:hover { background:rgba(196,30,58,0.06); }
   .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; }
   .badge.w { background:rgba(0,184,148,0.15); color:var(--green); }
   .badge.l { background:rgba(225,112,85,0.15); color:var(--red); }
@@ -197,7 +197,7 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {
     labels: played.map(g=>g.date),
     datasets: [{
       label:'Pont', data:played.map(g=>g.pts),
-      borderColor:'#6c5ce7', backgroundColor:'rgba(108,92,231,0.1)',
+      borderColor:'#C41E3A', backgroundColor:'rgba(196,30,58,0.1)',
       fill:true, tension:0.35,
       pointBackgroundColor:played.map(g=>g.res==='W'?'#00b894':'#e17055'),
       pointBorderColor:played.map(g=>g.res==='W'?'#00b894':'#e17055'),
@@ -223,7 +223,7 @@ new Chart(document.getElementById('shotPie').getContext('2d'), {
   type:'doughnut',
   data: {
     labels:['3FG (6 pt)','2FG (30 pt)','FT (5 pt)'],
-    datasets:[{ data:[6,30,5], backgroundColor:['#6c5ce7','#00cec9','#fdcb6e'], borderColor:'#1a1d27', borderWidth:3, hoverOffset:8 }]
+    datasets:[{ data:[6,30,5], backgroundColor:['#C41E3A','#00cec9','#fdcb6e'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }]
   },
   options: { responsive:true, maintainAspectRatio:false, cutout:'60%',
     plugins:{ legend:{ position:'right', labels:{ padding:12, usePointStyle:true, font:{size:11} } } }
@@ -236,8 +236,8 @@ new Chart(document.getElementById('quarterChart').getContext('2d'), {
     labels:['Q1','Q2','Q3','Q4'],
     datasets:[{
       label:'Összes pont', data:[10, 21, 6, 4],
-      backgroundColor:['rgba(108,92,231,0.7)','rgba(108,92,231,0.5)','rgba(108,92,231,0.55)','rgba(108,92,231,0.5)'],
-      borderColor:'#6c5ce7', borderWidth:2, borderRadius:6,
+      backgroundColor:['rgba(196,30,58,0.7)','rgba(196,30,58,0.5)','rgba(196,30,58,0.55)','rgba(196,30,58,0.5)'],
+      borderColor:'#C41E3A', borderWidth:2, borderRadius:6,
     },{
       label:'3FG bedobva', data:[2, 3, 0, 0],
       backgroundColor:'rgba(253,121,168,0.5)', borderColor:'#fd79a8', borderWidth:2, borderRadius:6,

@@ -7,16 +7,42 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
   :root {
-    --bg:#0f1117; --card:#1a1d27; --card-hover:#22263a;
-    --accent:#6c5ce7; --accent2:#00cec9; --text:#e8e8f0; --text-dim:#8b8da0;
+    --bg:#0a0b0e; --card:#151518; --card-hover:#1e1e24;
+    --accent:#C41E3A; --accent2:#00cec9; --text:#e8e8f0; --text-dim:#8b8da0;
     --border:rgba(255,255,255,0.06);
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px; }
   .container { max-width:900px; margin:0 auto; }
+  
+.site-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  max-width:900px; margin:0 auto 28px; padding:14px 0;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+}
+.nav-logo {
+  font-weight:900; font-size:1rem; letter-spacing:1.5px;
+  color:var(--accent); text-decoration:none;
+  transition:opacity .2s;
+}
+.nav-logo:hover { opacity:0.8; }
+.nav-links { display:flex; gap:24px; }
+.nav-links a, .nav-links .nav-link {
+  font-size:0.82rem; font-weight:600; color:var(--text-dim);
+  text-decoration:none; text-transform:uppercase; letter-spacing:0.8px;
+  transition:color .2s;
+}
+.nav-links a:hover { color:var(--text); }
+.nav-links a.active { color:var(--accent); }
+.nav-links .disabled { opacity:0.3; cursor:default; }
+@media(max-width:600px) {
+  .site-nav { flex-direction:column; gap:12px; text-align:center; }
+  .nav-links { gap:16px; flex-wrap:wrap; justify-content:center; }
+}
+
   .team-header {
     text-align:center; padding:40px 20px 30px;
-    background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 100%);
+    background:linear-gradient(135deg,#151518 0%,#2a1218 100%);
     border-radius:20px; margin-bottom:30px; border:1px solid var(--border);
   }
   .team-header h1 {
@@ -28,14 +54,14 @@
   .team-header .sub span { color:var(--accent2); font-weight:600; }
   .team-card {
     display:flex; align-items:center; gap:20px;
-    background:linear-gradient(135deg,#2d1f4e 0%,#1a2744 100%);
+    background:linear-gradient(135deg,#2a1218 0%,#1a1518 100%);
     border-radius:16px; padding:22px 28px; margin-bottom:24px;
-    border:1px solid rgba(108,92,231,0.3); text-decoration:none; color:var(--text);
+    border:1px solid rgba(196,30,58,0.3); text-decoration:none; color:var(--text);
     transition:all 0.25s;
   }
   .team-card:hover {
     border-color:var(--accent); transform:translateY(-2px);
-    box-shadow:0 10px 30px rgba(108,92,231,0.2);
+    box-shadow:0 10px 30px rgba(196,30,58,0.2);
   }
   .team-card .team-icon {
     font-size:2.2rem; min-width:50px; text-align:center;
@@ -56,7 +82,7 @@
   }
   .player-card:hover {
     background:var(--card-hover); border-color:var(--accent);
-    transform:translateY(-2px); box-shadow:0 8px 24px rgba(108,92,231,0.15);
+    transform:translateY(-2px); box-shadow:0 8px 24px rgba(196,30,58,0.15);
   }
   .rank { font-size:1.1rem; font-weight:800; color:var(--accent); min-width:36px; }
   .player-name { font-weight:700; font-size:0.95rem; }
@@ -65,6 +91,7 @@
 </head>
 <body>
 <div class="container">
+  <nav class="site-nav"><a href="../index.html" class="nav-logo">KÖZGÁZ BASKETBALL</a><div class="nav-links"><a href="../dashboards/index.html" class="active">Öregek NB2</a><a href="../dashboards-a/index.html">Fiatalok NB2</a><span class="nav-link disabled">Leftoverz</span></div></nav>
   <div class="team-header">
     <h1>KÖZGÁZ SC ÉS DSK/B</h1>
     <div class="sub">NB2 Kelet &nbsp;|&nbsp; <span>2025/26 alapszakasz</span> &nbsp;|&nbsp; Játékos dashboardok</div>
