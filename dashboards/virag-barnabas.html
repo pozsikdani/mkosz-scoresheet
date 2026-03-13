@@ -118,7 +118,7 @@
     <div class="card mini-stat"><div class="big" style="color:var(--accent)">13</div><div class="desc">Összes pont</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent2)">33%</div><div class="desc">FT% (1/3)</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent3)">1.2</div><div class="desc">Fault / meccs</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">0%</div><div class="desc">Csapat pont részesedés</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">4.8%</div><div class="desc">Csapat pont részesedés</div></div>
   </div>
 
   <div class="grid grid-2 mb20">
@@ -180,7 +180,7 @@
       <div>
         <div style="color:var(--accent3);font-weight:700;margin-bottom:6px;">Fejlesztendő területek</div>
         <ul style="padding-left:18px;color:var(--text-dim);">
-          <li><span style="color:#fff;font-weight:600;">Q1 a leggyengébb negyed (0.5 pont/meccs)</span></li>
+          <li><span style="color:#fff;font-weight:600;">Q1 a leggyengébb negyed (0.5 pont/meccs)</span></li><li><span style="color:#fff;font-weight:600;">12 meccsen nem kapott lehetőséget (DNP)</span></li>
         </ul>
       </div>
     </div>
@@ -193,8 +193,8 @@ Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
 Chart.defaults.font.family="'Inter',sans-serif";
 
-const games = [];
-const maxPts = 1;
+const games = [{"date": "10.07", "opp": "Sunshine-NYÍKSE", "res": "L", "pts": 2, "fg2": 1, "fg3": 0, "ft": "0/1", "pf": 1, "share": 2.9, "start": false}, {"date": "10.09", "opp": "Újpest-Mt", "res": "W", "pts": null}, {"date": "10.16", "opp": "Blf Se", "res": "L", "pts": 8, "fg2": 4, "fg3": 0, "ft": "0/0", "pf": 4, "share": 10.8, "start": true}, {"date": "10.22", "opp": "Szerencs Vse", "res": "L", "pts": null}, {"date": "11.06", "opp": "BKG-Prima Deb.", "res": "L", "pts": null}, {"date": "11.20", "opp": "Bp. Bikák", "res": "L", "pts": null}, {"date": "11.25", "opp": "BKG-Veresegyh.", "res": "L", "pts": null}, {"date": "12.06", "opp": "Fke Sas", "res": "L", "pts": null}, {"date": "01.09", "opp": "Sunshine-NYÍKSE", "res": "W", "pts": null}, {"date": "01.15", "opp": "Blf Se", "res": "L", "pts": null}, {"date": "01.22", "opp": "Szerencs Vse", "res": "L", "pts": 3, "fg2": 1, "fg3": 0, "ft": "1/2", "pf": 0, "share": 4.4, "start": false}, {"date": "01.29", "opp": "Újpest-Mt", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 0, "share": 0.0, "start": false}, {"date": "02.17", "opp": "Bp. Bikák", "res": "L", "pts": null}, {"date": "02.19", "opp": "BKG-Prima Deb.", "res": "W", "pts": null}, {"date": "03.01", "opp": "BKG-Veresegyh.", "res": "L", "pts": null}, {"date": "03.03", "opp": "Fke Sas", "res": "W", "pts": null}];
+const maxPts = 8;
 
 const tbody = document.getElementById('gameLogBody');
 games.forEach(g => {

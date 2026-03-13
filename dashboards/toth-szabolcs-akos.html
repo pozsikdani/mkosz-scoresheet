@@ -118,7 +118,7 @@
     <div class="card mini-stat"><div class="big" style="color:var(--accent)">94</div><div class="desc">Összes pont</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent2)">56%</div><div class="desc">FT% (23/41)</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent3)">2.7</div><div class="desc">Fault / meccs</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">0%</div><div class="desc">Csapat pont részesedés</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">8.6%</div><div class="desc">Csapat pont részesedés</div></div>
   </div>
 
   <div class="grid grid-2 mb20">
@@ -180,7 +180,7 @@
       <div>
         <div style="color:var(--accent3);font-weight:700;margin-bottom:6px;">Fejlesztendő területek</div>
         <ul style="padding-left:18px;color:var(--text-dim);">
-          <li><span style="color:#fff;font-weight:600;">Gyenge büntető: 56% (23/41)</span></li><li><span style="color:#fff;font-weight:600;">Fke Sas ellen gyenge: 3.0 PPG</span></li>
+          <li><span style="color:#fff;font-weight:600;">Inkonzisztens: 0-22 pont szórás</span></li><li><span style="color:#fff;font-weight:600;">Gyenge büntető: 56% (23/41)</span></li><li><span style="color:#fff;font-weight:600;">Fke Sas ellen gyenge: 3.0 PPG</span></li>
         </ul>
       </div>
     </div>
@@ -193,8 +193,8 @@ Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
 Chart.defaults.font.family="'Inter',sans-serif";
 
-const games = [];
-const maxPts = 1;
+const games = [{"date": "10.07", "opp": "Sunshine-NYÍKSE", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 3, "share": 0.0, "start": false}, {"date": "10.09", "opp": "Újpest-Mt", "res": "W", "pts": 7, "fg2": 2, "fg3": 0, "ft": "3/4", "pf": 3, "share": 7.6, "start": false}, {"date": "10.16", "opp": "Blf Se", "res": "L", "pts": 3, "fg2": 1, "fg3": 0, "ft": "1/3", "pf": 2, "share": 4.1, "start": false}, {"date": "10.22", "opp": "Szerencs Vse", "res": "L", "pts": 6, "fg2": 1, "fg3": 1, "ft": "2/2", "pf": 4, "share": 9.0, "start": true}, {"date": "11.06", "opp": "BKG-Prima Deb.", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/2", "pf": 3, "share": 0.0, "start": true}, {"date": "11.20", "opp": "Bp. Bikák", "res": "L", "pts": 10, "fg2": 0, "fg3": 4, "ft": "0/4", "pf": 2, "share": 21.3, "start": false}, {"date": "11.25", "opp": "BKG-Veresegyh.", "res": "L", "pts": null}, {"date": "12.06", "opp": "Fke Sas", "res": "L", "pts": 4, "fg2": 1, "fg3": 0, "ft": "2/4", "pf": 2, "share": 6.2, "start": true}, {"date": "01.09", "opp": "Sunshine-NYÍKSE", "res": "W", "pts": 22, "fg2": 6, "fg3": 3, "ft": "1/2", "pf": 2, "share": 31.9, "start": true}, {"date": "01.15", "opp": "Blf Se", "res": "L", "pts": 4, "fg2": 0, "fg3": 1, "ft": "2/2", "pf": 3, "share": 5.1, "start": false}, {"date": "01.22", "opp": "Szerencs Vse", "res": "L", "pts": 13, "fg2": 5, "fg3": 0, "ft": "3/4", "pf": 3, "share": 19.1, "start": true}, {"date": "01.29", "opp": "Újpest-Mt", "res": "L", "pts": 5, "fg2": 2, "fg3": 0, "ft": "1/2", "pf": 1, "share": 8.5, "start": false}, {"date": "02.17", "opp": "Bp. Bikák", "res": "L", "pts": 4, "fg2": 1, "fg3": 0, "ft": "2/3", "pf": 3, "share": 6.8, "start": false}, {"date": "02.19", "opp": "BKG-Prima Deb.", "res": "W", "pts": 7, "fg2": 3, "fg3": 0, "ft": "1/4", "pf": 3, "share": 8.6, "start": true}, {"date": "03.01", "opp": "BKG-Veresegyh.", "res": "L", "pts": 7, "fg2": 2, "fg3": 0, "ft": "3/3", "pf": 5, "share": 7.2, "start": false}, {"date": "03.03", "opp": "Fke Sas", "res": "W", "pts": 2, "fg2": 0, "fg3": 0, "ft": "2/2", "pf": 2, "share": 2.1, "start": false}];
+const maxPts = 22;
 
 const tbody = document.getElementById('gameLogBody');
 games.forEach(g => {
@@ -234,7 +234,7 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {
         if(ctx.datasetIndex===0){ const g=played[ctx.dataIndex]; return (g.res==='W'?'Győzelem':'Vereség')+' vs '+g.opp; }
       } } }
     },
-    scales: { y:{ beginAtZero:true, max:15, grid:{color:'rgba(255,255,255,0.04)'} }, x:{ grid:{display:false} } }
+    scales: { y:{ beginAtZero:true, max:27, grid:{color:'rgba(255,255,255,0.04)'} }, x:{ grid:{display:false} } }
   }
 });
 

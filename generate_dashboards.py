@@ -66,7 +66,8 @@ def get_game_log(conn, license_number):
             ON pgs.match_id = kg.match_id AND pgs.license_number = ?
             AND pgs.team = kg.kg_team
         ORDER BY kg.match_date
-    """, (TEAM_PATTERN,)*7 + (TEAM_PATTERN, license_number)).fetchall()
+    """, (TEAM_PATTERN, TEAM_PATTERN, TEAM_PATTERN, TEAM_PATTERN, TEAM_PATTERN,
+          COMP_PREFIX, TEAM_PATTERN, TEAM_PATTERN, license_number)).fetchall()
     return all_games
 
 def get_quarter_stats(conn, license_number):
