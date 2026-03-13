@@ -6,6 +6,10 @@ import os
 import json
 import re
 import sys
+import calendar as cal_module
+from datetime import datetime
+import urllib.request
+import urllib.error
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nb2_full.sqlite")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +24,9 @@ TEAMS = {
         "team_short": "KÖZGÁZ B",
         "group_name": "NB2 Kelet",
         "out_dir": "dashboards",
+        "mkosz_season": "x2526",
+        "mkosz_comp": "hun3k",
+        "mkosz_team_id": "9239",
     },
     "kozgaz-a": {
         "team_pattern": "%KÖZGÁZ%DSK/A%",
@@ -29,8 +36,45 @@ TEAMS = {
         "team_short": "KÖZGÁZ A",
         "group_name": "NB2 Közép B",
         "out_dir": "dashboards-a",
+        "mkosz_season": "x2526",
+        "mkosz_comp": "hun3kob",
+        "mkosz_team_id": "9219",
     },
 }
+
+# ---- HUNGARIAN CALENDAR CONSTANTS ----
+MONTH_NAMES_HU = {
+    1: "JANUÁR", 2: "FEBRUÁR", 3: "MÁRCIUS", 4: "ÁPRILIS",
+    5: "MÁJUS", 6: "JÚNIUS", 7: "JÚLIUS", 8: "AUGUSZTUS",
+    9: "SZEPTEMBER", 10: "OKTÓBER", 11: "NOVEMBER", 12: "DECEMBER",
+}
+DAY_NAMES_HU = ["HÉT", "KED", "SZE", "CSÜ", "PÉN", "SZO", "VAS"]
+
+CALENDAR_SHORT = {
+    "SUNSHINE-NYÍKSE": "NYÍKSE",
+    "ÚJPEST-MT": "Újpest",
+    "BLF SE": "BLF",
+    "SZERENCS VSE": "Szerencs",
+    "BKG-PRIMA AKADÉMIA DEBRECEN": "Debrecen",
+    "BUDAPESTI BIKÁK": "Bikák",
+    "BKG-VERESEGYHÁZ": "V.egyház",
+    "FKE SAS": "FKE Sas",
+    "KÖZGÁZ SC ÉS DSK/B": "Közgáz B",
+    "KÖZGÁZ SC ÉS DSK/A": "Közgáz A",
+    "VASAS AKADÉMIA BUDAPEST": "Vasas",
+    "EGER KOSÁRLABDA CLUB": "Eger KC",
+    "VMG DSE": "VMG DSE",
+}
+
+
+def calendar_short_name(name):
+    """Ultra-short opponent name for calendar cells."""
+    n = name.strip()
+    for k, v in CALENDAR_SHORT.items():
+        if k in n.upper():
+            return v
+    parts = n.split()
+    return parts[0][:10] if parts else n[:10]
 
 
 def slugify(name):
@@ -806,6 +850,138 @@ def get_team_stats(conn, cfg, tp):
     return d
 
 
+HU_MONTHS_PARSE = {
+    "január": 1, "február": 2, "március": 3, "április": 4,
+    "május": 5, "június": 6, "július": 7, "augusztus": 8,
+    "szeptember": 9, "október": 10, "november": 11, "december": 12,
+}
+
+MKOSZ_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
+
+def _parse_hu_date(text):
+    """Parse '2025. október 7.' → '2025-10-07'."""
+    m = re.match(r'(\d{4})\.\s+(\w+)\s+(\d{1,2})\.?', text.strip())
+    if not m:
+        return None
+    year, month_hu, day = m.group(1), m.group(2).lower(), m.group(3)
+    month = HU_MONTHS_PARSE.get(month_hu)
+    if not month:
+        return None
+    return f"{year}-{month:02d}-{int(day):02d}"
+
+
+def scrape_schedule(cfg):
+    """Scrape match schedule from MKOSZ website. Returns list of dicts."""
+    season = cfg.get("mkosz_season")
+    comp = cfg.get("mkosz_comp")
+    team_id = cfg.get("mkosz_team_id")
+    if not all([season, comp, team_id]):
+        return None
+
+    url = f"https://mkosz.hu/bajnoksag-musor/{season}/{comp}/phase/0/csapat/{team_id}"
+    req = urllib.request.Request(url, headers={"User-Agent": MKOSZ_USER_AGENT})
+    try:
+        html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
+        print(f"  ⚠ MKOSZ scrape hiba: {e}")
+        return None
+
+    team_name_upper = cfg["team_name"].upper()
+    matches = []
+    trs = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
+    for tr in trs:
+        tds = re.findall(r'<td[^>]*>(.*?)</td>', tr, re.DOTALL)
+        if len(tds) != 6:
+            continue
+
+        # Team names from title attributes
+        teams = re.findall(r'title="([^"]+)"', tds[0] + tds[1])
+        if len(teams) != 2:
+            continue
+
+        home_team, away_team = teams[0], teams[1]
+
+        # Date
+        date_m = re.search(r'<b>(.*?)</b>', tds[2])
+        if not date_m:
+            continue
+        date_str = _parse_hu_date(date_m.group(1))
+        if not date_str:
+            continue
+
+        # Time
+        time_str = tds[3].strip()
+
+        # Score + match_id
+        score_m = re.search(r'(\d+)\s*-\s*(\d+)', tds[4])
+        mid_m = re.search(r'href="[^"]*?/([^/"]+)"', tds[4])
+
+        if score_m:
+            home_score = int(score_m.group(1))
+            away_score = int(score_m.group(2))
+            played = True
+        else:
+            home_score = None
+            away_score = None
+            played = False
+
+        match_id = mid_m.group(1) if mid_m else None
+
+        # Venue
+        venue_m = re.search(r'title="([^"]+)"', tds[5])
+        if not venue_m:
+            venue_m = re.search(r'<span>(.*?)</span>', tds[5])
+        venue = venue_m.group(1).strip() if venue_m else ""
+
+        # Determine home/away for our team
+        is_home = home_team.upper().startswith(team_name_upper[:10])
+
+        matches.append({
+            "date": date_str,
+            "time": time_str,
+            "home_team": home_team,
+            "away_team": away_team,
+            "home_score": home_score,
+            "away_score": away_score,
+            "match_id": match_id,
+            "venue": venue,
+            "played": played,
+            "is_home": is_home,
+        })
+
+    return matches if matches else None
+
+
+def get_calendar_data_db(conn, cfg, tp):
+    """Fallback: fetch match data from SQLite."""
+    rows = conn.execute("""
+        SELECT m.match_date, m.match_time,
+               CASE WHEN m.team_a LIKE ? THEN 'H' ELSE 'A' END as home_away,
+               CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opponent,
+               CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as our_score,
+               CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as opp_score,
+               m.match_id
+        FROM matches m
+        WHERE m.match_id LIKE ?
+          AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+        ORDER BY m.match_date
+    """, (tp, tp, tp, tp, cfg["comp_prefix"], tp, tp)).fetchall()
+    # Convert to same dict format as scrape_schedule
+    return [{
+        "date": r[0], "time": r[1] or "",
+        "home_team": cfg["team_name"] if r[2] == 'H' else r[3],
+        "away_team": r[3] if r[2] == 'H' else cfg["team_name"],
+        "home_score": r[4] if r[2] == 'H' else r[5],
+        "away_score": r[5] if r[2] == 'H' else r[4],
+        "match_id": r[6], "venue": "", "played": True,
+        "is_home": r[2] == 'H',
+    } for r in rows] if rows else None
+
+
 def generate_team_dashboard(stats, cfg):
     """Generate team-level dashboard HTML."""
     d = stats
@@ -1190,6 +1366,293 @@ new Chart(document.getElementById('shotPie').getContext('2d'), {{
     return html
 
 
+def generate_calendar(matches, cfg):
+    """Generate calendar HTML page. matches = list of dicts from scrape or DB."""
+    # Parse matches into dict keyed by (year, month, day)
+    match_by_date = {}
+    for m in matches:
+        d = datetime.strptime(m["date"], "%Y-%m-%d").date()
+        is_home = m["is_home"]
+        opponent = m["away_team"] if is_home else m["home_team"]
+        opp_short = calendar_short_name(opponent)
+        display_opp = opp_short if is_home else f"@{opp_short}"
+
+        if m["played"] and m["home_score"] is not None:
+            our_score = m["home_score"] if is_home else m["away_score"]
+            opp_score = m["away_score"] if is_home else m["home_score"]
+            is_win = our_score > opp_score
+            score_str = f"{our_score}-{opp_score}"
+        else:
+            is_win = None
+            score_str = None
+
+        match_by_date[(d.year, d.month, d.day)] = {
+            "opp": display_opp,
+            "time": m.get("time", ""),
+            "score": score_str,
+            "win": is_win,
+            "home": is_home,
+            "played": m["played"],
+        }
+
+    # Determine month range from data
+    dates = [datetime.strptime(m["date"], "%Y-%m-%d").date() for m in matches]
+    min_date, max_date = min(dates), max(dates)
+
+    months_to_show = []
+    y, mo = min_date.year, min_date.month
+    while (y, mo) <= (max_date.year, max_date.month):
+        months_to_show.append((y, mo))
+        mo += 1
+        if mo > 12:
+            mo = 1
+            y += 1
+
+    # Build HTML for each month
+    months_html = ""
+    for year, month in months_to_show:
+        month_name = MONTH_NAMES_HU[month]
+        first_weekday, num_days = cal_module.monthrange(year, month)
+
+        headers = "".join(f'<div class="cal-hd">{d}</div>' for d in DAY_NAMES_HU)
+        cells = '<div class="cal-day empty"></div>' * first_weekday
+
+        for day in range(1, num_days + 1):
+            key = (year, month, day)
+            if key in match_by_date:
+                mi = match_by_date[key]
+                ha_class = "home" if mi["home"] else "away"
+
+                if mi["played"] and mi["win"] is not None:
+                    wl = "win" if mi["win"] else "loss"
+                    badge = "W" if mi["win"] else "L"
+                    bc = "w" if mi["win"] else "l"
+                    score_line = f'<span class="match-score">{mi["score"]}</span>'
+                else:
+                    wl = "upcoming"
+                    badge = ""
+                    bc = "tbd"
+                    score_line = ""
+
+                badge_html = f'<span class="match-badge {bc}">{badge}</span>' if badge else ""
+
+                cells += f'''<div class="cal-day has-match {wl} {ha_class}">
+  <span class="day-num">{day}</span>{badge_html}
+  <div class="match-info">
+    <span class="match-opp">{mi["opp"]}</span>
+    <span class="match-time">{mi["time"]}</span>
+    {score_line}
+  </div>
+</div>'''
+            else:
+                cells += f'<div class="cal-day"><span class="day-num">{day}</span></div>'
+
+        trailing = (7 - (first_weekday + num_days) % 7) % 7
+        cells += '<div class="cal-day empty"></div>' * trailing
+
+        months_html += f'''
+  <div class="cal-month">
+    <h3>{month_name} {year}</h3>
+    <div class="cal-grid">
+      {headers}
+      {cells}
+    </div>
+  </div>'''
+
+    # Summary stats
+    played = [m for m in matches if m["played"] and m["home_score"] is not None]
+    upcoming_count = len(matches) - len(played)
+    total = len(matches)
+    wins = sum(1 for m in played if (m["home_score"] > m["away_score"]) == m["is_home"])
+    losses = len(played) - wins
+    home_played = [m for m in played if m["is_home"]]
+    away_played = [m for m in played if not m["is_home"]]
+    home_w = sum(1 for m in home_played if m["home_score"] > m["away_score"])
+    home_l = len(home_played) - home_w
+    away_w = sum(1 for m in away_played if m["away_score"] > m["home_score"])
+    away_l = len(away_played) - away_w
+    upcoming_html = f'<div class="header-stat"><div class="val accent">{upcoming_count}</div><div class="label">Hátralévő</div></div>' if upcoming_count else ""
+
+    return f"""<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{cfg["team_short"]} — Menetrend 2025/26</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+:root {{
+  --bg:#0f1117; --card:#1a1d27; --card-hover:#22263a;
+  --accent:#6c5ce7; --accent2:#00cec9; --accent3:#fd79a8; --accent4:#fdcb6e;
+  --green:#00b894; --red:#e17055;
+  --text:#e8e8f0; --text-dim:#8b8da0;
+  --border:rgba(255,255,255,0.06);
+}}
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:24px}}
+.dashboard{{max-width:960px;margin:0 auto}}
+.back-link{{display:inline-block;color:var(--accent);text-decoration:none;font-size:.82rem;font-weight:600;margin-bottom:20px;opacity:.7;transition:opacity .2s}}
+.back-link:hover{{opacity:1}}
+
+/* Header */
+.header{{
+  background:linear-gradient(135deg,#1a1d27 0%,#2d1f4e 50%,#1a2744 100%);
+  border-radius:20px;padding:32px 28px;margin-bottom:28px;
+  border:1px solid var(--border);position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;
+}}
+.header::after{{
+  content:'';position:absolute;top:-50%;right:-20%;width:60%;height:200%;
+  background:radial-gradient(circle,rgba(108,92,231,.12) 0%,transparent 70%);pointer-events:none;
+}}
+.header h1{{
+  font-size:2rem;font-weight:900;letter-spacing:-.5px;
+  background:linear-gradient(135deg,#fff 30%,var(--accent) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}}
+.header .subtitle{{color:var(--text-dim);font-size:.85rem;margin-top:4px}}
+.header .subtitle span{{color:var(--accent2);font-weight:600}}
+.header-stats{{display:flex;gap:24px;position:relative;z-index:1}}
+.header-stat{{text-align:center}}
+.header-stat .val{{font-size:1.8rem;font-weight:800}}
+.header-stat .label{{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px;margin-top:2px}}
+.green{{color:var(--green)}} .red{{color:var(--red)}} .accent{{color:var(--accent)}}
+
+/* Legend */
+.cal-legend{{
+  display:flex;gap:24px;justify-content:center;flex-wrap:wrap;
+  margin-bottom:28px;font-size:.8rem;color:var(--text-dim);
+}}
+.legend-item{{display:flex;align-items:center;gap:6px}}
+.legend-dot{{width:14px;height:14px;border-radius:5px}}
+.legend-dot.win{{background:rgba(0,184,148,.2);border:1.5px solid var(--green)}}
+.legend-dot.loss{{background:rgba(225,112,85,.2);border:1.5px solid var(--red)}}
+.legend-dot.upcoming{{background:rgba(108,92,231,.2);border:1.5px solid var(--accent)}}
+
+/* Record badges */
+.record-row{{
+  display:flex;gap:16px;justify-content:center;flex-wrap:wrap;
+  margin-bottom:28px;
+}}
+.record-badge{{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:10px 20px;font-size:.8rem;display:flex;align-items:center;gap:8px;
+}}
+.record-badge .rval{{font-weight:800;font-size:1rem}}
+
+/* Calendar grid */
+.cal-month{{
+  background:var(--card);border-radius:16px;padding:24px;
+  border:1px solid var(--border);margin-bottom:20px;
+}}
+.cal-month h3{{
+  font-size:.95rem;text-transform:uppercase;letter-spacing:2.5px;
+  color:var(--accent);margin-bottom:16px;font-weight:700;text-align:center;
+}}
+.cal-grid{{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
+}}
+.cal-hd{{
+  text-align:center;font-size:.7rem;font-weight:700;color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:1px;padding:8px 0 10px;
+}}
+.cal-day{{
+  min-height:85px;padding:7px 8px;border-radius:10px;
+  background:rgba(255,255,255,.015);position:relative;
+  transition:background .2s;
+}}
+.cal-day:hover:not(.empty){{background:rgba(255,255,255,.035)}}
+.cal-day.empty{{background:transparent;min-height:0;pointer-events:none}}
+.day-num{{font-size:.72rem;color:var(--text-dim);font-weight:500}}
+
+/* Match cells */
+.cal-day.has-match{{
+  border:1px solid var(--border);cursor:default;
+}}
+.cal-day.has-match.win{{
+  border-color:rgba(0,184,148,.35);
+  background:rgba(0,184,148,.06);
+}}
+.cal-day.has-match.loss{{
+  border-color:rgba(225,112,85,.3);
+  background:rgba(225,112,85,.05);
+}}
+.match-badge{{
+  position:absolute;top:6px;right:7px;
+  width:22px;height:22px;line-height:22px;text-align:center;
+  border-radius:6px;font-size:.65rem;font-weight:800;
+}}
+.match-badge.w{{background:rgba(0,184,148,.2);color:var(--green)}}
+.match-badge.l{{background:rgba(225,112,85,.2);color:var(--red)}}
+
+/* Upcoming (not yet played) */
+.cal-day.has-match.upcoming{{
+  border-color:rgba(108,92,231,.3);
+  background:rgba(108,92,231,.06);
+}}
+.cal-day.upcoming .match-opp{{color:var(--accent2)}}
+.cal-day.upcoming .match-time{{color:var(--text-dim)}}
+.match-info{{display:flex;flex-direction:column;gap:1px;margin-top:6px}}
+.match-opp{{font-size:.74rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.match-time{{font-size:.62rem;color:var(--text-dim)}}
+.match-score{{font-size:.72rem;font-weight:700;color:var(--accent2);margin-top:1px}}
+
+/* Away indicator */
+.cal-day.away .match-opp{{color:var(--text-dim)}}
+
+/* Responsive */
+@media(max-width:900px){{
+  .cal-day{{min-height:70px;padding:5px 6px}}
+  .match-opp{{font-size:.66rem}}
+  .match-score{{font-size:.66rem}}
+  .header{{flex-direction:column;text-align:center}}
+  .header-stats{{justify-content:center}}
+}}
+@media(max-width:600px){{
+  body{{padding:12px}}
+  .cal-day{{min-height:56px;padding:4px 5px}}
+  .cal-hd{{font-size:.6rem;padding:6px 0}}
+  .day-num{{font-size:.62rem}}
+  .match-opp{{font-size:.58rem}}
+  .match-time{{display:none}}
+  .match-score{{font-size:.6rem}}
+  .match-badge{{width:18px;height:18px;line-height:18px;font-size:.55rem;top:4px;right:4px}}
+  .header h1{{font-size:1.4rem}}
+  .header-stat .val{{font-size:1.3rem}}
+}}
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <a href="index.html" class="back-link">&larr; Vissza az áttekintőhöz</a>
+  <div class="header">
+    <div>
+      <h1>Menetrend</h1>
+      <div class="subtitle">{cfg["team_name"]} &nbsp;|&nbsp; <span>{cfg["group_name"]}</span> &nbsp;|&nbsp; 2025/26 alapszakasz</div>
+    </div>
+    <div class="header-stats">
+      <div class="header-stat"><div class="val green">{wins}</div><div class="label">Győzelem</div></div>
+      <div class="header-stat"><div class="val red">{losses}</div><div class="label">Vereség</div></div>
+      <div class="header-stat"><div class="val accent">{total}</div><div class="label">Meccs</div></div>
+      {upcoming_html}
+    </div>
+  </div>
+  <div class="record-row">
+    <div class="record-badge">Hazai <span class="rval green">{home_w}W</span>–<span class="rval red">{home_l}L</span></div>
+    <div class="record-badge">Idegen <span class="rval green">{away_w}W</span>–<span class="rval red">{away_l}L</span></div>
+  </div>
+  <div class="cal-legend">
+    <span class="legend-item"><span class="legend-dot win"></span> Győzelem</span>
+    <span class="legend-item"><span class="legend-dot loss"></span> Vereség</span>
+    <span class="legend-item"><span class="legend-dot upcoming"></span> Következő</span>
+    <span class="legend-item">@ = Idegen pálya</span>
+  </div>
+  {months_html}
+</div>
+</body>
+</html>"""
+
+
 def generate_index(players, cfg):
     cards = ""
     for i, (name, filename, games, ppg) in enumerate(players):
@@ -1278,6 +1741,12 @@ def generate_index(players, cfg):
     <div class="team-desc">Eredmények, negyedek, run-ok, forgatókönyvek, érdekességek</div></div>
     <div class="team-arrow">→</div>
   </a>
+  <a href="naptar.html" class="team-card">
+    <div class="team-icon">📅</div>
+    <div><div class="team-title">Menetrend / Naptár</div>
+    <div class="team-desc">Meccsek havi naptár nézetben, eredmények, hazai/idegen jelölés</div></div>
+    <div class="team-arrow">→</div>
+  </a>
   <div class="player-grid">{cards}
   </div>
 </div>
@@ -1330,6 +1799,22 @@ def generate_team(team_key):
     with open(os.path.join(out_dir, "csapat.html"), "w", encoding="utf-8") as f:
         f.write(team_html)
     print(f"\n  ✓ csapat.html (csapat dashboard)")
+
+    # Calendar — scrape from MKOSZ, fall back to SQLite
+    print(f"\n  Meccsnaptár scraping (mkosz.hu)...")
+    cal_data = scrape_schedule(cfg)
+    if cal_data:
+        played = sum(1 for m in cal_data if m["played"])
+        upcoming = len(cal_data) - played
+        print(f"  ✓ {len(cal_data)} meccs scraped ({played} lejátszott, {upcoming} következő)")
+    else:
+        print(f"  ⚠ Scraping sikertelen, SQLite fallback...")
+        cal_data = get_calendar_data_db(conn, cfg, tp)
+    if cal_data:
+        cal_html = generate_calendar(cal_data, cfg)
+        with open(os.path.join(out_dir, "naptar.html"), "w", encoding="utf-8") as f:
+            f.write(cal_html)
+        print(f"  ✓ naptar.html (meccsnaptár, {len(cal_data)} meccs)")
 
     index_html = generate_index(generated, cfg)
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
