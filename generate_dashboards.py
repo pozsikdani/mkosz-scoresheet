@@ -1035,16 +1035,16 @@ def generate_team_dashboard(stats, cfg, team_key=None):
     pct_ft = round(100 * pts_from_ft / total_shot_pts) if total_shot_pts else 0
 
     # Runs tables
-    def run_rows(runs, label):
+    def run_rows(runs, color):
         rows = ""
         for i, r in enumerate(runs):
             dt, opp, sq, eq, pts, bsk = r
             qspan = f"Q{sq}" if sq == eq else f"Q{sq}→Q{eq}"
-            rows += f'<tr><td>{dt[5:].replace("-",".")}</td><td>{shorten_opponent(opp)}</td><td style="font-weight:800;color:var(--accent)">{pts}-0</td><td>{qspan}</td><td>{bsk}</td></tr>'
+            rows += f'<tr><td>{dt[5:].replace("-",".")}</td><td>{shorten_opponent(opp)}</td><td style="font-weight:800;color:var(--{color})">{pts}-0</td><td>{qspan}</td><td>{bsk}</td></tr>'
         return rows
 
-    runs_for_html = run_rows(d["runs_for"], "for")
-    runs_agn_html = run_rows(d["runs_against"], "against")
+    runs_for_html = run_rows(d["runs_for"], "green")
+    runs_agn_html = run_rows(d["runs_against"], "red")
 
     # Fun facts
     facts = []
@@ -1199,18 +1199,18 @@ def generate_team_dashboard(stats, cfg, team_key=None):
     <div class="header-stats">
       <div class="header-stat"><div class="val" style="color:var(--green)">{d["wins"]}</div><div class="label">Győzelem</div></div>
       <div class="header-stat"><div class="val" style="color:var(--red)">{d["losses"]}</div><div class="label">Vereség</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--accent)">{d["ppg"]}</div><div class="label">Dobott/m</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--accent3)">{d["opp_ppg"]}</div><div class="label">Kapott/m</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--accent4)">{round(d["ppg"]-d["opp_ppg"],1)}</div><div class="label">Kül./m</div></div>
+      <div class="header-stat"><div class="val" style="color:var(--accent2)">{d["ppg"]}</div><div class="label">Dobott/m</div></div>
+      <div class="header-stat"><div class="val" style="color:var(--red)">{d["opp_ppg"]}</div><div class="label">Kapott/m</div></div>
+      <div class="header-stat"><div class="val" style="color:var(--{"green" if d["ppg"] >= d["opp_ppg"] else "red"})">{round(d["ppg"]-d["opp_ppg"],1)}</div><div class="label">Kül./m</div></div>
     </div>
   </div>
 
   <div class="grid grid-5 mb20">
-    <div class="card mini-stat"><div class="big" style="color:var(--accent)">{d["scored"]}</div><div class="desc">Összes dobott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent3)">{d["allowed"]}</div><div class="desc">Összes kapott</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">{d["scored"]}</div><div class="desc">Összes dobott</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--red)">{d["allowed"]}</div><div class="desc">Összes kapott</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--green)">{d["best_score"]}</div><div class="desc">Legtöbb dobott</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--red)">{d["most_allowed"]}</div><div class="desc">Legtöbb kapott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">{d["players_used"]}</div><div class="desc">Játékos a keretben</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">{d["players_used"]}</div><div class="desc">Játékos a keretben</div></div>
   </div>
 
   <div class="grid grid-2 mb20">
@@ -1315,15 +1315,15 @@ new Chart(document.getElementById('trendChart').getContext('2d'), {{
     labels: {json.dumps(trend_labels)},
     datasets: [{{
       label:'Dobott', data:{json.dumps(kg_scores)},
-      borderColor:'#C41E3A', backgroundColor:'rgba(196,30,58,0.1)',
+      borderColor:'#00cec9', backgroundColor:'rgba(0,206,201,0.08)',
       fill:true, tension:0.3, pointRadius:5, borderWidth:3,
       pointBackgroundColor: {json.dumps(["#00b894" if g["res"]=="W" else "#e17055" for g in js_gamelog])},
       pointBorderColor: {json.dumps(["#00b894" if g["res"]=="W" else "#e17055" for g in js_gamelog])},
     }}, {{
       label:'Kapott', data:{json.dumps(op_scores)},
-      borderColor:'#fd79a8', backgroundColor:'rgba(253,121,168,0.05)',
+      borderColor:'#e17055', backgroundColor:'rgba(225,112,85,0.05)',
       fill:true, tension:0.3, pointRadius:4, borderWidth:2, borderDash:[4,3],
-      pointBackgroundColor:'#fd79a8', pointBorderColor:'#fd79a8',
+      pointBackgroundColor:'#e17055', pointBorderColor:'#e17055',
     }}]
   }},
   options: {{
@@ -1339,10 +1339,10 @@ new Chart(document.getElementById('quarterChart').getContext('2d'), {{
     labels:['Q1','Q2','Q3','Q4'],
     datasets: [{{
       label:'Dobott', data:{json.dumps(q_kg)},
-      backgroundColor:'rgba(196,30,58,0.7)', borderColor:'#C41E3A', borderWidth:2, borderRadius:6,
+      backgroundColor:'rgba(0,206,201,0.6)', borderColor:'#00cec9', borderWidth:2, borderRadius:6,
     }},{{
       label:'Kapott', data:{json.dumps(q_op)},
-      backgroundColor:'rgba(253,121,168,0.5)', borderColor:'#fd79a8', borderWidth:2, borderRadius:6,
+      backgroundColor:'rgba(225,112,85,0.5)', borderColor:'#e17055', borderWidth:2, borderRadius:6,
     }}]
   }},
   options: {{
@@ -1364,7 +1364,7 @@ new Chart(document.getElementById('shotPie').getContext('2d'), {{
   type:'doughnut',
   data: {{
     labels:['3FG ({pct_3}%  — {pts_from_3} pt)','2FG ({pct_2}% — {pts_from_2} pt)','FT ({pct_ft}% — {pts_from_ft} pt)'],
-    datasets:[{{ data:[{pts_from_3},{pts_from_2},{pts_from_ft}], backgroundColor:['#C41E3A','#00cec9','#fdcb6e'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }}]
+    datasets:[{{ data:[{pts_from_3},{pts_from_2},{pts_from_ft}], backgroundColor:['#00cec9','#fdcb6e','#8b8da0'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }}]
   }},
   options: {{ responsive:true, maintainAspectRatio:false, cutout:'55%',
     plugins:{{ legend:{{ position:'right', labels:{{ padding:14, usePointStyle:true, font:{{size:11}} }} }} }}
