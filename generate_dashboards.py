@@ -516,7 +516,7 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
       <div class="header-stat"><div class="val green">{games}</div><div class="label">Meccs</div></div>
       <div class="header-stat"><div class="val pink">{fg3}</div><div class="label">3FG</div></div>
       <div class="header-stat"><div class="val" style="color:var(--accent4)">{max_pts}</div><div class="label">Csúcs</div></div>
-      {"" if not training_att else f'<div class="header-stat"><div class="val" style="color:var(--accent2)">{training_att}</div><div class="label">Edzés</div></div>'}
+      {"" if not training_att else (lambda r: f'<div class="header-stat"><div class="val" style="color:var(--accent2)">{training_att} ({round(int(r[0])/int(r[1])*100)}%)</div><div class="label">Edzés</div></div>')(training_att.split('/'))}
     </div>
   </div>
   <div class="grid grid-4 mb20">
@@ -1976,7 +1976,7 @@ def generate_index(players, cfg, team_key=None):
     cards = ""
     for name, filename, games, ppg, jersey, *rest in players:
         att = rest[0] if rest else None
-        att_html = f' &nbsp;|&nbsp; 🏋️ {att}' if att else ''
+        att_html = (lambda r: f' &nbsp;|&nbsp; 🏋️ {att} ({round(int(r[0])/int(r[1])*100)}%)')(att.split('/')) if att else ''
         cards += f"""
       <a href="{filename}" class="player-card">
         <div class="rank">#{jersey}</div>
