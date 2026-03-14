@@ -29,11 +29,15 @@ A dashboardok és elemzések elsősorban e két csapatra készülnek, a csapat w
 mkosz-scoresheet/
 ├── extract_scoresheet.py    # Fő feldolgozó script (~1900 sor)
 ├── download_scoresheets.py  # Automatikus PDF letöltő
-├── generate_dashboards.py   # Site + dashboard + naptár generátor (~2100 sor)
+├── generate_dashboards.py   # Site + dashboard + naptár generátor (~2200 sor)
+├── update_attendance.py     # Edzéslátogatás frissítő (HTML in-place, SQLite nélkül)
 ├── CNAME                    # Custom domain: www.kozgazkosar.hu
 ├── index.html               # Klub főoldal (csapat kártyák, közelgő meccsek, eredmények)
 ├── README.md                # Eredeti dokumentáció (elavult, egyetlen meccsre vonatkozik)
 ├── CLAUDE.md                # ← EZ A FÁJL — teljes projekt kontextus
+├── .github/
+│   └── workflows/
+│       └── update-attendance.yml  # GitHub Actions: napi edzéslátogatás frissítés
 ├── .gitignore               # *.sqlite, pdfs/
 ├── pdfs/                    # Letöltött PDF-ek (gitignore-ban, regenerálható)
 │   ├── hun3ki_*.pdf         # NB2 Kiemelt (90 meccs)
@@ -403,8 +407,12 @@ DNS: Websupport.hu-n 4× A record (185.199.108-111.153) + CNAME (www → pozsikd
 python3 download_scoresheets.py x2526 hun3k ./pdfs/         # Kelet (KÖZGÁZ B)
 python3 download_scoresheets.py x2526 hun3kob ./pdfs/       # Közép B (KÖZGÁZ A)
 python3 extract_scoresheet.py ./pdfs/ --db nb2_full.sqlite  # Feldolgozás
-python3 generate_dashboards.py site                         # Teljes site újragenerálás
+python3 generate_dashboards.py site                         # Teljes site újragenerálás (edzéslátogatás is frissül)
 git add index.html dashboards/ dashboards-a/ && git commit && git push  # kozgazkosar.hu frissül
+
+# Csak edzéslátogatás frissítés (SQLite nélkül, GitHub Actions is ezt futtatja):
+python3 update_attendance.py
+git add dashboards/ && git commit && git push
 ```
 
 ### generate_dashboards.py architektúra
@@ -413,6 +421,7 @@ generate_site()                              — teljes site generálás (alapé
   → generate_team(team_key) × minden csapat
   │   → _team_like()                         — broad vs specific LIKE pattern
   │   → get_roster()                         — roster lekérdezés (license, name, jersey, games, ppg)
+  │   → fetch_training_attendance()          — Google Sheets CSV fetch (csak kozgaz-b)
   │   → Játékosonként:
   │   │   → get_game_log()                   — meccsenként stat
   │   │   → get_quarter_stats()              — negyedenkénti scoring_events
@@ -451,6 +460,33 @@ A `scrape_schedule(cfg)` függvény közvetlenül az MKOSZ weboldalról húzza a
 **Magyar dátum parse**: `HU_MONTHS_PARSE` dict (`{"január":1, ..., "december":12}`)
 
 **Ellenfél rövidítések**: `CALENDAR_SHORT` dict + `calendar_short_name()` függvény — rövid nevek a naptár cellákhoz (pl. "BKG-PRIMA AKADÉMIA DEBRECEN" → "Debrecen"). Away meccsekhez `@` prefix (pl. `@Debrecen`).
+
+### Edzéslátogatás (Közgáz B only)
+
+Az edzéslátogatás adatok automatikusan a Google Sheets-ből kerülnek betöltésre:
+
+**Spreadsheet**: `1CY9OV_JY4C5uzTcA621zs0-rd5gPO7ELau5yvrSsA-0` (gid=`1405052111`)
+
+**Működés**:
+- `fetch_training_attendance()` — CSV export letöltés urllib-bel, csv.reader-rel parse
+- CSV struktúra: C oszlop = játékos név (becenév), E oszlop = arány (pl. "26/34")
+- `ATTENDANCE_NAME_MAP` dict: spreadsheet becenév → adatbázis formális név (pl. "Lénárt Zoli" → "LÉNÁRT ZOLTÁN")
+- Pozsik Dániel (edző) kihagyva
+- Közgáz A csapatnál nincs edzéslátogatás adat
+
+**Megjelenítés**:
+- Játékos dashboard fejléc: teal színű "Edzés" stat (pl. "26/34 (76%)")
+- Index oldal: külön sor a meccs/PPG alatt: `🏋️ 26/34 (76%)`
+
+**Automatikus frissítés** (GitHub Actions):
+- `.github/workflows/update-attendance.yml` — naponta reggel 6:00 UTC-kor (8:00 magyar idő)
+- `update_attendance.py` futtatása — regex-szel frissíti az edzéslátogatás értékeket a meglévő HTML-ekben
+- SQLite nem szükséges hozzá (csak HTML fájlokat módosít)
+- Kézi indítás: GitHub Actions → "Run workflow"
+- Ha a Google Sheets elérhető: commit + push ha változott az adat
+- Ha nem elérhető: nem módosít semmit
+
+**Új játékos hozzáadása**: `ATTENDANCE_NAME_MAP` dict bővítése a `generate_dashboards.py`-ban (spreadsheet becenév → DB formális név).
 
 ### Fontos implementációs részletek
 - **Shot classification**: A `player_game_stats` és a csapat dashboard a `points` delta alapján osztályoz (points=3→3FG, points=2→2FG, points=1→FT), NEM a `shot_type` oszlop alapján. A `shot_type` oszlop néha pontatlan (pl. continuation FT-k 3FG-ként jelölve).
@@ -502,4 +538,6 @@ Minden működik és szinkronban van:
 - ✅ Közgáz arculat — piros/fekete szín, nav bar, hierarchikus vissza gombok
 - ✅ Szemantikus színek — zöld=pozitív, piros=negatív, teal=semleges (csapat dashboard)
 - ✅ Mezszámok — játékos index oldalakon sorszám helyett valódi mezszám
+- ✅ Edzéslátogatás — Google Sheets-ből automatikusan fetch-elve (Közgáz B only)
+- ✅ GitHub Actions — naponta frissíti az edzéslátogatás adatokat a weboldalon
 - ✅ Minden commit pusholva a GitHub-ra
