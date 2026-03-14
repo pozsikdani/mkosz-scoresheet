@@ -49,6 +49,29 @@ NAV_TEAMS = [
     {"key": "leftoverz", "label": "Leftoverz", "href": "leftoverz"},
 ]
 
+# ---- TRAINING ATTENDANCE (Közgáz B only, from Google Sheets) ----
+# Source: https://docs.google.com/spreadsheets/d/1CY9OV_JY4C5uzTcA621zs0-rd5gPO7ELau5yvrSsA-0/
+TRAINING_ATTENDANCE = {
+    "FODOR ANDRÁS": "30/34",
+    "SZALAY ANDRÁS": "24/34",
+    "LÉNÁRT ZOLTÁN": "26/34",
+    "DUDÁS GERGŐ": "20/34",
+    "BARTUS GERGELY": "24/34",
+    "TÓTH SZABOLCS ÁKOS": "19/34",
+    "SZAKÁCS ÁRON LÁSZLÓ": "19/34",
+    "BENCZE MÁTÉ": "13/23",
+    "BERNACCHINI DÁNIEL": "20/34",
+    "KOVÁCS KRISTÓF": "15/34",
+    "SOMOGYI GYÖRGY": "20/34",
+    "KADOCSA MÁRTON": "21/34",
+    "MATSKÁSI ISTVÁN": "18/34",
+    "DR. ESSŐSY MÁTYÁS MIKLÓS": "16/34",
+    "ALFARAG OSAMA FARAJ": "15/34",
+    "HORVÁTH MÁRTON": "12/34",
+    "FÖLDES DÁNIEL GÁBOR": "9/34",
+    "VIRÁG BARNABÁS": "8/34",
+}
+
 # ---- HUNGARIAN CALENDAR CONSTANTS ----
 MONTH_NAMES_HU = {
     1: "JANUÁR", 2: "FEBRUÁR", 3: "MÁRCIUS", 4: "ÁPRILIS",
@@ -304,7 +327,7 @@ def generate_insights(name, games_played, ppg, fg3, ft_made, ft_att, pf_per_game
     return strengths[:5], weaknesses[:5]
 
 
-def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport, cfg):
+def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport, cfg, training_att=None):
     lic, name, jersey, games, total_pts, ppg, fg2, fg3, ft_m, ft_a, pf, max_pts, starts = player_data
 
     ft_pct = round(100*ft_m/ft_a) if ft_a > 0 else 0
@@ -493,6 +516,7 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
       <div class="header-stat"><div class="val green">{games}</div><div class="label">Meccs</div></div>
       <div class="header-stat"><div class="val pink">{fg3}</div><div class="label">3FG</div></div>
       <div class="header-stat"><div class="val" style="color:var(--accent4)">{max_pts}</div><div class="label">Csúcs</div></div>
+      {"" if not training_att else f'<div class="header-stat"><div class="val" style="color:var(--accent2)">{training_att}</div><div class="label">Edzés</div></div>'}
     </div>
   </div>
   <div class="grid grid-4 mb20">
@@ -1950,12 +1974,14 @@ def generate_homepage(team_summaries):
 
 def generate_index(players, cfg, team_key=None):
     cards = ""
-    for name, filename, games, ppg, jersey in players:
+    for name, filename, games, ppg, jersey, *rest in players:
+        att = rest[0] if rest else None
+        att_html = f' &nbsp;|&nbsp; 🏋️ {att}' if att else ''
         cards += f"""
       <a href="{filename}" class="player-card">
         <div class="rank">#{jersey}</div>
         <div class="pinfo"><div class="player-name">{name}</div>
-        <div class="player-meta">{games} meccs &nbsp;|&nbsp; {ppg} PPG</div></div>
+        <div class="player-meta">{games} meccs &nbsp;|&nbsp; {ppg} PPG{att_html}</div></div>
       </a>"""
 
     nav = _nav_html(active_key=team_key, depth=1)
@@ -2087,14 +2113,17 @@ def generate_team(team_key):
         opp_stats = get_opponent_ppg(conn, cfg, tp, lic)
         tech, unsport = get_tech_unsport(conn, cfg, tp, lic)
 
-        html = generate_html(player, game_log, quarter_stats, opp_stats, tech, unsport, cfg)
+        # Training attendance (Közgáz B only)
+        att = TRAINING_ATTENDANCE.get(name) if team_key == "kozgaz-b" else None
+
+        html = generate_html(player, game_log, quarter_stats, opp_stats, tech, unsport, cfg, training_att=att)
 
         filename = f"{slug}.html"
         filepath = os.path.join(out_dir, filename)
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(html)
 
-        generated.append((name, filename, player[3], player[5], player[2]))
+        generated.append((name, filename, player[3], player[5], player[2], att))
         print(f"  ✓ {name} → {filename}")
 
     # Team dashboard
