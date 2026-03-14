@@ -10,6 +10,8 @@ import calendar as cal_module
 from datetime import datetime
 import urllib.request
 import urllib.error
+import csv
+import io
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nb2_full.sqlite")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -49,28 +51,56 @@ NAV_TEAMS = [
     {"key": "leftoverz", "label": "Leftoverz", "href": "leftoverz"},
 ]
 
-# ---- TRAINING ATTENDANCE (Közgáz B only, from Google Sheets) ----
-# Source: https://docs.google.com/spreadsheets/d/1CY9OV_JY4C5uzTcA621zs0-rd5gPO7ELau5yvrSsA-0/
-TRAINING_ATTENDANCE = {
-    "FODOR ANDRÁS": "30/34",
-    "SZALAY ANDRÁS": "24/34",
-    "LÉNÁRT ZOLTÁN": "26/34",
-    "DUDÁS GERGŐ": "20/34",
-    "BARTUS GERGELY": "24/34",
-    "TÓTH SZABOLCS ÁKOS": "19/34",
-    "SZAKÁCS ÁRON LÁSZLÓ": "19/34",
-    "BENCZE MÁTÉ": "13/23",
-    "BERNACCHINI DÁNIEL": "20/34",
-    "KOVÁCS KRISTÓF": "15/34",
-    "SOMOGYI GYÖRGY": "20/34",
-    "KADOCSA MÁRTON": "21/34",
-    "MATSKÁSI ISTVÁN": "18/34",
-    "DR. ESSŐSY MÁTYÁS MIKLÓS": "16/34",
-    "ALFARAG OSAMA FARAJ": "15/34",
-    "HORVÁTH MÁRTON": "12/34",
-    "FÖLDES DÁNIEL GÁBOR": "9/34",
-    "VIRÁG BARNABÁS": "8/34",
+# ---- TRAINING ATTENDANCE (Közgáz B only, fetched from Google Sheets) ----
+ATTENDANCE_SHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1CY9OV_JY4C5uzTcA621zs0-rd5gPO7ELau5yvrSsA-0/export?format=csv&gid=1405052111"
+)
+ATTENDANCE_NAME_MAP = {
+    "Fodor András": "FODOR ANDRÁS",
+    "Szalay András": "SZALAY ANDRÁS",
+    "Lénárt Zoli": "LÉNÁRT ZOLTÁN",
+    "Dudás Gergő": "DUDÁS GERGŐ",
+    "Bartus Gergely": "BARTUS GERGELY",
+    "Tóth Szabi": "TÓTH SZABOLCS ÁKOS",
+    "Szakács Áron": "SZAKÁCS ÁRON LÁSZLÓ",
+    "Bencze Máté": "BENCZE MÁTÉ",
+    "Bernacchini Dániel": "BERNACCHINI DÁNIEL",
+    "Kovács Kristóf": "KOVÁCS KRISTÓF",
+    "Somogyi Gyuri": "SOMOGYI GYÖRGY",
+    "Kadocsa Marci": "KADOCSA MÁRTON",
+    "Matskási István": "MATSKÁSI ISTVÁN",
+    "Essősy Matyi": "DR. ESSŐSY MÁTYÁS MIKLÓS",
+    "Osama Alfaraj": "ALFARAG OSAMA FARAJ",
+    "Horváth Márton": "HORVÁTH MÁRTON",
+    "Földes Dániel": "FÖLDES DÁNIEL GÁBOR",
+    "Virág Barnabás": "VIRÁG BARNABÁS",
 }
+
+def fetch_training_attendance():
+    """Fetch training attendance from Google Sheets CSV. Returns {DB_NAME: 'X/Y', ...}."""
+    req = urllib.request.Request(ATTENDANCE_SHEET_URL, headers={"User-Agent": MKOSZ_USER_AGENT})
+    try:
+        raw = urllib.request.urlopen(req, timeout=15).read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
+        print(f"  ⚠ Edzéslátogatás fetch hiba: {e}")
+        return {}
+
+    result = {}
+    reader = csv.reader(io.StringIO(raw))
+    for i, row in enumerate(reader):
+        if i < 2 or len(row) < 5:
+            continue
+        name = row[2].strip()
+        ratio = row[4].strip()
+        if not name or not ratio or "/" not in ratio:
+            continue
+        if name == "Pozsik Dániel":
+            continue
+        db_name = ATTENDANCE_NAME_MAP.get(name)
+        if db_name:
+            result[db_name] = ratio
+    return result
 
 # ---- HUNGARIAN CALENDAR CONSTANTS ----
 MONTH_NAMES_HU = {
@@ -2104,6 +2134,16 @@ def generate_team(team_key):
         conn.close()
         return
 
+    # Fetch training attendance from Google Sheets (Közgáz B only)
+    att_data = {}
+    if team_key == "kozgaz-b":
+        print(f"\n  Edzéslátogatás fetch (Google Sheets)...")
+        att_data = fetch_training_attendance()
+        if att_data:
+            print(f"  ✓ {len(att_data)} játékos edzéslátogatása betöltve")
+        else:
+            print(f"  ⚠ Nem sikerült betölteni az edzéslátogatást")
+
     generated = []
     for player in roster:
         lic = player[0]
@@ -2116,7 +2156,7 @@ def generate_team(team_key):
         tech, unsport = get_tech_unsport(conn, cfg, tp, lic)
 
         # Training attendance (Közgáz B only)
-        att = TRAINING_ATTENDANCE.get(name) if team_key == "kozgaz-b" else None
+        att = att_data.get(name)
 
         html = generate_html(player, game_log, quarter_stats, opp_stats, tech, unsport, cfg, training_att=att)
 
