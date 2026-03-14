@@ -1976,12 +1976,12 @@ def generate_index(players, cfg, team_key=None):
     cards = ""
     for name, filename, games, ppg, jersey, *rest in players:
         att = rest[0] if rest else None
-        att_html = (lambda r: f' &nbsp;|&nbsp; 🏋️ {att} ({round(int(r[0])/int(r[1])*100)}%)')(att.split('/')) if att else ''
+        att_html = (lambda r: f'<div class="player-att">🏋️ {att} <span class="att-pct">({round(int(r[0])/int(r[1])*100)}%)</span></div>')(att.split('/')) if att else ''
         cards += f"""
       <a href="{filename}" class="player-card">
         <div class="rank">#{jersey}</div>
         <div class="pinfo"><div class="player-name">{name}</div>
-        <div class="player-meta">{games} meccs &nbsp;|&nbsp; {ppg} PPG{att_html}</div></div>
+        <div class="player-meta">{games} meccs &nbsp;|&nbsp; {ppg} PPG</div>{att_html}</div>
       </a>"""
 
     nav = _nav_html(active_key=team_key, depth=1)
@@ -2049,6 +2049,8 @@ def generate_index(players, cfg, team_key=None):
   .rank {{ font-size:1.1rem; font-weight:800; color:var(--accent); min-width:36px; }}
   .player-name {{ font-weight:700; font-size:0.95rem; }}
   .player-meta {{ font-size:0.75rem; color:var(--text-dim); margin-top:2px; }}
+  .player-att {{ font-size:0.7rem; color:var(--accent2); margin-top:3px; }}
+  .att-pct {{ opacity:0.7; }}
   .back-link {{
     display:inline-block; color:var(--text-dim); text-decoration:none;
     font-size:0.82rem; font-weight:600; margin-bottom:16px; opacity:0.7;
