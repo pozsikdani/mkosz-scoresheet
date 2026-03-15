@@ -75,7 +75,10 @@ ATTENDANCE_NAME_MAP = {
     "Horváth Márton": "HORVÁTH MÁRTON",
     "Földes Dániel": "FÖLDES DÁNIEL GÁBOR",
     "Virág Barnabás": "VIRÁG BARNABÁS",
+    "Pozsik Dániel": "POZSIK DÁNIEL",
 }
+
+ATTENDANCE_COACH = "POZSIK DÁNIEL"
 
 def fetch_training_attendance():
     """Fetch training attendance from Google Sheets CSV. Returns {DB_NAME: 'X/Y', ...}."""
@@ -94,8 +97,6 @@ def fetch_training_attendance():
         name = row[2].strip()
         ratio = row[4].strip()
         if not name or not ratio or "/" not in ratio:
-            continue
-        if name == "Pozsik Dániel":
             continue
         db_name = ATTENDANCE_NAME_MAP.get(name)
         if db_name:
@@ -1138,29 +1139,45 @@ def generate_team_dashboard(stats, cfg, team_key=None, att_data=None):
     # Attendance chart data (Közgáz B only)
     _att_section = ""
     if att_data:
-        att_items = []
+        att_items = []  # (label, attended, total, pct, is_coach)
         for name, ratio in att_data.items():
             parts = ratio.split("/")
             if len(parts) == 2:
                 try:
                     attended, total = int(parts[0]), int(parts[1])
                     pct = round(100 * attended / total) if total > 0 else 0
-                    # Use first name; if duplicate, use "First L." format
-                    short = name.split()[-1].title() if " " in name else name.title()
-                    first_names = [n.split()[-1].title() for n in att_data.keys() if " " in n]
-                    if first_names.count(short) > 1 and " " in name:
-                        short = f"{short} {name.split()[0][0].upper()}."
-                    att_items.append((short, attended, total, pct))
+                    is_coach = (name == ATTENDANCE_COACH)
+                    # Use last name (first word of DB name, skip "DR." prefix); disambiguate duplicates
+                    words = name.split()
+                    last_idx = 1 if words[0].upper().rstrip(".") == "DR" and len(words) > 2 else 0
+                    last = words[last_idx].title()
+                    def _get_last(n):
+                        w = n.split()
+                        li = 1 if w[0].upper().rstrip(".") == "DR" and len(w) > 2 else 0
+                        return w[li].title()
+                    last_names = [_get_last(n) for n in att_data.keys() if " " in n]
+                    if last_names.count(last) > 1:
+                        last = f"{last} {words[-1][0].upper()}."
+                    if is_coach:
+                        last = f"{last} (edző)"
+                    att_items.append((last, attended, total, pct, is_coach))
                 except ValueError:
                     pass
-        att_items.sort(key=lambda x: x[3], reverse=True)
+        # Sort: players first (by pct desc), coach at bottom
+        att_items.sort(key=lambda x: (x[4], -x[3]))
         att_labels = json.dumps([a[0] for a in att_items], ensure_ascii=False)
         att_values = json.dumps([a[3] for a in att_items])
-        att_attended = [a[1] for a in att_items]
-        att_totals = [a[2] for a in att_items]
         att_ratios = json.dumps([f"{a[1]}/{a[2]}" for a in att_items])
-        att_colors = json.dumps(["rgba(0,184,148,0.7)" if a[3] >= 80 else "rgba(225,112,85,0.7)" for a in att_items])
-        att_borders = json.dumps(["#00b894" if a[3] >= 80 else "#e17055" for a in att_items])
+        def _att_color(item):
+            if item[4]:  # coach
+                return "rgba(253,203,110,0.7)"
+            return "rgba(0,184,148,0.7)" if item[3] >= 80 else "rgba(225,112,85,0.7)"
+        def _att_border(item):
+            if item[4]:
+                return "#fdcb6e"
+            return "#00b894" if item[3] >= 80 else "#e17055"
+        att_colors = json.dumps([_att_color(a) for a in att_items])
+        att_borders = json.dumps([_att_border(a) for a in att_items])
         att_bar_h = max(len(att_items) * 28 + 40, 200)
         _att_section = f"""<div class="card mb20">
     <h3>Edzéslátogatás</h3>
