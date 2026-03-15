@@ -1050,7 +1050,7 @@ def get_calendar_data_db(conn, cfg, tp):
     } for r in rows] if rows else None
 
 
-def generate_team_dashboard(stats, cfg, team_key=None):
+def generate_team_dashboard(stats, cfg, team_key=None, att_data=None):
     """Generate team-level dashboard HTML."""
     d = stats
     games = d["games"]
@@ -1134,6 +1134,89 @@ def generate_team_dashboard(stats, cfg, team_key=None):
         facts.append(f'Legszorosabb meccs: <b>{c[2]}-{c[3]}</b> ({shorten_opponent(c[1])}, {c[0][5:].replace("-",".")})')
 
     facts_html = "".join(f'<div class="fact-item">{f}</div>' for f in facts)
+
+    # Attendance chart data (Közgáz B only)
+    _att_section = ""
+    if att_data:
+        att_items = []
+        for name, ratio in att_data.items():
+            parts = ratio.split("/")
+            if len(parts) == 2:
+                try:
+                    attended, total = int(parts[0]), int(parts[1])
+                    pct = round(100 * attended / total) if total > 0 else 0
+                    # Use first name; if duplicate, use "First L." format
+                    short = name.split()[-1].title() if " " in name else name.title()
+                    first_names = [n.split()[-1].title() for n in att_data.keys() if " " in n]
+                    if first_names.count(short) > 1 and " " in name:
+                        short = f"{short} {name.split()[0][0].upper()}."
+                    att_items.append((short, attended, total, pct))
+                except ValueError:
+                    pass
+        att_items.sort(key=lambda x: x[3], reverse=True)
+        att_labels = json.dumps([a[0] for a in att_items], ensure_ascii=False)
+        att_values = json.dumps([a[3] for a in att_items])
+        att_attended = [a[1] for a in att_items]
+        att_totals = [a[2] for a in att_items]
+        att_ratios = json.dumps([f"{a[1]}/{a[2]}" for a in att_items])
+        att_colors = json.dumps(["rgba(0,184,148,0.7)" if a[3] >= 80 else "rgba(225,112,85,0.7)" for a in att_items])
+        att_borders = json.dumps(["#00b894" if a[3] >= 80 else "#e17055" for a in att_items])
+        att_bar_h = max(len(att_items) * 28 + 40, 200)
+        _att_section = f"""<div class="card mb20">
+    <h3>Edzéslátogatás</h3>
+    <div class="chart-wrap" style="height:{att_bar_h}px;"><canvas id="attChart"></canvas></div>
+  </div>"""
+        _att_chart_js = f"""
+const attThresholdPlugin = {{
+  id:'attThreshold',
+  afterDraw(chart) {{
+    const {{ ctx, chartArea:{{ top, bottom }}, scales:{{ x }} }} = chart;
+    const xPos = x.getPixelForValue(80);
+    ctx.save();
+    ctx.strokeStyle='rgba(255,255,255,0.4)';
+    ctx.lineWidth=2;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath();
+    ctx.moveTo(xPos, top);
+    ctx.lineTo(xPos, bottom);
+    ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.font="11px Inter,sans-serif";
+    ctx.fillText('80%', xPos+4, top+12);
+    ctx.restore();
+  }}
+}};
+const attCtx = document.getElementById('attChart').getContext('2d');
+new Chart(attCtx, {{
+  type:'bar',
+  plugins:[attThresholdPlugin],
+  data: {{
+    labels:{att_labels},
+    datasets:[{{
+      data:{att_values},
+      backgroundColor:{att_colors},
+      borderColor:{att_borders},
+      borderWidth:2, borderRadius:4, borderSkipped:false,
+    }}]
+  }},
+  options: {{
+    indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    plugins: {{
+      legend:{{ display:false }},
+      tooltip:{{ callbacks:{{ label: function(ctx) {{
+        const ratios = {att_ratios};
+        return ratios[ctx.dataIndex] + ' (' + ctx.parsed.x + '%)';
+      }} }} }},
+    }},
+    scales: {{
+      x:{{ min:0, max:100, grid:{{ color:'rgba(255,255,255,0.04)' }},
+        ticks:{{ callback:v=>v+'%' }} }},
+      y:{{ grid:{{ display:false }}, ticks:{{ font:{{ size:11 }} }} }}
+    }}
+  }}
+}});"""
+    else:
+        _att_chart_js = ""
 
     # Scoring trend for chart
     kg_scores = [g["kg"] for g in js_gamelog]
@@ -1327,6 +1410,8 @@ def generate_team_dashboard(stats, cfg, team_key=None):
     </div>
   </div>
 
+  {_att_section}
+
   <div class="card mb20">
     <h3>Meccsek</h3>
     <table class="game-log">
@@ -1424,6 +1509,7 @@ new Chart(document.getElementById('shotPie').getContext('2d'), {{
     plugins:{{ legend:{{ position:'right', labels:{{ padding:14, usePointStyle:true, font:{{size:11}} }} }} }}
   }}
 }});
+{_att_chart_js}
 </script>
 </body>
 </html>"""
@@ -2170,7 +2256,7 @@ def generate_team(team_key):
 
     # Team dashboard
     team_stats = get_team_stats(conn, cfg, tp)
-    team_html = generate_team_dashboard(team_stats, cfg, team_key=team_key)
+    team_html = generate_team_dashboard(team_stats, cfg, team_key=team_key, att_data=att_data)
     with open(os.path.join(out_dir, "csapat.html"), "w", encoding="utf-8") as f:
         f.write(team_html)
     print(f"\n  ✓ csapat.html (csapat dashboard)")

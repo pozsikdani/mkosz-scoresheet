@@ -207,6 +207,11 @@
   </div>
 
   <div class="card mb20">
+    <h3>Edzéslátogatás</h3>
+    <div class="chart-wrap" style="height:544px;"><canvas id="attChart"></canvas></div>
+  </div>
+
+  <div class="card mb20">
     <h3>Meccsek</h3>
     <table class="game-log">
       <thead><tr><th>Dátum</th><th></th><th>Ellenfél</th><th>Eredmény</th><th></th><th>Különbség</th></tr></thead>
@@ -301,6 +306,55 @@ new Chart(document.getElementById('shotPie').getContext('2d'), {
   },
   options: { responsive:true, maintainAspectRatio:false, cutout:'55%',
     plugins:{ legend:{ position:'right', labels:{ padding:14, usePointStyle:true, font:{size:11} } } }
+  }
+});
+
+const attThresholdPlugin = {
+  id:'attThreshold',
+  afterDraw(chart) {
+    const { ctx, chartArea:{ top, bottom }, scales:{ x } } = chart;
+    const xPos = x.getPixelForValue(80);
+    ctx.save();
+    ctx.strokeStyle='rgba(255,255,255,0.4)';
+    ctx.lineWidth=2;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath();
+    ctx.moveTo(xPos, top);
+    ctx.lineTo(xPos, bottom);
+    ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.font="11px Inter,sans-serif";
+    ctx.fillText('80%', xPos+4, top+12);
+    ctx.restore();
+  }
+};
+const attCtx = document.getElementById('attChart').getContext('2d');
+new Chart(attCtx, {
+  type:'bar',
+  plugins:[attThresholdPlugin],
+  data: {
+    labels:["András F.", "Zoltán", "András S.", "Gergely", "Márton K.", "Gergő", "Dániel", "György", "Máté", "Ákos", "László", "István", "Miklós", "Kristóf", "Faraj", "Márton H.", "Gábor", "Barnabás"],
+    datasets:[{
+      data:[88, 76, 71, 71, 62, 59, 59, 59, 57, 56, 56, 53, 47, 44, 44, 35, 26, 24],
+      backgroundColor:["rgba(0,184,148,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)", "rgba(225,112,85,0.7)"],
+      borderColor:["#00b894", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055"],
+      borderWidth:2, borderRadius:4, borderSkipped:false,
+    }]
+  },
+  options: {
+    indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    plugins: {
+      legend:{ display:false },
+      tooltip:{ callbacks:{ label: function(ctx) {
+        const ratios = ["30/34", "26/34", "24/34", "24/34", "21/34", "20/34", "20/34", "20/34", "13/23", "19/34", "19/34", "18/34", "16/34", "15/34", "15/34", "12/34", "9/34", "8/34"];
+        return ratios[ctx.dataIndex] + ' (' + ctx.parsed.x + '%)';
+      } } },
+    },
+    scales: {
+      x:{ min:0, max:100, grid:{ color:'rgba(255,255,255,0.04)' },
+        ticks:{ callback:v=>v+'%' } },
+      y:{ grid:{ display:false }, ticks:{ font:{ size:11 } } }
+    }
   }
 });
 </script>
