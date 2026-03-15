@@ -84,6 +84,19 @@
   .scenario-tbl { width:100%; border-collapse:collapse; font-size:0.82rem; }
   .scenario-tbl td { padding:8px 10px; border-bottom:1px solid var(--border); }
   .scenario-tbl tr:last-child td { border-bottom:none; }
+  .view-toggle {
+    display:flex; gap:4px; justify-content:center; margin-bottom:20px;
+    background:var(--card); border-radius:12px; padding:4px; border:1px solid var(--border);
+    width:fit-content; margin-left:auto; margin-right:auto;
+  }
+  .view-btn {
+    padding:8px 20px; border-radius:10px; border:none; cursor:pointer;
+    font-family:'Inter',sans-serif; font-size:0.8rem; font-weight:600;
+    color:var(--text-dim); background:transparent; transition:all 0.2s;
+    letter-spacing:0.5px;
+  }
+  .view-btn:hover { color:var(--text); background:rgba(255,255,255,0.05); }
+  .view-btn.active { background:var(--accent); color:#fff; }
   
 .site-nav {
   display:flex; align-items:center; justify-content:space-between;
@@ -129,21 +142,27 @@
         <span>CSAPAT STATISZTIKÁK</span> &nbsp;|&nbsp; NB2 Közép B &nbsp;|&nbsp; 2025/26 alapszakasz
       </div>
     </div>
-    <div class="header-stats">
-      <div class="header-stat"><div class="val" style="color:var(--green)">2</div><div class="label">Győzelem</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--red)">14</div><div class="label">Vereség</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--accent2)">63.3</div><div class="label">Dobott/m</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--red)">88.9</div><div class="label">Kapott/m</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--red)">-25.6</div><div class="label">Kül./m</div></div>
+    <div class="header-stats" id="headerStats">
+      <div class="header-stat"><div class="val" id="hWins" style="color:var(--green)">2</div><div class="label">Győzelem</div></div>
+      <div class="header-stat"><div class="val" id="hLosses" style="color:var(--red)">14</div><div class="label">Vereség</div></div>
+      <div class="header-stat"><div class="val" id="hPpg" style="color:var(--accent2)">63.3</div><div class="label">Dobott/m</div></div>
+      <div class="header-stat"><div class="val" id="hOppPpg" style="color:var(--red)">88.9</div><div class="label">Kapott/m</div></div>
+      <div class="header-stat"><div class="val" id="hDiff" style="color:var(--red)">-25.6</div><div class="label">Kül./m</div></div>
     </div>
   </div>
 
+  <div class="view-toggle">
+    <button class="view-btn active" onclick="switchView('all')">Összes</button>
+    <button class="view-btn" onclick="switchView('home')">Hazai</button>
+    <button class="view-btn" onclick="switchView('away')">Vendég</button>
+  </div>
+
   <div class="grid grid-5 mb20">
-    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">1012</div><div class="desc">Összes dobott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--red)">1422</div><div class="desc">Összes kapott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--green)">80</div><div class="desc">Legtöbb dobott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--red)">116</div><div class="desc">Legtöbb kapott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">18</div><div class="desc">Játékos a keretben</div></div>
+    <div class="card mini-stat"><div class="big" id="mScored" style="color:var(--accent2)">1012</div><div class="desc">Összes dobott</div></div>
+    <div class="card mini-stat"><div class="big" id="mAllowed" style="color:var(--red)">1422</div><div class="desc">Összes kapott</div></div>
+    <div class="card mini-stat"><div class="big" id="mBest" style="color:var(--green)">80</div><div class="desc">Legtöbb dobott</div></div>
+    <div class="card mini-stat"><div class="big" id="mWorst" style="color:var(--red)">116</div><div class="desc">Legtöbb kapott</div></div>
+    <div class="card mini-stat"><div class="big" id="mPlayers" style="color:var(--accent2)">18</div><div class="desc">Játékos a keretben</div></div>
   </div>
 
   <div class="grid grid-2 mb20">
@@ -164,28 +183,7 @@
     </div>
     <div class="card">
       <h3>Forgatókönyvek — ha félidőben...</h3>
-      <table class="scenario-tbl">
-        <tr>
-          <td>Félidőben <b style="color:var(--green)">vezet</b></td>
-          <td style="font-weight:800;color:var(--green)">1/1 győzelem</td>
-          <td style="color:var(--text-dim)">100%</td>
-        </tr>
-        <tr>
-          <td>Félidőben <b style="color:var(--red)">hátrányban</b></td>
-          <td style="font-weight:800;color:var(--red)">1/14 fordítás</td>
-          <td style="color:var(--text-dim)">7%</td>
-        </tr>
-        <tr>
-          <td>3 negyed után <b style="color:var(--green)">vezet</b></td>
-          <td style="font-weight:800;color:var(--green)">2/3 győzelem</td>
-          <td style="color:var(--text-dim)">67%</td>
-        </tr>
-        <tr>
-          <td>3 negyed után <b style="color:var(--red)">hátrányban</b></td>
-          <td style="font-weight:800;color:var(--red)">0/13 fordítás</td>
-          <td style="color:var(--text-dim)">0%</td>
-        </tr>
-      </table>
+      <table class="scenario-tbl" id="scenarioTbl"><tbody id="scenarioBody"></tbody></table>
     </div>
   </div>
 
@@ -194,17 +192,19 @@
       <h3>Top 5 saját scoring run</h3>
       <table class="run-tbl">
         <thead><tr><th>Dátum</th><th>Ellenfél</th><th>Run</th><th>Negyed</th><th>Kosár</th></tr></thead>
-        <tbody><tr><td>01.14</td><td>Józsefvárosi Kc</td><td style="font-weight:800;color:var(--green)">16-0</td><td>Q3→Q4</td><td>8</td></tr><tr><td>01.22</td><td>Malév Sc</td><td style="font-weight:800;color:var(--green)">12-0</td><td>Q1→Q2</td><td>6</td></tr><tr><td>03.05</td><td>Szolnok Evolution</td><td style="font-weight:800;color:var(--green)">11-0</td><td>Q3</td><td>5</td></tr><tr><td>11.06</td><td>Józsefvárosi Kc</td><td style="font-weight:800;color:var(--green)">9-0</td><td>Q4</td><td>4</td></tr><tr><td>10.16</td><td>Kőbánya Oldboys</td><td style="font-weight:800;color:var(--green)">9-0</td><td>Q1</td><td>5</td></tr></tbody>
+        <tbody id="runsForBody"></tbody>
       </table>
     </div>
     <div class="card">
       <h3>Top 5 kapott scoring run</h3>
       <table class="run-tbl">
         <thead><tr><th>Dátum</th><th>Ellenfél</th><th>Run</th><th>Negyed</th><th>Kosár</th></tr></thead>
-        <tbody><tr><td>10.03</td><td>Monori Se</td><td style="font-weight:800;color:var(--red)">22-0</td><td>Q2</td><td>9</td></tr><tr><td>12.05</td><td>Szolnok Evolution</td><td style="font-weight:800;color:var(--red)">17-0</td><td>Q1</td><td>8</td></tr><tr><td>11.16</td><td>Békési Szsk</td><td style="font-weight:800;color:var(--red)">16-0</td><td>Q1→Q2</td><td>11</td></tr><tr><td>11.16</td><td>Békési Szsk</td><td style="font-weight:800;color:var(--red)">16-0</td><td>Q3</td><td>9</td></tr><tr><td>11.23</td><td>Dunaharaszti Mtk Ii.</td><td style="font-weight:800;color:var(--red)">16-0</td><td>Q3</td><td>10</td></tr></tbody>
+        <tbody id="runsAgnBody"></tbody>
       </table>
     </div>
   </div>
+
+  
 
   <div class="card mb20">
     <h3>Meccsek</h3>
@@ -216,7 +216,7 @@
 
   <div class="card mb20">
     <h3>Érdekességek &amp; Fun Facts</h3>
-    <div class="fact-item">Legerősebb negyed: <b>Q4</b> (18.1 pont/meccs)</div><div class="fact-item">Leggyengébb negyed: <b>Q1</b> (12.7 pont/meccs)</div><div class="fact-item">Leghosszabb saját run: <b>16-0</b> (JÓZSEFVÁROSI KC ellen)</div><div class="fact-item">Leghosszabb kapott run: <b>22-0</b> (MONORI SE ellen)</div><div class="fact-item">Félidőben vezetve: <b>1/1 győzelem</b> (100%)</div><div class="fact-item">Félidős hátrányból: <b>1 fordítás 14-ból</b></div><div class="fact-item">Hazai mérleg: <b>1-7</b> | Vendég: <b>1-7</b></div><div class="fact-item"><b>18</b> játékos fordult meg a keretben</div><div class="fact-item">FT%: <b>56%</b> (157/280)</div><div class="fact-item">Top 2 pontszerző (Schwarczenberger, Papp Dominik) a csapat pontjainak <b>36%</b>-át adja</div><div class="fact-item">Legszorosabb meccs: <b>77-79</b> (Kőbánya Oldboys, 01.19)</div>
+    <div id="factsBody"></div>
   </div>
 </div>
 
@@ -225,84 +225,180 @@ Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
 Chart.defaults.font.family="'Inter',sans-serif";
 
-const games = [{"date": "10.03", "hv": "V", "opp": "Monori Se", "kg": 46, "op": 88, "res": "L"}, {"date": "10.16", "hv": "V", "opp": "Kőbánya Oldboys", "kg": 74, "op": 96, "res": "L"}, {"date": "10.22", "hv": "H", "opp": "Malév Sc", "kg": 63, "op": 94, "res": "L"}, {"date": "11.06", "hv": "H", "opp": "Józsefvárosi Kc", "kg": 75, "op": 80, "res": "L"}, {"date": "11.16", "hv": "V", "opp": "Békési Szsk", "kg": 59, "op": 106, "res": "L"}, {"date": "11.23", "hv": "V", "opp": "Dunaharaszti Mtk Ii.", "kg": 44, "op": 110, "res": "L"}, {"date": "11.27", "hv": "H", "opp": "Vbw Cekk Cegléd", "kg": 80, "op": 92, "res": "L"}, {"date": "12.05", "hv": "V", "opp": "Szolnok Evolution", "kg": 42, "op": 103, "res": "L"}, {"date": "12.11", "hv": "H", "opp": "Monori Se", "kg": 71, "op": 116, "res": "L"}, {"date": "01.14", "hv": "V", "opp": "Józsefvárosi Kc", "kg": 60, "op": 55, "res": "W"}, {"date": "01.19", "hv": "H", "opp": "Kőbánya Oldboys", "kg": 77, "op": 79, "res": "L"}, {"date": "01.22", "hv": "V", "opp": "Malév Sc", "kg": 44, "op": 84, "res": "L"}, {"date": "02.11", "hv": "H", "opp": "Békési Szsk", "kg": 80, "op": 56, "res": "W"}, {"date": "02.19", "hv": "H", "opp": "Dunaharaszti Mtk Ii.", "kg": 63, "op": 91, "res": "L"}, {"date": "02.27", "hv": "V", "opp": "Vbw Cekk Cegléd", "kg": 66, "op": 82, "res": "L"}, {"date": "03.05", "hv": "H", "opp": "Szolnok Evolution", "kg": 68, "op": 90, "res": "L"}];
-const tbody = document.getElementById('gameLogBody');
-games.forEach(g => {
-  const diff = g.kg - g.op;
-  const diffStr = diff > 0 ? '+'+diff : ''+diff;
-  const diffColor = diff > 0 ? 'var(--green)' : 'var(--red)';
-  const barW = Math.min(Math.abs(diff), 40);
-  const tr = document.createElement('tr');
-  tr.innerHTML = '<td>'+g.date+'</td>'
-    +'<td><span class="badge '+(g.hv==='H'?'h':'v')+'">'+g.hv+'</span></td>'
-    +'<td>'+g.opp+'</td>'
-    +'<td style="font-weight:700;">'+g.kg+'-'+g.op+'</td>'
-    +'<td><span class="badge '+(g.res==='W'?'w':'l')+'">'+(g.res==='W'?'GY':'V')+'</span></td>'
-    +'<td style="font-weight:700;color:'+diffColor+';">'+diffStr+'</td>';
-  tbody.appendChild(tr);
-});
+const STATS = {
+  all: {"games": 16, "wins": 2, "losses": 14, "scored": 1012, "allowed": 1422, "ppg": 63.3, "opp_ppg": 88.9, "diff": -25.6, "best_score": 80, "most_allowed": 116, "players_used": 18, "game_log": [{"date": "10.03", "hv": "V", "opp": "Monori Se", "kg": 46, "op": 88, "res": "L"}, {"date": "10.16", "hv": "V", "opp": "Kőbánya Oldboys", "kg": 74, "op": 96, "res": "L"}, {"date": "10.22", "hv": "H", "opp": "Malév Sc", "kg": 63, "op": 94, "res": "L"}, {"date": "11.06", "hv": "H", "opp": "Józsefvárosi Kc", "kg": 75, "op": 80, "res": "L"}, {"date": "11.16", "hv": "V", "opp": "Békési Szsk", "kg": 59, "op": 106, "res": "L"}, {"date": "11.23", "hv": "V", "opp": "Dunaharaszti Mtk Ii.", "kg": 44, "op": 110, "res": "L"}, {"date": "11.27", "hv": "H", "opp": "Vbw Cekk Cegléd", "kg": 80, "op": 92, "res": "L"}, {"date": "12.05", "hv": "V", "opp": "Szolnok Evolution", "kg": 42, "op": 103, "res": "L"}, {"date": "12.11", "hv": "H", "opp": "Monori Se", "kg": 71, "op": 116, "res": "L"}, {"date": "01.14", "hv": "V", "opp": "Józsefvárosi Kc", "kg": 60, "op": 55, "res": "W"}, {"date": "01.19", "hv": "H", "opp": "Kőbánya Oldboys", "kg": 77, "op": 79, "res": "L"}, {"date": "01.22", "hv": "V", "opp": "Malév Sc", "kg": 44, "op": 84, "res": "L"}, {"date": "02.11", "hv": "H", "opp": "Békési Szsk", "kg": 80, "op": 56, "res": "W"}, {"date": "02.19", "hv": "H", "opp": "Dunaharaszti Mtk Ii.", "kg": 63, "op": 91, "res": "L"}, {"date": "02.27", "hv": "V", "opp": "Vbw Cekk Cegléd", "kg": 66, "op": 82, "res": "L"}, {"date": "03.05", "hv": "H", "opp": "Szolnok Evolution", "kg": 68, "op": 90, "res": "L"}], "trend_labels": ["10.03", "10.16", "10.22", "11.06", "11.16", "11.23", "11.27", "12.05", "12.11", "01.14", "01.19", "01.22", "02.11", "02.19", "02.27", "03.05"], "trend_kg": [46, 74, 63, 75, 59, 44, 80, 42, 71, 60, 77, 44, 80, 63, 66, 68], "trend_op": [88, 96, 94, 80, 106, 110, 92, 103, 116, 55, 79, 84, 56, 91, 82, 90], "trend_res": ["L", "L", "L", "L", "L", "L", "L", "L", "L", "W", "L", "L", "W", "L", "L", "L"], "q_kg": [12.7, 16.8, 15.6, 18.1], "q_op": [22.8, 22.3, 20.4, 23.4], "q_won": [2, 3, 6, 5], "q_lost": [14, 13, 10, 11], "sc": {"HT_LEAD": [1, 1], "HT_TRAIL": [14, 1], "3Q_LEAD": [3, 2], "3Q_TRAIL": [13, 0]}, "pts3": 261, "pts2": 594, "pts_ft": 157, "ftm": 157, "fta": 280, "pct3": 26, "pct2": 59, "pct_ft": 16, "runs_for": [{"date": "01.14", "opp": "Józsefvárosi Kc", "sq": 3, "eq": 4, "pts": 16, "bsk": 8}, {"date": "01.22", "opp": "Malév Sc", "sq": 1, "eq": 2, "pts": 12, "bsk": 6}, {"date": "03.05", "opp": "Szolnok Evolution", "sq": 3, "eq": 3, "pts": 11, "bsk": 5}, {"date": "11.06", "opp": "Józsefvárosi Kc", "sq": 4, "eq": 4, "pts": 9, "bsk": 4}, {"date": "10.16", "opp": "Kőbánya Oldboys", "sq": 1, "eq": 1, "pts": 9, "bsk": 5}], "runs_against": [{"date": "10.03", "opp": "Monori Se", "sq": 2, "eq": 2, "pts": 22, "bsk": 9}, {"date": "12.05", "opp": "Szolnok Evolution", "sq": 1, "eq": 1, "pts": 17, "bsk": 8}, {"date": "11.16", "opp": "Békési Szsk", "sq": 1, "eq": 2, "pts": 16, "bsk": 11}, {"date": "11.16", "opp": "Békési Szsk", "sq": 3, "eq": 3, "pts": 16, "bsk": 9}, {"date": "11.23", "opp": "Dunaharaszti Mtk Ii.", "sq": 3, "eq": 3, "pts": 16, "bsk": 10}], "facts": ["Legerősebb negyed: <b>Q4</b> (18.1 pont/meccs)", "Leggyengébb negyed: <b>Q1</b> (12.7 pont/meccs)", "Leghosszabb saját run: <b>16-0</b> (JÓZSEFVÁROSI KC ellen)", "Leghosszabb kapott run: <b>22-0</b> (MONORI SE ellen)", "Félidőben vezetve: <b>1/1 győzelem</b> (100%)", "Félidős hátrányból: <b>1 fordítás 14-ból</b>", "Hazai mérleg: <b>1-7</b> | Vendég: <b>1-7</b>", "<b>18</b> játékos fordult meg a keretben", "FT%: <b>56%</b> (157/280)", "Top 2 pontszerző (Schwarczenberger, Papp Dominik) a csapat pontjainak <b>36%</b>-át adja", "Legszorosabb meccs: <b>77-79</b> (Kőbánya Oldboys, 01.19)"], "home_w": 1, "home_g": 8, "away_w": 1, "away_g": 8},
+  home: {"games": 8, "wins": 1, "losses": 7, "scored": 577, "allowed": 698, "ppg": 72.1, "opp_ppg": 87.3, "diff": -15.2, "best_score": 80, "most_allowed": 116, "players_used": 18, "game_log": [{"date": "10.22", "hv": "H", "opp": "Malév Sc", "kg": 63, "op": 94, "res": "L"}, {"date": "11.06", "hv": "H", "opp": "Józsefvárosi Kc", "kg": 75, "op": 80, "res": "L"}, {"date": "11.27", "hv": "H", "opp": "Vbw Cekk Cegléd", "kg": 80, "op": 92, "res": "L"}, {"date": "12.11", "hv": "H", "opp": "Monori Se", "kg": 71, "op": 116, "res": "L"}, {"date": "01.19", "hv": "H", "opp": "Kőbánya Oldboys", "kg": 77, "op": 79, "res": "L"}, {"date": "02.11", "hv": "H", "opp": "Békési Szsk", "kg": 80, "op": 56, "res": "W"}, {"date": "02.19", "hv": "H", "opp": "Dunaharaszti Mtk Ii.", "kg": 63, "op": 91, "res": "L"}, {"date": "03.05", "hv": "H", "opp": "Szolnok Evolution", "kg": 68, "op": 90, "res": "L"}], "trend_labels": ["10.22", "11.06", "11.27", "12.11", "01.19", "02.11", "02.19", "03.05"], "trend_kg": [63, 75, 80, 71, 77, 80, 63, 68], "trend_op": [94, 80, 92, 116, 79, 56, 91, 90], "trend_res": ["L", "L", "L", "L", "L", "W", "L", "L"], "q_kg": [13.8, 19.1, 19.1, 20.1], "q_op": [23.6, 20.3, 20.6, 22.8], "q_won": [1, 3, 5, 4], "q_lost": [7, 5, 3, 4], "sc": {"HT_LEAD": [1, 1], "HT_TRAIL": [7, 0], "3Q_LEAD": [2, 1], "3Q_TRAIL": [6, 0]}, "pts3": 147, "pts2": 348, "pts_ft": 82, "ftm": 82, "fta": 155, "pct3": 25, "pct2": 60, "pct_ft": 14, "runs_for": [{"date": "03.05", "opp": "Szolnok Evolution", "sq": 3, "eq": 3, "pts": 11, "bsk": 5}, {"date": "11.06", "opp": "Józsefvárosi Kc", "sq": 4, "eq": 4, "pts": 9, "bsk": 4}, {"date": "02.11", "opp": "Békési Szsk", "sq": 4, "eq": 4, "pts": 9, "bsk": 4}, {"date": "11.27", "opp": "Vbw Cekk Cegléd", "sq": 4, "eq": 4, "pts": 8, "bsk": 4}, {"date": "12.11", "opp": "Monori Se", "sq": 3, "eq": 3, "pts": 8, "bsk": 4}], "runs_against": [{"date": "11.27", "opp": "Vbw Cekk Cegléd", "sq": 1, "eq": 2, "pts": 14, "bsk": 7}, {"date": "11.06", "opp": "Józsefvárosi Kc", "sq": 1, "eq": 1, "pts": 13, "bsk": 6}, {"date": "12.11", "opp": "Monori Se", "sq": 4, "eq": 4, "pts": 13, "bsk": 5}, {"date": "03.05", "opp": "Szolnok Evolution", "sq": 3, "eq": 4, "pts": 13, "bsk": 6}, {"date": "10.22", "opp": "Malév Sc", "sq": 1, "eq": 1, "pts": 12, "bsk": 8}], "facts": ["Legerősebb negyed: <b>Q4</b> (20.1 pont/meccs)", "Leggyengébb negyed: <b>Q1</b> (13.8 pont/meccs)", "Leghosszabb saját run: <b>11-0</b> (SZOLNOK EVOLUTI ellen)", "Leghosszabb kapott run: <b>14-0</b> (VBW CEKK CEGLÉD ellen)", "Félidőben vezetve: <b>1/1 győzelem</b> (100%)", "Félidős hátrányból: <b>0 fordítás 7-ból</b>", "Hazai mérleg: <b>1-7</b> | Vendég: <b>0-0</b>", "<b>18</b> játékos fordult meg a keretben", "FT%: <b>53%</b> (82/155)", "Top 2 pontszerző (Schwarczenberger, Papp Dominik) a csapat pontjainak <b>40%</b>-át adja", "Legszorosabb meccs: <b>77-79</b> (Kőbánya Oldboys, 01.19)"], "home_w": 1, "home_g": 8, "away_w": 0, "away_g": 0},
+  away: {"games": 8, "wins": 1, "losses": 7, "scored": 435, "allowed": 724, "ppg": 54.4, "opp_ppg": 90.5, "diff": -36.1, "best_score": 74, "most_allowed": 110, "players_used": 15, "game_log": [{"date": "10.03", "hv": "V", "opp": "Monori Se", "kg": 46, "op": 88, "res": "L"}, {"date": "10.16", "hv": "V", "opp": "Kőbánya Oldboys", "kg": 74, "op": 96, "res": "L"}, {"date": "11.16", "hv": "V", "opp": "Békési Szsk", "kg": 59, "op": 106, "res": "L"}, {"date": "11.23", "hv": "V", "opp": "Dunaharaszti Mtk Ii.", "kg": 44, "op": 110, "res": "L"}, {"date": "12.05", "hv": "V", "opp": "Szolnok Evolution", "kg": 42, "op": 103, "res": "L"}, {"date": "01.14", "hv": "V", "opp": "Józsefvárosi Kc", "kg": 60, "op": 55, "res": "W"}, {"date": "01.22", "hv": "V", "opp": "Malév Sc", "kg": 44, "op": 84, "res": "L"}, {"date": "02.27", "hv": "V", "opp": "Vbw Cekk Cegléd", "kg": 66, "op": 82, "res": "L"}], "trend_labels": ["10.03", "10.16", "11.16", "11.23", "12.05", "01.14", "01.22", "02.27"], "trend_kg": [46, 74, 59, 44, 42, 60, 44, 66], "trend_op": [88, 96, 106, 110, 103, 55, 84, 82], "trend_res": ["L", "L", "L", "L", "L", "W", "L", "L"], "q_kg": [11.6, 14.5, 12.1, 16.1], "q_op": [22.0, 24.3, 20.1, 24.1], "q_won": [1, 0, 1, 1], "q_lost": [7, 8, 7, 7], "sc": {"HT_LEAD": [0, 0], "HT_TRAIL": [7, 1], "3Q_LEAD": [1, 1], "3Q_TRAIL": [7, 0]}, "pts3": 114, "pts2": 246, "pts_ft": 75, "ftm": 75, "fta": 125, "pct3": 26, "pct2": 57, "pct_ft": 17, "runs_for": [{"date": "01.14", "opp": "Józsefvárosi Kc", "sq": 3, "eq": 4, "pts": 16, "bsk": 8}, {"date": "01.22", "opp": "Malév Sc", "sq": 1, "eq": 2, "pts": 12, "bsk": 6}, {"date": "10.16", "opp": "Kőbánya Oldboys", "sq": 1, "eq": 1, "pts": 9, "bsk": 5}, {"date": "10.16", "opp": "Kőbánya Oldboys", "sq": 4, "eq": 4, "pts": 8, "bsk": 5}, {"date": "10.03", "opp": "Monori Se", "sq": 4, "eq": 4, "pts": 7, "bsk": 3}], "runs_against": [{"date": "10.03", "opp": "Monori Se", "sq": 2, "eq": 2, "pts": 22, "bsk": 9}, {"date": "12.05", "opp": "Szolnok Evolution", "sq": 1, "eq": 1, "pts": 17, "bsk": 8}, {"date": "11.16", "opp": "Békési Szsk", "sq": 1, "eq": 2, "pts": 16, "bsk": 11}, {"date": "11.16", "opp": "Békési Szsk", "sq": 3, "eq": 3, "pts": 16, "bsk": 9}, {"date": "11.23", "opp": "Dunaharaszti Mtk Ii.", "sq": 3, "eq": 3, "pts": 16, "bsk": 10}], "facts": ["Legerősebb negyed: <b>Q4</b> (16.1 pont/meccs)", "Leggyengébb negyed: <b>Q1</b> (11.6 pont/meccs)", "Leghosszabb saját run: <b>16-0</b> (JÓZSEFVÁROSI KC ellen)", "Leghosszabb kapott run: <b>22-0</b> (MONORI SE ellen)", "Félidős hátrányból: <b>1 fordítás 7-ból</b>", "Hazai mérleg: <b>0-0</b> | Vendég: <b>1-7</b>", "<b>15</b> játékos fordult meg a keretben", "FT%: <b>60%</b> (75/125)", "Top 2 pontszerző (Papp Dominik, Schwarczenberger Gábor Márk) a csapat pontjainak <b>30%</b>-át adja", "Legszorosabb meccs: <b>60-55</b> (Józsefvárosi Kc, 01.14)"], "home_w": 0, "home_g": 0, "away_w": 1, "away_g": 8}
+};
 
-new Chart(document.getElementById('trendChart').getContext('2d'), {
-  type:'line',
-  data: {
-    labels: ["10.03", "10.16", "10.22", "11.06", "11.16", "11.23", "11.27", "12.05", "12.11", "01.14", "01.19", "01.22", "02.11", "02.19", "02.27", "03.05"],
-    datasets: [{
-      label:'Dobott', data:[46, 74, 63, 75, 59, 44, 80, 42, 71, 60, 77, 44, 80, 63, 66, 68],
-      borderColor:'#00cec9', backgroundColor:'rgba(0,206,201,0.08)',
-      fill:true, tension:0.3, pointRadius:5, borderWidth:3,
-      pointBackgroundColor: ["#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#00b894", "#e17055", "#e17055", "#00b894", "#e17055", "#e17055", "#e17055"],
-      pointBorderColor: ["#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#e17055", "#00b894", "#e17055", "#e17055", "#00b894", "#e17055", "#e17055", "#e17055"],
-    }, {
-      label:'Kapott', data:[88, 96, 94, 80, 106, 110, 92, 103, 116, 55, 79, 84, 56, 91, 82, 90],
-      borderColor:'#e17055', backgroundColor:'rgba(225,112,85,0.05)',
-      fill:true, tension:0.3, pointRadius:4, borderWidth:2, borderDash:[4,3],
-      pointBackgroundColor:'#e17055', pointBorderColor:'#e17055',
-    }]
-  },
-  options: {
-    responsive:true, maintainAspectRatio:false,
-    plugins: { legend:{ position:'top', labels:{ usePointStyle:true, font:{size:11} } } },
-    scales: { y:{ beginAtZero:true, max:126, grid:{color:'rgba(255,255,255,0.04)'} }, x:{ grid:{display:false} } }
-  }
-});
+let trendChart, quarterChart, shotChart;
+let currentView = 'all';
 
-new Chart(document.getElementById('quarterChart').getContext('2d'), {
-  type:'bar',
-  data: {
-    labels:['Q1','Q2','Q3','Q4'],
-    datasets: [{
-      label:'Dobott', data:[12.7, 16.8, 15.6, 18.1],
-      backgroundColor:'rgba(0,206,201,0.6)', borderColor:'#00cec9', borderWidth:2, borderRadius:6,
-    },{
-      label:'Kapott', data:[22.8, 22.3, 20.4, 23.4],
-      backgroundColor:'rgba(225,112,85,0.5)', borderColor:'#e17055', borderWidth:2, borderRadius:6,
-    }]
-  },
-  options: {
-    responsive:true, maintainAspectRatio:false,
-    plugins: {
-      legend:{ position:'top', labels:{ usePointStyle:true, font:{size:11} } },
-      tooltip: { callbacks: { afterBody: items => {
-        const idx = items[0].dataIndex;
-        const won = [2, 3, 6, 5];
-        const lost = [14, 13, 10, 11];
-        return 'Megnyert negyed: '+won[idx]+' | Elvesztett: '+lost[idx];
-      } } }
+function renderGameLog(s) {
+  const tbody = document.getElementById('gameLogBody');
+  tbody.innerHTML = '';
+  s.game_log.forEach(g => {
+    const diff = g.kg - g.op;
+    const diffStr = diff > 0 ? '+'+diff : ''+diff;
+    const diffColor = diff > 0 ? 'var(--green)' : 'var(--red)';
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+g.date+'</td>'
+      +'<td><span class="badge '+(g.hv==='H'?'h':'v')+'">'+g.hv+'</span></td>'
+      +'<td>'+g.opp+'</td>'
+      +'<td style="font-weight:700;">'+g.kg+'-'+g.op+'</td>'
+      +'<td><span class="badge '+(g.res==='W'?'w':'l')+'">'+(g.res==='W'?'GY':'V')+'</span></td>'
+      +'<td style="font-weight:700;color:'+diffColor+';">'+diffStr+'</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function renderRuns(runs, bodyId, color) {
+  const tbody = document.getElementById(bodyId);
+  tbody.innerHTML = '';
+  runs.forEach(r => {
+    const qspan = r.sq === r.eq ? 'Q'+r.sq : 'Q'+r.sq+'→Q'+r.eq;
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+r.date+'</td><td>'+r.opp+'</td>'
+      +'<td style="font-weight:800;color:var(--'+color+')">'+r.pts+'-0</td>'
+      +'<td>'+qspan+'</td><td>'+r.bsk+'</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function renderScenarios(sc) {
+  const tbody = document.getElementById('scenarioBody');
+  const rows = [
+    ['Félidőben <b style="color:var(--green)">vezet</b>', 'HT_LEAD', 'green', 'győzelem'],
+    ['Félidőben <b style="color:var(--red)">hátrányban</b>', 'HT_TRAIL', 'red', 'fordítás'],
+    ['3 negyed után <b style="color:var(--green)">vezet</b>', '3Q_LEAD', 'green', 'győzelem'],
+    ['3 negyed után <b style="color:var(--red)">hátrányban</b>', '3Q_TRAIL', 'red', 'fordítás'],
+  ];
+  tbody.innerHTML = '';
+  rows.forEach(([label, key, color, word]) => {
+    const d = sc[key] || [0, 0];
+    const pct = d[0] > 0 ? Math.round(100*d[1]/d[0]) : 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+label+'</td>'
+      +'<td style="font-weight:800;color:var(--'+color+')">'+d[1]+'/'+d[0]+' '+word+'</td>'
+      +'<td style="color:var(--text-dim)">'+pct+'%</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function renderFacts(facts) {
+  document.getElementById('factsBody').innerHTML =
+    facts.map(f => '<div class="fact-item">'+f+'</div>').join('');
+}
+
+function buildTrendChart(s) {
+  if (trendChart) trendChart.destroy();
+  const yMax = Math.max(...s.trend_kg, ...s.trend_op, 0) + 10;
+  const ptColors = s.trend_res.map(r => r==='W' ? '#00b894' : '#e17055');
+  trendChart = new Chart(document.getElementById('trendChart').getContext('2d'), {
+    type:'line',
+    data: {
+      labels: s.trend_labels,
+      datasets: [{
+        label:'Dobott', data:s.trend_kg,
+        borderColor:'#00cec9', backgroundColor:'rgba(0,206,201,0.08)',
+        fill:true, tension:0.3, pointRadius:5, borderWidth:3,
+        pointBackgroundColor:ptColors, pointBorderColor:ptColors,
+      }, {
+        label:'Kapott', data:s.trend_op,
+        borderColor:'#e17055', backgroundColor:'rgba(225,112,85,0.05)',
+        fill:true, tension:0.3, pointRadius:4, borderWidth:2, borderDash:[4,3],
+        pointBackgroundColor:'#e17055', pointBorderColor:'#e17055',
+      }]
     },
-    scales: { y:{ beginAtZero:true, grid:{color:'rgba(255,255,255,0.04)'} }, x:{ grid:{display:false} } }
-  }
-});
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ position:'top', labels:{ usePointStyle:true, font:{size:11} } } },
+      scales: { y:{ beginAtZero:true, max:yMax, grid:{color:'rgba(255,255,255,0.04)'} }, x:{ grid:{display:false} } }
+    }
+  });
+}
 
-new Chart(document.getElementById('shotPie').getContext('2d'), {
-  type:'doughnut',
-  data: {
-    labels:['3FG (26%  — 261 pt)','2FG (59% — 594 pt)','FT (16% — 157 pt)'],
-    datasets:[{ data:[261,594,157], backgroundColor:['#00cec9','#fdcb6e','#8b8da0'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }]
-  },
-  options: { responsive:true, maintainAspectRatio:false, cutout:'55%',
-    plugins:{ legend:{ position:'right', labels:{ padding:14, usePointStyle:true, font:{size:11} } } }
-  }
-});
+function buildQuarterChart(s) {
+  if (quarterChart) quarterChart.destroy();
+  quarterChart = new Chart(document.getElementById('quarterChart').getContext('2d'), {
+    type:'bar',
+    data: {
+      labels:['Q1','Q2','Q3','Q4'],
+      datasets: [{
+        label:'Dobott', data:s.q_kg,
+        backgroundColor:'rgba(0,206,201,0.6)', borderColor:'#00cec9', borderWidth:2, borderRadius:6,
+      },{
+        label:'Kapott', data:s.q_op,
+        backgroundColor:'rgba(225,112,85,0.5)', borderColor:'#e17055', borderWidth:2, borderRadius:6,
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend:{ position:'top', labels:{ usePointStyle:true, font:{size:11} } },
+        tooltip: { callbacks: { afterBody: items => {
+          const idx = items[0].dataIndex;
+          return 'Megnyert negyed: '+s.q_won[idx]+' | Elvesztett: '+s.q_lost[idx];
+        } } }
+      },
+      scales: { y:{ beginAtZero:true, grid:{color:'rgba(255,255,255,0.04)'} }, x:{ grid:{display:false} } }
+    }
+  });
+}
+
+function buildShotChart(s) {
+  if (shotChart) shotChart.destroy();
+  shotChart = new Chart(document.getElementById('shotPie').getContext('2d'), {
+    type:'doughnut',
+    data: {
+      labels:['3FG ('+s.pct3+'% — '+s.pts3+' pt)','2FG ('+s.pct2+'% — '+s.pts2+' pt)','FT ('+s.pct_ft+'% — '+s.pts_ft+' pt)'],
+      datasets:[{ data:[s.pts3,s.pts2,s.pts_ft], backgroundColor:['#00cec9','#fdcb6e','#8b8da0'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, cutout:'55%',
+      plugins:{ legend:{ position:'right', labels:{ padding:14, usePointStyle:true, font:{size:11} } } }
+    }
+  });
+}
+
+function switchView(mode) {
+  currentView = mode;
+  const s = STATS[mode];
+
+  // Toggle buttons
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.view-btn[onclick*="\''+mode+'\'"]').classList.add('active');
+
+  // Header stats
+  document.getElementById('hWins').textContent = s.wins;
+  document.getElementById('hLosses').textContent = s.losses;
+  document.getElementById('hPpg').textContent = s.ppg;
+  document.getElementById('hOppPpg').textContent = s.opp_ppg;
+  document.getElementById('hDiff').textContent = s.diff;
+  document.getElementById('hDiff').style.color = s.diff >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Mini stats
+  document.getElementById('mScored').textContent = s.scored;
+  document.getElementById('mAllowed').textContent = s.allowed;
+  document.getElementById('mBest').textContent = s.best_score;
+  document.getElementById('mWorst').textContent = s.most_allowed;
+  document.getElementById('mPlayers').textContent = s.players_used;
+
+  // Charts
+  buildTrendChart(s);
+  buildQuarterChart(s);
+  buildShotChart(s);
+
+  // Scenarios, runs, game log, facts
+  renderScenarios(s.sc);
+  renderRuns(s.runs_for, 'runsForBody', 'green');
+  renderRuns(s.runs_against, 'runsAgnBody', 'red');
+  renderGameLog(s);
+  renderFacts(s.facts);
+}
+
+// Initial render
+switchView('all');
+
 </script>
 </body>
 </html>

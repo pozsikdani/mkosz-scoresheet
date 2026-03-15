@@ -722,25 +722,38 @@ new Chart(document.getElementById('opponentChart').getContext('2d'), {{
     return html
 
 
-def get_team_stats(conn, cfg, tp):
-    """Gather all team-level statistics for the team dashboard."""
+def get_team_stats(conn, cfg, tp, hv_filter=None):
+    """Gather all team-level statistics for the team dashboard.
+    hv_filter: None=all, 'H'=home only, 'V'=away only.
+    """
     cp = cfg["comp_prefix"]
     d = {}
 
+    # Build match filter based on hv_filter
+    if hv_filter == 'H':
+        _mf = "m.team_a LIKE ?"
+        _mp = (tp,)
+    elif hv_filter == 'V':
+        _mf = "m.team_b LIKE ?"
+        _mp = (tp,)
+    else:
+        _mf = "(m.team_a LIKE ? OR m.team_b LIKE ?)"
+        _mp = (tp, tp)
+
     # Basic record
-    r = conn.execute("""
+    r = conn.execute(f"""
         WITH kg AS (
             SELECT m.match_id, m.match_date,
                    CASE WHEN m.team_a LIKE ? THEN 'H' ELSE 'V' END as hv,
                    CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opp,
                    CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as kg,
                    CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as op
-            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
         )
         SELECT COUNT(*), SUM(CASE WHEN kg>op THEN 1 ELSE 0 END),
                SUM(CASE WHEN kg<op THEN 1 ELSE 0 END),
                SUM(kg), SUM(op),
-               ROUND(1.0*SUM(kg)/COUNT(*),1), ROUND(1.0*SUM(op)/COUNT(*),1),
+               ROUND(1.0*SUM(kg)/NULLIF(COUNT(*),0),1), ROUND(1.0*SUM(op)/NULLIF(COUNT(*),0),1),
                MAX(kg), MIN(kg), MAX(op), MIN(op),
                MAX(kg-op), MIN(kg-op),
                SUM(CASE WHEN hv='H' AND kg>op THEN 1 ELSE 0 END),
@@ -748,7 +761,7 @@ def get_team_stats(conn, cfg, tp):
                SUM(CASE WHEN hv='V' AND kg>op THEN 1 ELSE 0 END),
                SUM(CASE WHEN hv='V' THEN 1 ELSE 0 END)
         FROM kg
-    """, (tp, tp, tp, tp, cp, tp, tp)).fetchone()
+    """, (tp, tp, tp, tp, cp, *_mp)).fetchone()
     d["games"], d["wins"], d["losses"] = r[0], r[1], r[2]
     d["scored"], d["allowed"] = r[3], r[4]
     d["ppg"], d["opp_ppg"] = r[5], r[6]
@@ -759,28 +772,28 @@ def get_team_stats(conn, cfg, tp):
     d["away_w"], d["away_g"] = r[15], r[16]
 
     # Game log
-    d["game_log"] = conn.execute("""
+    d["game_log"] = conn.execute(f"""
         WITH kg AS (
             SELECT m.match_id, m.match_date,
                    CASE WHEN m.team_a LIKE ? THEN 'H' ELSE 'V' END as hv,
                    CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opp,
                    CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as kg,
                    CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as op
-            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
         )
         SELECT match_date, hv, opp, kg, op FROM kg ORDER BY match_date
-    """, (tp, tp, tp, tp, cp, tp, tp)).fetchall()
+    """, (tp, tp, tp, tp, cp, *_mp)).fetchall()
 
     # Quarter averages
-    d["quarters"] = conn.execute("""
+    d["quarters"] = conn.execute(f"""
         WITH kg AS (
             SELECT m.match_id,
                    CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t
-            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
         )
         SELECT qs.quarter,
-               ROUND(1.0*SUM(CASE WHEN kg.t='A' THEN qs.score_a ELSE qs.score_b END)/COUNT(*),1),
-               ROUND(1.0*SUM(CASE WHEN kg.t='A' THEN qs.score_b ELSE qs.score_a END)/COUNT(*),1),
+               ROUND(1.0*SUM(CASE WHEN kg.t='A' THEN qs.score_a ELSE qs.score_b END)/NULLIF(COUNT(*),0),1),
+               ROUND(1.0*SUM(CASE WHEN kg.t='A' THEN qs.score_b ELSE qs.score_a END)/NULLIF(COUNT(*),0),1),
                SUM(CASE WHEN (CASE WHEN kg.t='A' THEN qs.score_a ELSE qs.score_b END) >
                              (CASE WHEN kg.t='A' THEN qs.score_b ELSE qs.score_a END) THEN 1 ELSE 0 END),
                SUM(CASE WHEN (CASE WHEN kg.t='A' THEN qs.score_a ELSE qs.score_b END) <
@@ -788,16 +801,16 @@ def get_team_stats(conn, cfg, tp):
         FROM quarter_scores qs JOIN kg ON qs.match_id=kg.match_id
         WHERE qs.quarter IN ('1','2','3','4')
         GROUP BY qs.quarter ORDER BY qs.quarter
-    """, (tp, cp, tp, tp)).fetchall()
+    """, (tp, cp, *_mp)).fetchall()
 
     # Scenario analysis: halftime lead/deficit
-    d["scenarios"] = conn.execute("""
+    d["scenarios"] = conn.execute(f"""
         WITH kg AS (
             SELECT m.match_id,
                    CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t,
                    CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as kg_final,
                    CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as opp_final
-            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
         ),
         halves AS (
             SELECT kg.match_id, kg.kg_final, kg.opp_final,
@@ -832,7 +845,7 @@ def get_team_stats(conn, cfg, tp):
                SUM(CASE WHEN kg_3q<opp_3q THEN 1 ELSE 0 END),
                SUM(CASE WHEN kg_3q<opp_3q AND kg_final>opp_final THEN 1 ELSE 0 END)
         FROM halves
-    """, (tp, tp, tp, cp, tp, tp)).fetchall()
+    """, (tp, tp, tp, cp, *_mp)).fetchall()
 
     # Top 5 scoring runs FOR and AGAINST
     for label, is_team_val in [("runs_for", 1), ("runs_against", 0)]:
@@ -842,7 +855,7 @@ def get_team_stats(conn, cfg, tp):
                 SELECT m.match_id, m.match_date,
                        CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t,
                        CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opp
-                FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+                FROM matches m WHERE m.match_id LIKE ? AND {_mf}
             ),
             made AS (
                 SELECT se.match_id, se.event_seq, se.points, se.quarter,
@@ -861,60 +874,60 @@ def get_team_stats(conn, cfg, tp):
             FROM with_rid WHERE is_team={is_team_val}
             GROUP BY match_id, rid
             ORDER BY run_pts DESC LIMIT 5
-        """, (tp, tp, cp, tp, tp)).fetchall()
+        """, (tp, tp, cp, *_mp)).fetchall()
         d[label] = rows
 
     # Team shooting totals
-    r = conn.execute("""
+    r = conn.execute(f"""
         WITH kg AS (
             SELECT m.match_id,
                    CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t
-            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
         )
         SELECT SUM(CASE WHEN se.made=1 AND se.points=3 THEN 1 ELSE 0 END) as fg3,
                SUM(CASE WHEN se.made=1 AND se.points=2 THEN 1 ELSE 0 END) as fg2,
                SUM(CASE WHEN se.made=1 AND se.points=1 THEN 1 ELSE 0 END) as ftm,
                SUM(CASE WHEN se.points IN (0,1) THEN 1 ELSE 0 END) as fta
         FROM scoring_events se JOIN kg ON se.match_id=kg.match_id AND se.team=kg.t
-    """, (tp, cp, tp, tp)).fetchone()
+    """, (tp, cp, *_mp)).fetchone()
     d["fg3"], d["fg2"], d["ftm"], d["fta"] = r
 
     # Top scorers (for fun facts)
-    d["top_scorers"] = conn.execute("""
+    d["top_scorers"] = conn.execute(f"""
         WITH kg AS (
             SELECT m.match_id,
                    CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t
-            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
         )
         SELECT pgs.name, SUM(pgs.points) as tp,
-               ROUND(1.0*SUM(pgs.points)/COUNT(*),1) as ppg, COUNT(*) as gp
+               ROUND(1.0*SUM(pgs.points)/NULLIF(COUNT(*),0),1) as ppg, COUNT(*) as gp
         FROM player_game_stats pgs JOIN kg ON pgs.match_id=kg.match_id AND pgs.team=kg.t
         GROUP BY pgs.license_number ORDER BY tp DESC LIMIT 3
-    """, (tp, cp, tp, tp)).fetchall()
+    """, (tp, cp, *_mp)).fetchall()
 
     # Players used count
-    d["players_used"] = conn.execute("""
+    d["players_used"] = conn.execute(f"""
         WITH kg AS (
             SELECT m.match_id,
                    CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t
-            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
         )
         SELECT COUNT(DISTINCT pgs.license_number)
         FROM player_game_stats pgs JOIN kg ON pgs.match_id=kg.match_id AND pgs.team=kg.t
-    """, (tp, cp, tp, tp)).fetchone()[0]
+    """, (tp, cp, *_mp)).fetchone()[0]
 
     # Closest games
-    d["closest"] = conn.execute("""
+    d["closest"] = conn.execute(f"""
         WITH kg AS (
             SELECT m.match_date,
                    CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opp,
                    CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as kg,
                    CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as op
-            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
         )
         SELECT match_date, opp, kg, op, ABS(kg-op) as diff
         FROM kg ORDER BY diff ASC LIMIT 3
-    """, (tp, tp, tp, cp, tp, tp)).fetchall()
+    """, (tp, tp, tp, cp, *_mp)).fetchall()
 
     return d
 
@@ -1051,90 +1064,105 @@ def get_calendar_data_db(conn, cfg, tp):
     } for r in rows] if rows else None
 
 
-def generate_team_dashboard(stats, cfg, team_key=None, att_data=None):
-    """Generate team-level dashboard HTML."""
-    d = stats
-    games = d["games"]
-    team_name = cfg["team_name"]
-    group_name = cfg["group_name"]
-    team_short = cfg["team_short"]
-
-    # Game log JS
-    js_gamelog = []
+def _stats_to_js(d):
+    """Convert a stats dict to a JSON-serializable dict for client-side rendering."""
+    games = d["games"] or 0
+    # Game log
+    game_log = []
     for g in d["game_log"]:
         date, hv, opp, kg, op = g
-        js_gamelog.append({
+        game_log.append({
             "date": date[5:].replace("-", "."), "hv": hv,
             "opp": shorten_opponent(opp),
             "kg": kg, "op": op,
             "res": "W" if kg > op else "L"
         })
-
-    # Quarter data for chart
-    q_kg = [q[1] for q in d["quarters"]]
-    q_op = [q[2] for q in d["quarters"]]
-    q_won = [q[3] for q in d["quarters"]]
-    q_lost = [q[4] for q in d["quarters"]]
-
-    # Scenario map
-    sc = {s[0]: (s[1], s[2]) for s in d["scenarios"]}
-
+    # Quarters
+    q_kg = [q[1] or 0 for q in d["quarters"]] if d["quarters"] else [0,0,0,0]
+    q_op = [q[2] or 0 for q in d["quarters"]] if d["quarters"] else [0,0,0,0]
+    q_won = [q[3] or 0 for q in d["quarters"]] if d["quarters"] else [0,0,0,0]
+    q_lost = [q[4] or 0 for q in d["quarters"]] if d["quarters"] else [0,0,0,0]
+    # Scenarios
+    sc = {s[0]: [s[1] or 0, s[2] or 0] for s in d["scenarios"]}
     # Shooting
-    ft_pct = round(100 * d["ftm"] / d["fta"]) if d["fta"] > 0 else 0
-    pts_from_3 = d["fg3"] * 3
-    pts_from_2 = d["fg2"] * 2
-    pts_from_ft = d["ftm"]
-    total_shot_pts = pts_from_3 + pts_from_2 + pts_from_ft
-    pct_3 = round(100 * pts_from_3 / total_shot_pts) if total_shot_pts else 0
-    pct_2 = round(100 * pts_from_2 / total_shot_pts) if total_shot_pts else 0
-    pct_ft = round(100 * pts_from_ft / total_shot_pts) if total_shot_pts else 0
-
-    # Runs tables
-    def run_rows(runs, color):
-        rows = ""
-        for i, r in enumerate(runs):
-            dt, opp, sq, eq, pts, bsk = r
-            qspan = f"Q{sq}" if sq == eq else f"Q{sq}→Q{eq}"
-            rows += f'<tr><td>{dt[5:].replace("-",".")}</td><td>{shorten_opponent(opp)}</td><td style="font-weight:800;color:var(--{color})">{pts}-0</td><td>{qspan}</td><td>{bsk}</td></tr>'
-        return rows
-
-    runs_for_html = run_rows(d["runs_for"], "green")
-    runs_agn_html = run_rows(d["runs_against"], "red")
-
+    fg3 = d["fg3"] or 0; fg2 = d["fg2"] or 0; ftm = d["ftm"] or 0; fta = d["fta"] or 0
+    pts3 = fg3 * 3; pts2 = fg2 * 2; tot = pts3 + pts2 + ftm
+    # Runs
+    def run_list(runs):
+        return [{"date": r[0][5:].replace("-","."), "opp": shorten_opponent(r[1]),
+                 "sq": r[2], "eq": r[3], "pts": r[4], "bsk": r[5]} for r in runs]
     # Fun facts
     facts = []
-    best_q = max(range(4), key=lambda i: q_kg[i])
-    worst_q = min(range(4), key=lambda i: q_kg[i])
-    facts.append(f'Legerősebb negyed: <b>Q{best_q+1}</b> ({q_kg[best_q]} pont/meccs)')
-    facts.append(f'Leggyengébb negyed: <b>Q{worst_q+1}</b> ({q_kg[worst_q]} pont/meccs)')
-
+    if q_kg and len(q_kg) == 4:
+        best_q = max(range(4), key=lambda i: q_kg[i])
+        worst_q = min(range(4), key=lambda i: q_kg[i])
+        facts.append(f'Legerősebb negyed: <b>Q{best_q+1}</b> ({q_kg[best_q]} pont/meccs)')
+        facts.append(f'Leggyengébb negyed: <b>Q{worst_q+1}</b> ({q_kg[worst_q]} pont/meccs)')
     if d["runs_for"]:
         facts.append(f'Leghosszabb saját run: <b>{d["runs_for"][0][4]}-0</b> ({d["runs_for"][0][1][:15]} ellen)')
     if d["runs_against"]:
         facts.append(f'Leghosszabb kapott run: <b>{d["runs_against"][0][4]}-0</b> ({d["runs_against"][0][1][:15]} ellen)')
-
-    ht_lead = sc.get("HT_LEAD", (0, 0))
-    ht_trail = sc.get("HT_TRAIL", (0, 0))
+    ht_lead = sc.get("HT_LEAD", [0, 0])
+    ht_trail = sc.get("HT_TRAIL", [0, 0])
     if ht_lead[0] > 0:
         facts.append(f'Félidőben vezetve: <b>{ht_lead[1]}/{ht_lead[0]} győzelem</b> ({round(100*ht_lead[1]/ht_lead[0])}%)')
     if ht_trail[0] > 0:
-        forditas = ht_trail[1]
-        facts.append(f'Félidős hátrányból: <b>{forditas} fordítás {ht_trail[0]}-ból</b>')
-
-    facts.append(f'Hazai mérleg: <b>{d["home_w"]}-{d["home_g"]-d["home_w"]}</b> | Vendég: <b>{d["away_w"]}-{d["away_g"]-d["away_w"]}</b>')
+        facts.append(f'Félidős hátrányból: <b>{ht_trail[1]} fordítás {ht_trail[0]}-ból</b>')
+    home_w = d["home_w"] or 0; home_g = d["home_g"] or 0
+    away_w = d["away_w"] or 0; away_g = d["away_g"] or 0
+    facts.append(f'Hazai mérleg: <b>{home_w}-{home_g-home_w}</b> | Vendég: <b>{away_w}-{away_g-away_w}</b>')
     facts.append(f'<b>{d["players_used"]}</b> játékos fordult meg a keretben')
-    facts.append(f'FT%: <b>{ft_pct}%</b> ({d["ftm"]}/{d["fta"]})')
-
+    ft_pct = round(100 * ftm / fta) if fta > 0 else 0
+    facts.append(f'FT%: <b>{ft_pct}%</b> ({ftm}/{fta})')
     ts = d["top_scorers"]
-    if len(ts) >= 2:
+    scored = d["scored"] or 0
+    if len(ts) >= 2 and scored > 0:
         top2_pts = ts[0][1] + ts[1][1]
-        facts.append(f'Top 2 pontszerző ({ts[0][0].title()}, {ts[1][0].title()}) a csapat pontjainak <b>{round(100*top2_pts/d["scored"])}%</b>-át adja')
-
+        facts.append(f'Top 2 pontszerző ({ts[0][0].title()}, {ts[1][0].title()}) a csapat pontjainak <b>{round(100*top2_pts/scored)}%</b>-át adja')
     if d["closest"]:
         c = d["closest"][0]
         facts.append(f'Legszorosabb meccs: <b>{c[2]}-{c[3]}</b> ({shorten_opponent(c[1])}, {c[0][5:].replace("-",".")})')
 
-    facts_html = "".join(f'<div class="fact-item">{f}</div>' for f in facts)
+    ppg = d["ppg"] or 0; opp_ppg = d["opp_ppg"] or 0
+    return {
+        "games": games, "wins": d["wins"] or 0, "losses": d["losses"] or 0,
+        "scored": scored, "allowed": d["allowed"] or 0,
+        "ppg": ppg, "opp_ppg": opp_ppg,
+        "diff": round(ppg - opp_ppg, 1),
+        "best_score": d["best_score"] or 0, "most_allowed": d["most_allowed"] or 0,
+        "players_used": d["players_used"] or 0,
+        "game_log": game_log,
+        "trend_labels": [g["date"] for g in game_log],
+        "trend_kg": [g["kg"] for g in game_log],
+        "trend_op": [g["op"] for g in game_log],
+        "trend_res": [g["res"] for g in game_log],
+        "q_kg": q_kg, "q_op": q_op, "q_won": q_won, "q_lost": q_lost,
+        "sc": sc,
+        "pts3": pts3, "pts2": pts2, "pts_ft": ftm, "ftm": ftm, "fta": fta,
+        "pct3": round(100 * pts3 / tot) if tot else 0,
+        "pct2": round(100 * pts2 / tot) if tot else 0,
+        "pct_ft": round(100 * ftm / tot) if tot else 0,
+        "runs_for": run_list(d["runs_for"]),
+        "runs_against": run_list(d["runs_against"]),
+        "facts": facts,
+        "home_w": home_w, "home_g": home_g, "away_w": away_w, "away_g": away_g,
+    }
+
+
+def generate_team_dashboard(stats_all, cfg, team_key=None, att_data=None,
+                            stats_home=None, stats_away=None):
+    """Generate team-level dashboard HTML with Home/Away/All toggle."""
+    d = stats_all
+    games = d["games"]
+    team_name = cfg["team_name"]
+    group_name = cfg["group_name"]
+    team_short = cfg["team_short"]
+
+    # Prepare JSON data for all three views
+    js_all = _stats_to_js(stats_all)
+    js_home = _stats_to_js(stats_home) if stats_home else js_all
+    js_away = _stats_to_js(stats_away) if stats_away else js_all
+    js_gamelog = js_all["game_log"]
 
     # Attendance chart data (Közgáz B only)
     _att_section = ""
@@ -1235,14 +1263,7 @@ new Chart(attCtx, {{
     else:
         _att_chart_js = ""
 
-    # Scoring trend for chart
-    kg_scores = [g["kg"] for g in js_gamelog]
-    op_scores = [g["op"] for g in js_gamelog]
-    trend_labels = [g["date"] for g in js_gamelog]
-    y_max = max(max(kg_scores, default=0), max(op_scores, default=0)) + 10
-
-    # Closest/blowout for game log coloring
-    max_scored = max(kg_scores, default=1)
+    # (Chart data is embedded in STATS JSON, rendered via JS)
 
     html = f"""<!DOCTYPE html>
 <html lang="hu">
@@ -1330,6 +1351,19 @@ new Chart(attCtx, {{
   .scenario-tbl {{ width:100%; border-collapse:collapse; font-size:0.82rem; }}
   .scenario-tbl td {{ padding:8px 10px; border-bottom:1px solid var(--border); }}
   .scenario-tbl tr:last-child td {{ border-bottom:none; }}
+  .view-toggle {{
+    display:flex; gap:4px; justify-content:center; margin-bottom:20px;
+    background:var(--card); border-radius:12px; padding:4px; border:1px solid var(--border);
+    width:fit-content; margin-left:auto; margin-right:auto;
+  }}
+  .view-btn {{
+    padding:8px 20px; border-radius:10px; border:none; cursor:pointer;
+    font-family:'Inter',sans-serif; font-size:0.8rem; font-weight:600;
+    color:var(--text-dim); background:transparent; transition:all 0.2s;
+    letter-spacing:0.5px;
+  }}
+  .view-btn:hover {{ color:var(--text); background:rgba(255,255,255,0.05); }}
+  .view-btn.active {{ background:var(--accent); color:#fff; }}
   {NAV_CSS}
   .mb20 {{ margin-bottom:20px; }}
   @media (max-width:900px) {{
@@ -1350,21 +1384,27 @@ new Chart(attCtx, {{
         <span>CSAPAT STATISZTIKÁK</span> &nbsp;|&nbsp; {group_name} &nbsp;|&nbsp; 2025/26 alapszakasz
       </div>
     </div>
-    <div class="header-stats">
-      <div class="header-stat"><div class="val" style="color:var(--green)">{d["wins"]}</div><div class="label">Győzelem</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--red)">{d["losses"]}</div><div class="label">Vereség</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--accent2)">{d["ppg"]}</div><div class="label">Dobott/m</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--red)">{d["opp_ppg"]}</div><div class="label">Kapott/m</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--{"green" if d["ppg"] >= d["opp_ppg"] else "red"})">{round(d["ppg"]-d["opp_ppg"],1)}</div><div class="label">Kül./m</div></div>
+    <div class="header-stats" id="headerStats">
+      <div class="header-stat"><div class="val" id="hWins" style="color:var(--green)">{d["wins"]}</div><div class="label">Győzelem</div></div>
+      <div class="header-stat"><div class="val" id="hLosses" style="color:var(--red)">{d["losses"]}</div><div class="label">Vereség</div></div>
+      <div class="header-stat"><div class="val" id="hPpg" style="color:var(--accent2)">{d["ppg"]}</div><div class="label">Dobott/m</div></div>
+      <div class="header-stat"><div class="val" id="hOppPpg" style="color:var(--red)">{d["opp_ppg"]}</div><div class="label">Kapott/m</div></div>
+      <div class="header-stat"><div class="val" id="hDiff" style="color:var(--{"green" if d["ppg"] >= d["opp_ppg"] else "red"})">{round(d["ppg"]-d["opp_ppg"],1)}</div><div class="label">Kül./m</div></div>
     </div>
   </div>
 
+  <div class="view-toggle">
+    <button class="view-btn active" onclick="switchView('all')">Összes</button>
+    <button class="view-btn" onclick="switchView('home')">Hazai</button>
+    <button class="view-btn" onclick="switchView('away')">Vendég</button>
+  </div>
+
   <div class="grid grid-5 mb20">
-    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">{d["scored"]}</div><div class="desc">Összes dobott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--red)">{d["allowed"]}</div><div class="desc">Összes kapott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--green)">{d["best_score"]}</div><div class="desc">Legtöbb dobott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--red)">{d["most_allowed"]}</div><div class="desc">Legtöbb kapott</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">{d["players_used"]}</div><div class="desc">Játékos a keretben</div></div>
+    <div class="card mini-stat"><div class="big" id="mScored" style="color:var(--accent2)">{d["scored"]}</div><div class="desc">Összes dobott</div></div>
+    <div class="card mini-stat"><div class="big" id="mAllowed" style="color:var(--red)">{d["allowed"]}</div><div class="desc">Összes kapott</div></div>
+    <div class="card mini-stat"><div class="big" id="mBest" style="color:var(--green)">{d["best_score"]}</div><div class="desc">Legtöbb dobott</div></div>
+    <div class="card mini-stat"><div class="big" id="mWorst" style="color:var(--red)">{d["most_allowed"]}</div><div class="desc">Legtöbb kapott</div></div>
+    <div class="card mini-stat"><div class="big" id="mPlayers" style="color:var(--accent2)">{d["players_used"]}</div><div class="desc">Játékos a keretben</div></div>
   </div>
 
   <div class="grid grid-2 mb20">
@@ -1385,28 +1425,7 @@ new Chart(attCtx, {{
     </div>
     <div class="card">
       <h3>Forgatókönyvek — ha félidőben...</h3>
-      <table class="scenario-tbl">
-        <tr>
-          <td>Félidőben <b style="color:var(--green)">vezet</b></td>
-          <td style="font-weight:800;color:var(--green)">{sc.get('HT_LEAD',(0,0))[1]}/{sc.get('HT_LEAD',(0,0))[0]} győzelem</td>
-          <td style="color:var(--text-dim)">{round(100*sc.get('HT_LEAD',(0,0))[1]/sc.get('HT_LEAD',(1,0))[0]) if sc.get('HT_LEAD',(1,0))[0] else 0}%</td>
-        </tr>
-        <tr>
-          <td>Félidőben <b style="color:var(--red)">hátrányban</b></td>
-          <td style="font-weight:800;color:var(--red)">{sc.get('HT_TRAIL',(0,0))[1]}/{sc.get('HT_TRAIL',(0,0))[0]} fordítás</td>
-          <td style="color:var(--text-dim)">{round(100*sc.get('HT_TRAIL',(0,0))[1]/sc.get('HT_TRAIL',(1,0))[0]) if sc.get('HT_TRAIL',(1,0))[0] else 0}%</td>
-        </tr>
-        <tr>
-          <td>3 negyed után <b style="color:var(--green)">vezet</b></td>
-          <td style="font-weight:800;color:var(--green)">{sc.get('3Q_LEAD',(0,0))[1]}/{sc.get('3Q_LEAD',(0,0))[0]} győzelem</td>
-          <td style="color:var(--text-dim)">{round(100*sc.get('3Q_LEAD',(0,0))[1]/sc.get('3Q_LEAD',(1,0))[0]) if sc.get('3Q_LEAD',(1,0))[0] else 0}%</td>
-        </tr>
-        <tr>
-          <td>3 negyed után <b style="color:var(--red)">hátrányban</b></td>
-          <td style="font-weight:800;color:var(--red)">{sc.get('3Q_TRAIL',(0,0))[1]}/{sc.get('3Q_TRAIL',(0,0))[0]} fordítás</td>
-          <td style="color:var(--text-dim)">{round(100*sc.get('3Q_TRAIL',(0,0))[1]/sc.get('3Q_TRAIL',(1,0))[0]) if sc.get('3Q_TRAIL',(1,0))[0] else 0}%</td>
-        </tr>
-      </table>
+      <table class="scenario-tbl" id="scenarioTbl"><tbody id="scenarioBody"></tbody></table>
     </div>
   </div>
 
@@ -1415,14 +1434,14 @@ new Chart(attCtx, {{
       <h3>Top 5 saját scoring run</h3>
       <table class="run-tbl">
         <thead><tr><th>Dátum</th><th>Ellenfél</th><th>Run</th><th>Negyed</th><th>Kosár</th></tr></thead>
-        <tbody>{runs_for_html}</tbody>
+        <tbody id="runsForBody"></tbody>
       </table>
     </div>
     <div class="card">
       <h3>Top 5 kapott scoring run</h3>
       <table class="run-tbl">
         <thead><tr><th>Dátum</th><th>Ellenfél</th><th>Run</th><th>Negyed</th><th>Kosár</th></tr></thead>
-        <tbody>{runs_agn_html}</tbody>
+        <tbody id="runsAgnBody"></tbody>
       </table>
     </div>
   </div>
@@ -1439,7 +1458,7 @@ new Chart(attCtx, {{
 
   <div class="card mb20">
     <h3>Érdekességek &amp; Fun Facts</h3>
-    {facts_html}
+    <div id="factsBody"></div>
   </div>
 </div>
 
@@ -1448,84 +1467,179 @@ Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
 Chart.defaults.font.family="'Inter',sans-serif";
 
-const games = {json.dumps(js_gamelog, ensure_ascii=False)};
-const tbody = document.getElementById('gameLogBody');
-games.forEach(g => {{
-  const diff = g.kg - g.op;
-  const diffStr = diff > 0 ? '+'+diff : ''+diff;
-  const diffColor = diff > 0 ? 'var(--green)' : 'var(--red)';
-  const barW = Math.min(Math.abs(diff), 40);
-  const tr = document.createElement('tr');
-  tr.innerHTML = '<td>'+g.date+'</td>'
-    +'<td><span class="badge '+(g.hv==='H'?'h':'v')+'">'+g.hv+'</span></td>'
-    +'<td>'+g.opp+'</td>'
-    +'<td style="font-weight:700;">'+g.kg+'-'+g.op+'</td>'
-    +'<td><span class="badge '+(g.res==='W'?'w':'l')+'">'+(g.res==='W'?'GY':'V')+'</span></td>'
-    +'<td style="font-weight:700;color:'+diffColor+';">'+diffStr+'</td>';
-  tbody.appendChild(tr);
-}});
+const STATS = {{
+  all: {json.dumps(js_all, ensure_ascii=False)},
+  home: {json.dumps(js_home, ensure_ascii=False)},
+  away: {json.dumps(js_away, ensure_ascii=False)}
+}};
 
-new Chart(document.getElementById('trendChart').getContext('2d'), {{
-  type:'line',
-  data: {{
-    labels: {json.dumps(trend_labels)},
-    datasets: [{{
-      label:'Dobott', data:{json.dumps(kg_scores)},
-      borderColor:'#00cec9', backgroundColor:'rgba(0,206,201,0.08)',
-      fill:true, tension:0.3, pointRadius:5, borderWidth:3,
-      pointBackgroundColor: {json.dumps(["#00b894" if g["res"]=="W" else "#e17055" for g in js_gamelog])},
-      pointBorderColor: {json.dumps(["#00b894" if g["res"]=="W" else "#e17055" for g in js_gamelog])},
-    }}, {{
-      label:'Kapott', data:{json.dumps(op_scores)},
-      borderColor:'#e17055', backgroundColor:'rgba(225,112,85,0.05)',
-      fill:true, tension:0.3, pointRadius:4, borderWidth:2, borderDash:[4,3],
-      pointBackgroundColor:'#e17055', pointBorderColor:'#e17055',
-    }}]
-  }},
-  options: {{
-    responsive:true, maintainAspectRatio:false,
-    plugins: {{ legend:{{ position:'top', labels:{{ usePointStyle:true, font:{{size:11}} }} }} }},
-    scales: {{ y:{{ beginAtZero:true, max:{y_max}, grid:{{color:'rgba(255,255,255,0.04)'}} }}, x:{{ grid:{{display:false}} }} }}
-  }}
-}});
+let trendChart, quarterChart, shotChart;
+let currentView = 'all';
 
-new Chart(document.getElementById('quarterChart').getContext('2d'), {{
-  type:'bar',
-  data: {{
-    labels:['Q1','Q2','Q3','Q4'],
-    datasets: [{{
-      label:'Dobott', data:{json.dumps(q_kg)},
-      backgroundColor:'rgba(0,206,201,0.6)', borderColor:'#00cec9', borderWidth:2, borderRadius:6,
-    }},{{
-      label:'Kapott', data:{json.dumps(q_op)},
-      backgroundColor:'rgba(225,112,85,0.5)', borderColor:'#e17055', borderWidth:2, borderRadius:6,
-    }}]
-  }},
-  options: {{
-    responsive:true, maintainAspectRatio:false,
-    plugins: {{
-      legend:{{ position:'top', labels:{{ usePointStyle:true, font:{{size:11}} }} }},
-      tooltip: {{ callbacks: {{ afterBody: items => {{
-        const idx = items[0].dataIndex;
-        const won = {json.dumps(q_won)};
-        const lost = {json.dumps(q_lost)};
-        return 'Megnyert negyed: '+won[idx]+' | Elvesztett: '+lost[idx];
-      }} }} }}
+function renderGameLog(s) {{
+  const tbody = document.getElementById('gameLogBody');
+  tbody.innerHTML = '';
+  s.game_log.forEach(g => {{
+    const diff = g.kg - g.op;
+    const diffStr = diff > 0 ? '+'+diff : ''+diff;
+    const diffColor = diff > 0 ? 'var(--green)' : 'var(--red)';
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+g.date+'</td>'
+      +'<td><span class="badge '+(g.hv==='H'?'h':'v')+'">'+g.hv+'</span></td>'
+      +'<td>'+g.opp+'</td>'
+      +'<td style="font-weight:700;">'+g.kg+'-'+g.op+'</td>'
+      +'<td><span class="badge '+(g.res==='W'?'w':'l')+'">'+(g.res==='W'?'GY':'V')+'</span></td>'
+      +'<td style="font-weight:700;color:'+diffColor+';">'+diffStr+'</td>';
+    tbody.appendChild(tr);
+  }});
+}}
+
+function renderRuns(runs, bodyId, color) {{
+  const tbody = document.getElementById(bodyId);
+  tbody.innerHTML = '';
+  runs.forEach(r => {{
+    const qspan = r.sq === r.eq ? 'Q'+r.sq : 'Q'+r.sq+'\u2192Q'+r.eq;
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+r.date+'</td><td>'+r.opp+'</td>'
+      +'<td style="font-weight:800;color:var(--'+color+')">'+r.pts+'-0</td>'
+      +'<td>'+qspan+'</td><td>'+r.bsk+'</td>';
+    tbody.appendChild(tr);
+  }});
+}}
+
+function renderScenarios(sc) {{
+  const tbody = document.getElementById('scenarioBody');
+  const rows = [
+    ['Félidőben <b style="color:var(--green)">vezet</b>', 'HT_LEAD', 'green', 'győzelem'],
+    ['Félidőben <b style="color:var(--red)">hátrányban</b>', 'HT_TRAIL', 'red', 'fordítás'],
+    ['3 negyed után <b style="color:var(--green)">vezet</b>', '3Q_LEAD', 'green', 'győzelem'],
+    ['3 negyed után <b style="color:var(--red)">hátrányban</b>', '3Q_TRAIL', 'red', 'fordítás'],
+  ];
+  tbody.innerHTML = '';
+  rows.forEach(([label, key, color, word]) => {{
+    const d = sc[key] || [0, 0];
+    const pct = d[0] > 0 ? Math.round(100*d[1]/d[0]) : 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+label+'</td>'
+      +'<td style="font-weight:800;color:var(--'+color+')">'+d[1]+'/'+d[0]+' '+word+'</td>'
+      +'<td style="color:var(--text-dim)">'+pct+'%</td>';
+    tbody.appendChild(tr);
+  }});
+}}
+
+function renderFacts(facts) {{
+  document.getElementById('factsBody').innerHTML =
+    facts.map(f => '<div class="fact-item">'+f+'</div>').join('');
+}}
+
+function buildTrendChart(s) {{
+  if (trendChart) trendChart.destroy();
+  const yMax = Math.max(...s.trend_kg, ...s.trend_op, 0) + 10;
+  const ptColors = s.trend_res.map(r => r==='W' ? '#00b894' : '#e17055');
+  trendChart = new Chart(document.getElementById('trendChart').getContext('2d'), {{
+    type:'line',
+    data: {{
+      labels: s.trend_labels,
+      datasets: [{{
+        label:'Dobott', data:s.trend_kg,
+        borderColor:'#00cec9', backgroundColor:'rgba(0,206,201,0.08)',
+        fill:true, tension:0.3, pointRadius:5, borderWidth:3,
+        pointBackgroundColor:ptColors, pointBorderColor:ptColors,
+      }}, {{
+        label:'Kapott', data:s.trend_op,
+        borderColor:'#e17055', backgroundColor:'rgba(225,112,85,0.05)',
+        fill:true, tension:0.3, pointRadius:4, borderWidth:2, borderDash:[4,3],
+        pointBackgroundColor:'#e17055', pointBorderColor:'#e17055',
+      }}]
     }},
-    scales: {{ y:{{ beginAtZero:true, grid:{{color:'rgba(255,255,255,0.04)'}} }}, x:{{ grid:{{display:false}} }} }}
-  }}
-}});
+    options: {{
+      responsive:true, maintainAspectRatio:false,
+      plugins: {{ legend:{{ position:'top', labels:{{ usePointStyle:true, font:{{size:11}} }} }} }},
+      scales: {{ y:{{ beginAtZero:true, max:yMax, grid:{{color:'rgba(255,255,255,0.04)'}} }}, x:{{ grid:{{display:false}} }} }}
+    }}
+  }});
+}}
 
-new Chart(document.getElementById('shotPie').getContext('2d'), {{
-  type:'doughnut',
-  data: {{
-    labels:['3FG ({pct_3}%  — {pts_from_3} pt)','2FG ({pct_2}% — {pts_from_2} pt)','FT ({pct_ft}% — {pts_from_ft} pt)'],
-    datasets:[{{ data:[{pts_from_3},{pts_from_2},{pts_from_ft}], backgroundColor:['#00cec9','#fdcb6e','#8b8da0'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }}]
-  }},
-  options: {{ responsive:true, maintainAspectRatio:false, cutout:'55%',
-    plugins:{{ legend:{{ position:'right', labels:{{ padding:14, usePointStyle:true, font:{{size:11}} }} }} }}
-  }}
-}});
+function buildQuarterChart(s) {{
+  if (quarterChart) quarterChart.destroy();
+  quarterChart = new Chart(document.getElementById('quarterChart').getContext('2d'), {{
+    type:'bar',
+    data: {{
+      labels:['Q1','Q2','Q3','Q4'],
+      datasets: [{{
+        label:'Dobott', data:s.q_kg,
+        backgroundColor:'rgba(0,206,201,0.6)', borderColor:'#00cec9', borderWidth:2, borderRadius:6,
+      }},{{
+        label:'Kapott', data:s.q_op,
+        backgroundColor:'rgba(225,112,85,0.5)', borderColor:'#e17055', borderWidth:2, borderRadius:6,
+      }}]
+    }},
+    options: {{
+      responsive:true, maintainAspectRatio:false,
+      plugins: {{
+        legend:{{ position:'top', labels:{{ usePointStyle:true, font:{{size:11}} }} }},
+        tooltip: {{ callbacks: {{ afterBody: items => {{
+          const idx = items[0].dataIndex;
+          return 'Megnyert negyed: '+s.q_won[idx]+' | Elvesztett: '+s.q_lost[idx];
+        }} }} }}
+      }},
+      scales: {{ y:{{ beginAtZero:true, grid:{{color:'rgba(255,255,255,0.04)'}} }}, x:{{ grid:{{display:false}} }} }}
+    }}
+  }});
+}}
+
+function buildShotChart(s) {{
+  if (shotChart) shotChart.destroy();
+  shotChart = new Chart(document.getElementById('shotPie').getContext('2d'), {{
+    type:'doughnut',
+    data: {{
+      labels:['3FG ('+s.pct3+'% \u2014 '+s.pts3+' pt)','2FG ('+s.pct2+'% \u2014 '+s.pts2+' pt)','FT ('+s.pct_ft+'% \u2014 '+s.pts_ft+' pt)'],
+      datasets:[{{ data:[s.pts3,s.pts2,s.pts_ft], backgroundColor:['#00cec9','#fdcb6e','#8b8da0'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }}]
+    }},
+    options: {{ responsive:true, maintainAspectRatio:false, cutout:'55%',
+      plugins:{{ legend:{{ position:'right', labels:{{ padding:14, usePointStyle:true, font:{{size:11}} }} }} }}
+    }}
+  }});
+}}
+
+function switchView(mode) {{
+  currentView = mode;
+  const s = STATS[mode];
+
+  // Toggle buttons
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.view-btn[onclick*="\\\''+mode+'\\\'"]').classList.add('active');
+
+  // Header stats
+  document.getElementById('hWins').textContent = s.wins;
+  document.getElementById('hLosses').textContent = s.losses;
+  document.getElementById('hPpg').textContent = s.ppg;
+  document.getElementById('hOppPpg').textContent = s.opp_ppg;
+  document.getElementById('hDiff').textContent = s.diff;
+  document.getElementById('hDiff').style.color = s.diff >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Mini stats
+  document.getElementById('mScored').textContent = s.scored;
+  document.getElementById('mAllowed').textContent = s.allowed;
+  document.getElementById('mBest').textContent = s.best_score;
+  document.getElementById('mWorst').textContent = s.most_allowed;
+  document.getElementById('mPlayers').textContent = s.players_used;
+
+  // Charts
+  buildTrendChart(s);
+  buildQuarterChart(s);
+  buildShotChart(s);
+
+  // Scenarios, runs, game log, facts
+  renderScenarios(s.sc);
+  renderRuns(s.runs_for, 'runsForBody', 'green');
+  renderRuns(s.runs_against, 'runsAgnBody', 'red');
+  renderGameLog(s);
+  renderFacts(s.facts);
+}}
+
+// Initial render
+switchView('all');
 {_att_chart_js}
 </script>
 </body>
@@ -2271,9 +2385,12 @@ def generate_team(team_key):
         generated.append((name, filename, player[3], player[5], player[2], att))
         print(f"  ✓ {name} → {filename}")
 
-    # Team dashboard
+    # Team dashboard (3 views: all / home / away)
     team_stats = get_team_stats(conn, cfg, tp)
-    team_html = generate_team_dashboard(team_stats, cfg, team_key=team_key, att_data=att_data)
+    team_stats_home = get_team_stats(conn, cfg, tp, hv_filter='H')
+    team_stats_away = get_team_stats(conn, cfg, tp, hv_filter='V')
+    team_html = generate_team_dashboard(team_stats, cfg, team_key=team_key, att_data=att_data,
+                                        stats_home=team_stats_home, stats_away=team_stats_away)
     with open(os.path.join(out_dir, "csapat.html"), "w", encoding="utf-8") as f:
         f.write(team_html)
     print(f"\n  ✓ csapat.html (csapat dashboard)")
