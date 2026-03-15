@@ -42,12 +42,26 @@ TEAMS = {
         "mkosz_comp": "hun3kob",
         "mkosz_team_id": "9219",
     },
+    "kozgaz-noi": {
+        "team_pattern": "%KÖZGÁZ%",
+        "team_pattern_broad": "%KÖZGÁZ%",
+        "comp_prefix": "NA%",
+        "team_name": "KÖZGÁZ",
+        "team_short": "Közgáz Női",
+        "group_name": "Női A - Cziffra Mihály",
+        "out_dir": "dashboards-noi",
+        "mkosz_season": "x2526",
+        "mkosz_comp": "whun_bud_na",
+        "mkosz_team_id": "79078",
+        "county": "budapest",
+    },
 }
 
 # Navigation structure for the site
 NAV_TEAMS = [
     {"key": "kozgaz-b", "label": "Öregek NB2", "href": "dashboards"},
     {"key": "kozgaz-a", "label": "Fiatalok NB2", "href": "dashboards-a"},
+    {"key": "kozgaz-noi", "label": "Közgáz Női", "href": "dashboards-noi"},
     {"key": "leftoverz", "label": "Leftoverz", "href": "leftoverz"},
 ]
 
@@ -125,6 +139,25 @@ CALENDAR_SHORT = {
     "VASAS AKADÉMIA BUDAPEST": "Vasas",
     "EGER KOSÁRLABDA CLUB": "Eger KC",
     "VMG DSE": "VMG DSE",
+    # Női A - Cziffra Mihály bajnokság
+    "BEAC SENIOR": "BEAC Sr",
+    "BEAC BICS": "BEAC Bics",
+    "BEAC BLSE": "BEAC BLSE",
+    "BEAC BUDAFOK": "Budafok",
+    "BEAC MUFF": "BEAC Muff",
+    "BKG VERESEGYHÁZ": "V.egyház",
+    "JÓZSEFVÁROSI KC": "JKC",
+    "KÉK RÓKÁK": "Kék Rókák",
+    "KÜLKERESKEDELMI SC": "Külker",
+    "PARTHUS SE": "Parthus",
+    "PILIS BASKET": "Pilis",
+    "RADOBASKET-CSEPEL": "Radobask.",
+    "REGI WALDORF U23": "Waldorf",
+    "SZPA - HSE": "SZPA-HSE",
+    "TÖREKVÉS SE": "Törekvés",
+    "VIHAROS SZENYÓRÁK": "Viharos",
+    "EZÜST RÓKÁK": "Ezüst R.",
+    "KÖZGÁZ": "Közgáz",
 }
 
 
@@ -1021,6 +1054,112 @@ def scrape_schedule(cfg):
 
         # Determine home/away for our team
         is_home = home_team.upper().startswith(team_name_upper[:10])
+
+        matches.append({
+            "date": date_str,
+            "time": time_str,
+            "home_team": home_team,
+            "away_team": away_team,
+            "home_score": home_score,
+            "away_score": away_score,
+            "match_id": match_id,
+            "venue": venue,
+            "played": played,
+            "is_home": is_home,
+        })
+
+    return matches if matches else None
+
+
+def scrape_schedule_county(cfg):
+    """Scrape match schedule from megye.hunbasket.hu for county-level competitions.
+
+    The county site has a different HTML structure than mkosz.hu:
+    - Each match is in a 'Műsor' section with date, opponent, home/away, score
+    - Dates are in format: '2025. Október 29. szerda, 18:45'
+    - Home/Away: O=otthon (home), I=idegen (away)
+    - Scores: 'GY, 60 - 48' or 'V, 52 - 63'
+    """
+    county = cfg.get("county")
+    season = cfg.get("mkosz_season")
+    comp = cfg.get("mkosz_comp")
+    team_id = cfg.get("mkosz_team_id")
+    if not all([county, season, comp, team_id]):
+        return None
+
+    # The county team schedule URL needs a slug — derive from team_name
+    # Use ASCII-safe slugs only
+    team_slug = slugify(cfg.get("team_name", ""))
+    # Try common slug patterns (ASCII-safe)
+    for slug in [team_slug, "kozgaz"]:
+        url = f"https://megye.hunbasket.hu/{county}/csapat-musor/{season}/{comp}/{team_id}/{slug}"
+        req = urllib.request.Request(url, headers={"User-Agent": MKOSZ_USER_AGENT})
+        try:
+            html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8")
+            if "forduló" in html:
+                break
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError):
+            continue
+    else:
+        print(f"  ⚠ Megyei scrape hiba: nem sikerült elérni a csapat-műsor oldalt")
+        return None
+
+    team_name_upper = cfg["team_name"].upper()
+    matches = []
+
+    # Split by 'Műsor' sections — each match has its own section
+    sections = re.split(r'Műsor\s*', html)[1:]
+
+    for sec in sections:
+        # Date + time: '- 2025. Október 29. szerda, 18:45'
+        dm = re.search(r'-\s*(\d{4})\.\s*(\w+)\s*(\d{1,2})\.\s*\w+,?\s*(\d{1,2}:\d{2})', sec)
+        if not dm:
+            continue
+        year = dm.group(1)
+        month_hu = dm.group(2).lower()
+        day = dm.group(3)
+        time_str = dm.group(4)
+        month = HU_MONTHS_PARSE.get(month_hu)
+        if not month:
+            continue
+        date_str = f"{year}-{month:02d}-{int(day):02d}"
+
+        # Opponent name from title attribute
+        opp_m = re.search(r'title="\s*(.*?)\s*"', sec)
+        if not opp_m:
+            continue
+        opponent = opp_m.group(1).strip()
+
+        # Home/Away: O=otthon, I=idegen
+        ha_m = re.search(r'<td width="30">(O|I)</td>', sec)
+        is_home = (ha_m.group(1) == "O") if ha_m else True
+
+        # Score: 'GY, 60 - 48' or 'V, 52 - 63'
+        score_m = re.search(r'(?:GY|V),\s*(\d+)\s*-\s*(\d+)', sec)
+        if score_m:
+            home_score = int(score_m.group(1))
+            away_score = int(score_m.group(2))
+            played = True
+        else:
+            home_score = None
+            away_score = None
+            played = False
+
+        # Match ID from merkozes link
+        mid_m = re.search(r'/merkozes/[^/]+/[^/]+/(\d+)', sec)
+        match_id = mid_m.group(1) if mid_m else None
+
+        # Venue from 'Aréna: <b>...</b>'
+        venue_m = re.search(r'Aréna:\s*<b>(.*?)</b>', sec, re.DOTALL)
+        venue = venue_m.group(1).strip() if venue_m else ""
+
+        # Build home/away team names
+        if is_home:
+            home_team = cfg["team_name"]
+            away_team = opponent.upper()
+        else:
+            home_team = opponent.upper()
+            away_team = cfg["team_name"]
 
         matches.append({
             "date": date_str,
@@ -2395,9 +2534,13 @@ def generate_team(team_key):
         f.write(team_html)
     print(f"\n  ✓ csapat.html (csapat dashboard)")
 
-    # Calendar — scrape from MKOSZ, fall back to SQLite
-    print(f"\n  Meccsnaptár scraping (mkosz.hu)...")
-    cal_data = scrape_schedule(cfg)
+    # Calendar — scrape from MKOSZ (or megye for county), fall back to SQLite
+    if cfg.get("county"):
+        print(f"\n  Meccsnaptár scraping (megye.hunbasket.hu)...")
+        cal_data = scrape_schedule_county(cfg)
+    else:
+        print(f"\n  Meccsnaptár scraping (mkosz.hu)...")
+        cal_data = scrape_schedule(cfg)
     if cal_data:
         played = sum(1 for m in cal_data if m["played"])
         upcoming = len(cal_data) - played
