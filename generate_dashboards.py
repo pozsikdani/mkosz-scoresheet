@@ -2256,9 +2256,8 @@ def generate_homepage(team_summaries):
       </div>
     </div>"""
 
-    # Build combined matches list (last 5 played + next 5 upcoming, chronological)
-    all_played = []
-    all_upcoming = []
+    # Build ALL match rows (all teams), JS will pick the right 5+5 per filter
+    all_matches = []
     for ts in team_summaries:
         lg = ts.get("league", "nb2")
         lg_cfg = LEAGUES.get(lg, LEAGUES["nb2"])
@@ -2275,35 +2274,21 @@ def generate_homepage(team_summaries):
             else:
                 matchup = f'{opp_short} – {ts["short"]}'
                 score_str = f"{their}-{our}"
-            all_played.append({
-                "date": m["date"],
-                "type": "played",
-                "matchup": matchup,
-                "score": score_str,
-                "win": win,
-                "is_home": is_home,
-                "team_short": ts["short"],
-                "league": lg,
-                "lg_cfg": lg_cfg,
+            all_matches.append({
+                "date": m["date"], "type": "played", "matchup": matchup,
+                "score": score_str, "win": win, "is_home": is_home,
+                "team_short": ts["short"], "league": lg, "lg_cfg": lg_cfg,
             })
         for m in ts.get("upcoming", []):
             opp = m["away_team"] if m["is_home"] else m["home_team"]
-            all_upcoming.append({
-                "date": m["date"],
-                "type": "upcoming",
-                "time": m.get("time", ""),
-                "opp": calendar_short_name(opp),
-                "is_home": m["is_home"],
-                "team_short": ts["short"],
-                "league": lg,
-                "lg_cfg": lg_cfg,
+            all_matches.append({
+                "date": m["date"], "type": "upcoming",
+                "time": m.get("time", ""), "opp": calendar_short_name(opp),
+                "is_home": m["is_home"], "team_short": ts["short"],
+                "league": lg, "lg_cfg": lg_cfg,
             })
-    all_played.sort(key=lambda x: x["date"], reverse=True)
-    all_upcoming.sort(key=lambda x: x["date"])
-    last5 = all_played[:5]
-    next5 = all_upcoming[:5]
-    # Combine: last 5 (chronological) + next 5
-    combined = sorted(last5, key=lambda x: x["date"]) + next5
+    # Sort: played desc by date, then upcoming asc — but we render all and let JS pick
+    all_matches.sort(key=lambda x: (x["date"], 0 if x["type"] == "played" else 1))
 
     # Collect unique team names for filter
     team_names = []
@@ -2319,7 +2304,7 @@ def generate_homepage(team_summaries):
         filter_buttons += f'<button class="match-filter" data-team="{tn["short"]}" style="--fc:{tn["lg_cfg"]["color"]};--fb:{tn["lg_cfg"]["bg"]};--fbd:{tn["lg_cfg"]["border"]}">{tn["short"]}</button>'
 
     match_rows = ""
-    for item in combined:
+    for item in all_matches:
         lg_cfg = item["lg_cfg"]
         tag = f'<span class="row-league-tag" style="color:{lg_cfg["color"]};background:{lg_cfg["bg"]};border-color:{lg_cfg["border"]}">{item["team_short"]}</span>'
         date_str = item["date"][5:].replace("-", ".")
@@ -2331,7 +2316,7 @@ def generate_homepage(team_summaries):
             wl_cls = "w" if item["win"] else "l"
             sc_cls = "win" if item["win"] else "loss"
             match_rows += f"""
-        <div class="match-row played" data-team="{item['team_short']}">
+        <div class="match-row played" data-team="{item['team_short']}" data-type="played" data-date="{item['date']}" style="display:none">
           <div class="m-date">{date_str}</div>
           {hv_badge}
           {tag}
@@ -2342,7 +2327,7 @@ def generate_homepage(team_summaries):
         else:
             opp_display = ('@' if not item['is_home'] else '') + item['opp']
             match_rows += f"""
-        <div class="match-row upcoming" data-team="{item['team_short']}">
+        <div class="match-row upcoming" data-team="{item['team_short']}" data-type="upcoming" data-date="{item['date']}" style="display:none">
           <div class="m-date">{date_str}</div>
           {hv_badge}
           {tag}
@@ -2361,15 +2346,28 @@ def generate_homepage(team_summaries):
     <script>
     (function(){{
       var btns = document.querySelectorAll('.match-filter');
-      var rows = document.querySelectorAll('.match-row');
+      var allRows = Array.from(document.querySelectorAll('.match-row'));
+      function applyFilter(team) {{
+        // Hide all
+        allRows.forEach(function(r){{ r.style.display = 'none'; }});
+        // Filter by team
+        var pool = team === 'all' ? allRows : allRows.filter(function(r){{ return r.dataset.team === team; }});
+        // Split played (newest first) and upcoming (soonest first)
+        var played = pool.filter(function(r){{ return r.dataset.type === 'played'; }});
+        var upcoming = pool.filter(function(r){{ return r.dataset.type === 'upcoming'; }});
+        played.sort(function(a,b){{ return b.dataset.date.localeCompare(a.dataset.date); }});
+        upcoming.sort(function(a,b){{ return a.dataset.date.localeCompare(b.dataset.date); }});
+        // Take last 5 played (show chronologically) + next 5 upcoming
+        var last5 = played.slice(0,5).reverse();
+        var next5 = upcoming.slice(0,5);
+        last5.concat(next5).forEach(function(r){{ r.style.display = ''; }});
+      }}
+      applyFilter('all');
       btns.forEach(function(btn){{
         btn.addEventListener('click', function(){{
           btns.forEach(function(b){{ b.classList.remove('active'); }});
           btn.classList.add('active');
-          var team = btn.dataset.team;
-          rows.forEach(function(r){{
-            r.style.display = (team === 'all' || r.dataset.team === team) ? '' : 'none';
-          }});
+          applyFilter(btn.dataset.team);
         }});
       }});
     }})();
