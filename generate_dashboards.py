@@ -2404,19 +2404,10 @@ def generate_homepage(team_summaries):
                 key = (year, month, day)
                 if key in all_matches_by_date:
                     day_matches = all_matches_by_date[key]
-                    # Determine cell background: all wins → green, all losses → red, mixed/upcoming → neutral
-                    results = [mi["win"] for mi in day_matches if mi["win"] is not None]
-                    if results and all(r for r in results):
-                        cell_cls = "has-match win"
-                    elif results and all(not r for r in results):
-                        cell_cls = "has-match loss"
-                    elif any(mi["win"] is None for mi in day_matches):
-                        cell_cls = "has-match upcoming"
-                    else:
-                        cell_cls = "has-match mixed"
+                    cell_cls = "has-match"
 
                     match_items = ""
-                    for mi in day_matches:
+                    for idx, mi in enumerate(day_matches):
                         lcfg = mi["lg_cfg"]
                         tag = f'<span class="cal-team-tag" style="color:{lcfg["color"]};background:{lcfg["bg"]};border-color:{lcfg["border"]}">{mi["team_short"]}</span>'
 
@@ -2428,9 +2419,10 @@ def generate_homepage(team_summaries):
                         else:
                             detail = f'<span class="match-opp">{mi["opp"]}</span><span class="match-time">{mi["time"]}</span>'
 
-                        match_items += f'<div class="cal-match">{tag}{detail}</div>'
+                        sep = '<div class="cal-match-sep"></div>' if idx > 0 else ''
+                        match_items += f'{sep}<div class="cal-match">{tag}{detail}</div>'
 
-                    cells += f'''<div class="cal-day {cell_cls}">
+                    cells += f'''<div class="cal-day {cell_cls}" data-date="{year}-{month:02d}-{day:02d}">
   <span class="day-num">{day}</span>
   <div class="match-info">{match_items}</div>
 </div>'''
@@ -2452,16 +2444,24 @@ def generate_homepage(team_summaries):
         # Legend
         legend_html = """
     <div class="cal-legend">
-      <span class="legend-item"><span class="legend-dot win"></span> Győzelem</span>
-      <span class="legend-item"><span class="legend-dot loss"></span> Vereség</span>
-      <span class="legend-item"><span class="legend-dot upcoming"></span> Következő</span>
+      <span class="legend-item"><span class="match-badge w" style="font-size:.65rem">W</span> Győzelem</span>
+      <span class="legend-item"><span class="match-badge l" style="font-size:.65rem">L</span> Vereség</span>
+      <span class="legend-item" style="opacity:.4">▪ Múltbeli</span>
       <span class="legend-item">@ = Idegen pálya</span>
     </div>"""
 
         calendar_section = f"""
     <div class="section-title">MECCSNAPTÁR</div>
     {legend_html}
-    {months_html}"""
+    {months_html}
+    <script>
+    (function(){{
+      var today = new Date(); today.setHours(0,0,0,0);
+      document.querySelectorAll('.cal-day[data-date]').forEach(function(el){{
+        if(new Date(el.dataset.date) < today) el.classList.add('past');
+      }});
+    }})();
+    </script>"""
 
     return f"""<!DOCTYPE html>
 <html lang="hu">
@@ -2583,10 +2583,6 @@ def generate_homepage(team_summaries):
     margin-bottom:20px; font-size:.78rem; color:var(--text-dim);
   }}
   .legend-item {{ display:flex; align-items:center; gap:6px; }}
-  .legend-dot {{ width:12px; height:12px; border-radius:4px; }}
-  .legend-dot.win {{ background:rgba(0,184,148,.2); border:1.5px solid var(--green); }}
-  .legend-dot.loss {{ background:rgba(225,112,85,.2); border:1.5px solid var(--red); }}
-  .legend-dot.upcoming {{ background:rgba(139,141,160,.2); border:1.5px solid var(--text-dim); }}
   .cal-month {{
     background:var(--card); border-radius:16px; padding:20px;
     border:1px solid var(--border); margin-bottom:16px;
@@ -2608,12 +2604,11 @@ def generate_homepage(team_summaries):
   }}
   .cal-day.empty {{ background:transparent; min-height:0; }}
   .day-num {{ font-size:.68rem; color:var(--text-dim); font-weight:500; }}
-  .cal-day.has-match {{ border:1px solid var(--border); }}
-  .cal-day.has-match.win {{ border-color:rgba(0,184,148,.35); background:rgba(0,184,148,.06); }}
-  .cal-day.has-match.loss {{ border-color:rgba(225,112,85,.3); background:rgba(225,112,85,.05); }}
-  .cal-day.has-match.upcoming {{ border-color:rgba(139,141,160,.3); background:rgba(139,141,160,.06); }}
-  .cal-day.has-match.mixed {{ border-color:rgba(139,141,160,.3); background:rgba(139,141,160,.04); }}
-  .match-info {{ display:flex; flex-direction:column; gap:3px; margin-top:4px; }}
+  .cal-day.has-match {{ border:1px solid rgba(255,255,255,0.08); }}
+  .cal-day.past {{ opacity:0.4; }}
+  .cal-day.past:hover {{ opacity:0.7; }}
+  .match-info {{ display:flex; flex-direction:column; gap:2px; margin-top:4px; }}
+  .cal-match-sep {{ border-top:1px solid rgba(255,255,255,0.08); margin:2px 0; }}
   .cal-match {{
     display:flex; align-items:center; gap:3px; flex-wrap:wrap;
   }}
