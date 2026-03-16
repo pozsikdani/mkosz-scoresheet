@@ -167,8 +167,12 @@
   .cal-day.has-match { border:1px solid rgba(255,255,255,0.08); }
   .cal-day.past { opacity:0.35; }
   .cal-day.past:hover { opacity:0.65; }
-  .cal-day.today { border:1.5px solid var(--accent) !important; background:rgba(196,30,58,0.08); }
-  .cal-day.today .day-num { color:var(--accent); font-weight:700; }
+  .cal-day.today { border:1.5px solid #f39c12 !important; background:rgba(243,156,18,0.08); position:relative; }
+  .cal-day.today .day-num { color:#f39c12; font-weight:700; }
+  .cal-day.today::after {
+    content:'TODAY'; position:absolute; top:4px; right:5px;
+    font-size:.45rem; font-weight:800; color:#f39c12; letter-spacing:.5px; opacity:.8;
+  }
   .match-info { display:flex; flex-direction:column; gap:2px; margin-top:4px; }
   .cal-match-sep { border-top:1px solid rgba(255,255,255,0.08); margin:2px 0; }
   .cal-match {
@@ -348,7 +352,7 @@
           <div class="res-date">03.16</div>
           <span class="row-league-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Női</span>
           <div class="res-matchup">MEFOB Női – PTE-PEAC</div>
-          <div class="res-score win">37-27</div>
+          <div class="res-score win">40-29</div>
           <span class="res-badge w">W</span>
         </div>
         <div class="res-row">
@@ -609,7 +613,7 @@
   <div class="match-info"><div class="cal-match"><span class="cal-team-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Férfi</span><span class="match-opp">Mosonmagya</span><span class="match-score win">103-96</span><span class="match-badge w">W</span></div></div>
 </div><div class="cal-day" data-date="2026-03-10"><span class="day-num">10</span></div><div class="cal-day" data-date="2026-03-11"><span class="day-num">11</span></div><div class="cal-day" data-date="2026-03-12"><span class="day-num">12</span></div><div class="cal-day" data-date="2026-03-13"><span class="day-num">13</span></div><div class="cal-day" data-date="2026-03-14"><span class="day-num">14</span></div><div class="cal-day" data-date="2026-03-15"><span class="day-num">15</span></div><div class="cal-day has-match" data-date="2026-03-16">
   <span class="day-num">16</span>
-  <div class="match-info"><div class="cal-match"><span class="cal-team-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Női</span><span class="match-opp">PTE-PEAC</span><span class="match-score win">37-27</span><span class="match-badge w">W</span></div></div>
+  <div class="match-info"><div class="cal-match"><span class="cal-team-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Női</span><span class="match-opp">PTE-PEAC</span><span class="match-score win">40-29</span><span class="match-badge w">W</span></div></div>
 </div><div class="cal-day has-match" data-date="2026-03-17">
   <span class="day-num">17</span>
   <div class="match-info"><div class="cal-match"><span class="cal-team-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Férfi</span><span class="match-opp">@VESC</span><span class="match-time">20:30</span></div></div>

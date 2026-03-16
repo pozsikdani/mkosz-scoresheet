@@ -2609,8 +2609,12 @@ def generate_homepage(team_summaries):
   .cal-day.has-match {{ border:1px solid rgba(255,255,255,0.08); }}
   .cal-day.past {{ opacity:0.35; }}
   .cal-day.past:hover {{ opacity:0.65; }}
-  .cal-day.today {{ border:1.5px solid var(--accent) !important; background:rgba(196,30,58,0.08); }}
-  .cal-day.today .day-num {{ color:var(--accent); font-weight:700; }}
+  .cal-day.today {{ border:1.5px solid #f39c12 !important; background:rgba(243,156,18,0.08); position:relative; }}
+  .cal-day.today .day-num {{ color:#f39c12; font-weight:700; }}
+  .cal-day.today::after {{
+    content:'TODAY'; position:absolute; top:4px; right:5px;
+    font-size:.45rem; font-weight:800; color:#f39c12; letter-spacing:.5px; opacity:.8;
+  }}
   .match-info {{ display:flex; flex-direction:column; gap:2px; margin-top:4px; }}
   .cal-match-sep {{ border-top:1px solid rgba(255,255,255,0.08); margin:2px 0; }}
   .cal-match {{
