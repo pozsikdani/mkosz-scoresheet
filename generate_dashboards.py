@@ -628,9 +628,10 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
   .mini-stat {{ text-align:center; }}
   .mini-stat .big {{ font-size:2rem; font-weight:800; }}
   .mini-stat .desc {{ font-size:0.75rem; color:var(--text-dim); margin-top:4px; }}
+  .game-log-wrap {{ overflow-x:auto; -webkit-overflow-scrolling:touch; }}
   .game-log {{ width:100%; border-collapse:collapse; font-size:0.82rem; }}
-  .game-log th {{ text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; }}
-  .game-log td {{ padding:8px 10px; border-bottom:1px solid var(--border); }}
+  .game-log th {{ text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; white-space:nowrap; }}
+  .game-log td {{ padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }}
   .game-log tr:last-child td {{ border-bottom:none; }}
   .game-log tr:hover {{ background:rgba(196,30,58,0.06); }}
   .badge {{ display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; }}
@@ -658,6 +659,12 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
     .grid-2,.grid-4 {{ grid-template-columns:1fr; }}
     .header {{ flex-direction:column; text-align:center; }}
     .header-stats {{ margin-left:0; justify-content:center; }}
+  }}
+  @media (max-width:600px) {{
+    body {{ padding:10px; }}
+    .game-log {{ font-size:0.72rem; }}
+    .game-log th {{ padding:6px 6px; font-size:0.62rem; letter-spacing:0.3px; }}
+    .game-log td {{ padding:6px 6px; }}
   }}
 </style>
 </head>
@@ -724,10 +731,12 @@ def generate_html(player_data, game_log, quarter_stats, opp_stats, tech, unsport
   </div>
   <div class="card mb20">
     <h3>Meccsenként részletezve</h3>
+    <div class="game-log-wrap">
     <table class="game-log">
       <thead><tr><th>Dátum</th><th>Ellenfél</th><th></th><th>Pont</th><th>2FG</th><th>3FG</th><th>FT</th><th>PF</th><th>Csapat%</th></tr></thead>
       <tbody id="gameLogBody"></tbody>
     </table>
+    </div>
   </div>
   <div class="card mb20">
     <h3>Elemzői meglátások</h3>
@@ -1566,9 +1575,10 @@ new Chart(attCtx, {{
   .chart-wrap {{ position:relative; width:100%; }}
   .chart-wrap.h250 {{ height:250px; }}
   .chart-wrap.h280 {{ height:280px; }}
+  .game-log-wrap {{ overflow-x:auto; -webkit-overflow-scrolling:touch; }}
   .game-log {{ width:100%; border-collapse:collapse; font-size:0.82rem; }}
-  .game-log th {{ text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; }}
-  .game-log td {{ padding:8px 10px; border-bottom:1px solid var(--border); }}
+  .game-log th {{ text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; white-space:nowrap; }}
+  .game-log td {{ padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }}
   .game-log tr:last-child td {{ border-bottom:none; }}
   .game-log tr:hover {{ background:rgba(196,30,58,0.06); }}
   .badge {{ display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; }}
@@ -1609,6 +1619,17 @@ new Chart(attCtx, {{
     .grid-2,.grid-3,.grid-4,.grid-5 {{ grid-template-columns:1fr; }}
     .header {{ flex-direction:column; text-align:center; }}
     .header-stats {{ margin-left:0; justify-content:center; }}
+  }}
+  @media (max-width:600px) {{
+    body {{ padding:10px; }}
+    .game-log {{ font-size:0.72rem; }}
+    .game-log th {{ padding:6px 6px; font-size:0.62rem; letter-spacing:0.3px; }}
+    .game-log td {{ padding:6px 6px; }}
+    .run-tbl {{ font-size:0.72rem; }}
+    .run-tbl th {{ padding:4px 5px; }}
+    .run-tbl td {{ padding:4px 5px; }}
+    .scenario-tbl {{ font-size:0.72rem; }}
+    .scenario-tbl td {{ padding:6px 6px; }}
   }}
 </style>
 </head>
@@ -1664,24 +1685,24 @@ new Chart(attCtx, {{
     </div>
     <div class="card">
       <h3>Forgatókönyvek — ha félidőben...</h3>
-      <table class="scenario-tbl" id="scenarioTbl"><tbody id="scenarioBody"></tbody></table>
+      <div class="game-log-wrap"><table class="scenario-tbl" id="scenarioTbl"><tbody id="scenarioBody"></tbody></table></div>
     </div>
   </div>
 
   <div class="grid grid-2 mb20">
     <div class="card">
       <h3>Top 5 saját scoring run</h3>
-      <table class="run-tbl">
+      <div class="game-log-wrap"><table class="run-tbl">
         <thead><tr><th>Dátum</th><th>Ellenfél</th><th>Run</th><th>Negyed</th><th>Kosár</th></tr></thead>
         <tbody id="runsForBody"></tbody>
-      </table>
+      </table></div>
     </div>
     <div class="card">
       <h3>Top 5 kapott scoring run</h3>
-      <table class="run-tbl">
+      <div class="game-log-wrap"><table class="run-tbl">
         <thead><tr><th>Dátum</th><th>Ellenfél</th><th>Run</th><th>Negyed</th><th>Kosár</th></tr></thead>
         <tbody id="runsAgnBody"></tbody>
-      </table>
+      </table></div>
     </div>
   </div>
 
@@ -1689,10 +1710,12 @@ new Chart(attCtx, {{
 
   <div class="card mb20">
     <h3>Meccsek</h3>
+    <div class="game-log-wrap">
     <table class="game-log">
       <thead><tr><th>Dátum</th><th></th><th>Ellenfél</th><th>Eredmény</th><th></th><th>Különbség</th></tr></thead>
       <tbody id="gameLogBody"></tbody>
     </table>
+    </div>
   </div>
 
   <div class="card mb20">
