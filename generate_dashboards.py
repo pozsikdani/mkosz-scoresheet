@@ -24,6 +24,16 @@ LEAGUES = {
     "mefob":     {"label": "MEFOB",      "color": "#00cec9", "bg": "rgba(0,206,201,0.12)",  "border": "rgba(0,206,201,0.3)"},
 }
 
+
+def _team_color_cfg(hex_color):
+    """Derive color/bg/border dict from a hex color string like '#C41E3A'."""
+    r, g, b = int(hex_color[1:3], 16), int(hex_color[3:5], 16), int(hex_color[5:7], 16)
+    return {
+        "color": hex_color,
+        "bg": f"rgba({r},{g},{b},0.12)",
+        "border": f"rgba({r},{g},{b},0.3)",
+    }
+
 TEAMS = {
     "kozgaz-b": {
         "team_pattern": "%KÖZGÁZ%DSK/B%",
@@ -37,6 +47,7 @@ TEAMS = {
         "mkosz_season": "x2526",
         "mkosz_comp": "hun3k",
         "mkosz_team_id": "9239",
+        "color": "#C41E3A",  # Közgáz piros
     },
     "kozgaz-a": {
         "team_pattern": "%KÖZGÁZ%DSK/A%",
@@ -50,6 +61,7 @@ TEAMS = {
         "mkosz_season": "x2526",
         "mkosz_comp": "hun3kob",
         "mkosz_team_id": "9219",
+        "color": "#e17055",  # narancs-piros
     },
     "kozgaz-noi": {
         "team_pattern": "%KÖZGÁZ%",
@@ -64,6 +76,7 @@ TEAMS = {
         "mkosz_comp": "whun_bud_na",
         "mkosz_team_id": "79078",
         "county": "budapest",
+        "color": "#6c5ce7",  # lila
     },
     "leftoverz": {
         "team_pattern": "%LEFTOVER%",
@@ -78,6 +91,7 @@ TEAMS = {
         "mkosz_comp": "hun_bud_rkfb",
         "mkosz_team_id": "79359",
         "county": "budapest",
+        "color": "#fdcb6e",  # sárga
     },
     "kozgaz-mefob": {
         "team_pattern": "%Közgáz SC és DSK%",
@@ -91,6 +105,7 @@ TEAMS = {
         "mkosz_season": "x2526",
         "mkosz_comp": "whun_univn",
         "mkosz_team_id": "25113",
+        "color": "#00cec9",  # teal
     },
     "kozgaz-mefob-ferfi": {
         "team_pattern": "%Közgáz SC és DSK%",
@@ -104,6 +119,7 @@ TEAMS = {
         "mkosz_season": "x2526",
         "mkosz_comp": "hun_univn",
         "mkosz_team_id": "25102",
+        "color": "#55efc4",  # zöld-teal
     },
 }
 
@@ -2314,9 +2330,10 @@ def generate_homepage(team_summaries):
                 next_match = f'<div class="next-match">Következő: <strong>{calendar_short_name(opp)}</strong> — {nm["date"][5:].replace("-",".")} {nm.get("time","")}</div>'
 
             record_html = f'<span class="rec-w">{w}W</span> – <span class="rec-l">{l}L</span>'
+            tcfg = _team_color_cfg(TEAMS.get(ts.get("team_key", ""), {}).get("color", lg_cfg["color"]))
 
             cards_html += f"""
-        <a href="{ts['href']}/index.html" class="home-card" style="border-color:{lg_cfg['border']}">
+        <a href="{ts['href']}/index.html" class="home-card" style="border-color:{tcfg['border']}">
           <div class="home-card-header">
             <div class="home-card-title">{ts['label']}</div>
             <div class="home-card-group">{ts['group']}</div>
@@ -2333,7 +2350,7 @@ def generate_homepage(team_summaries):
     all_matches = []
     for ts in team_summaries:
         lg = ts.get("league", "nb2")
-        lg_cfg = LEAGUES.get(lg, LEAGUES["nb2"])
+        tcfg = _team_color_cfg(TEAMS.get(ts.get("team_key", ""), {}).get("color", LEAGUES.get(lg, LEAGUES["nb2"])["color"]))
         for m in ts.get("recent", []):
             is_home = m["is_home"]
             opp = m["away_team"] if is_home else m["home_team"]
@@ -2350,7 +2367,7 @@ def generate_homepage(team_summaries):
             all_matches.append({
                 "date": m["date"], "type": "played", "matchup": matchup,
                 "score": score_str, "win": win, "is_home": is_home,
-                "team_short": ts["short"], "league": lg, "lg_cfg": lg_cfg,
+                "team_short": ts["short"], "league": lg, "tcfg": tcfg,
             })
         for m in ts.get("upcoming", []):
             opp = m["away_team"] if m["is_home"] else m["home_team"]
@@ -2358,7 +2375,7 @@ def generate_homepage(team_summaries):
                 "date": m["date"], "type": "upcoming",
                 "time": m.get("time", ""), "opp": calendar_short_name(opp),
                 "is_home": m["is_home"], "team_short": ts["short"],
-                "league": lg, "lg_cfg": lg_cfg,
+                "league": lg, "tcfg": tcfg,
             })
     # Sort: played desc by date, then upcoming asc — but we render all and let JS pick
     all_matches.sort(key=lambda x: (x["date"], 0 if x["type"] == "played" else 1))
@@ -2369,17 +2386,17 @@ def generate_homepage(team_summaries):
     for ts in team_summaries:
         if ts["short"] not in seen_teams:
             seen_teams.add(ts["short"])
-            lg_cfg = LEAGUES.get(ts.get("league", "nb2"), LEAGUES["nb2"])
-            team_names.append({"short": ts["short"], "lg_cfg": lg_cfg})
+            tcfg = _team_color_cfg(TEAMS.get(ts.get("team_key", ""), {}).get("color", LEAGUES.get(ts.get("league", "nb2"), LEAGUES["nb2"])["color"]))
+            team_names.append({"short": ts["short"], "tcfg": tcfg})
 
     filter_buttons = '<button class="match-filter active" data-team="all">Mind</button>'
     for tn in team_names:
-        filter_buttons += f'<button class="match-filter" data-team="{tn["short"]}" style="--fc:{tn["lg_cfg"]["color"]};--fb:{tn["lg_cfg"]["bg"]};--fbd:{tn["lg_cfg"]["border"]}">{tn["short"]}</button>'
+        filter_buttons += f'<button class="match-filter" data-team="{tn["short"]}" style="--fc:{tn["tcfg"]["color"]};--fb:{tn["tcfg"]["bg"]};--fbd:{tn["tcfg"]["border"]}">{tn["short"]}</button>'
 
     match_rows = ""
     for item in all_matches:
-        lg_cfg = item["lg_cfg"]
-        tag = f'<span class="row-league-tag" style="color:{lg_cfg["color"]};background:{lg_cfg["bg"]};border-color:{lg_cfg["border"]}">{item["team_short"]}</span>'
+        tcfg = item["tcfg"]
+        tag = f'<span class="row-league-tag" style="color:{tcfg["color"]};background:{tcfg["bg"]};border-color:{tcfg["border"]}">{item["team_short"]}</span>'
         date_str = item["date"][5:].replace("-", ".")
         hv = "H" if item["is_home"] else "V"
         hv_cls = "home" if item["is_home"] else "away"
@@ -2450,7 +2467,7 @@ def generate_homepage(team_summaries):
     all_matches_by_date = {}  # (year, month, day) → list of match dicts
     for ts in team_summaries:
         lg = ts.get("league", "nb2")
-        lg_cfg = LEAGUES.get(lg, LEAGUES["nb2"])
+        tcfg = _team_color_cfg(TEAMS.get(ts.get("team_key", ""), {}).get("color", LEAGUES.get(lg, LEAGUES["nb2"])["color"]))
         for m in ts.get("cal_data", []):
             d = datetime.strptime(m["date"], "%Y-%m-%d").date()
             is_home = m["is_home"]
@@ -2479,7 +2496,7 @@ def generate_homepage(team_summaries):
                 "played": m["played"],
                 "team_short": ts["short"],
                 "league": lg,
-                "lg_cfg": lg_cfg,
+                "lg_cfg": tcfg,
             })
 
     calendar_section = ""
@@ -2900,6 +2917,7 @@ def generate_site():
             "group": cfg["group_name"],
             "short": cfg["team_short"],
             "league": cfg.get("league", "nb2"),
+            "team_key": key,
             "wins": wins,
             "losses": losses,
             "upcoming": upcoming,
