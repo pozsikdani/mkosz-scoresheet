@@ -32,6 +32,10 @@ COMP_CONFIG = {
         "prefix": "MFOB",
         "team_pattern": "%Közgáz SC és DSK%",
     },
+    "hun_univn": {
+        "prefix": "MFOF",
+        "team_pattern": "%Közgáz SC és DSK%",
+    },
 }
 
 # Optional jersey number overrides (player_name → jersey_number)

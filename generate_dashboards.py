@@ -92,6 +92,19 @@ TEAMS = {
         "mkosz_comp": "whun_univn",
         "mkosz_team_id": "25113",
     },
+    "kozgaz-mefob-ferfi": {
+        "team_pattern": "%Közgáz SC és DSK%",
+        "team_pattern_broad": "%Közgáz%",
+        "comp_prefix": "MFOF%",
+        "team_name": "Közgáz SC és DSK",
+        "team_short": "MEFOB Férfi",
+        "group_name": "Fiú egyetemi Nyugat",
+        "league": "mefob",
+        "out_dir": "dashboards-mefob-ferfi",
+        "mkosz_season": "x2526",
+        "mkosz_comp": "hun_univn",
+        "mkosz_team_id": "25102",
+    },
 }
 
 # Navigation structure for the site
@@ -101,6 +114,7 @@ NAV_TEAMS = [
     {"key": "kozgaz-noi", "label": "Közgáz Női", "href": "dashboards-noi"},
     {"key": "leftoverz", "label": "Leftoverz", "href": "leftoverz"},
     {"key": "kozgaz-mefob", "label": "MEFOB Női", "href": "dashboards-mefob"},
+    {"key": "kozgaz-mefob-ferfi", "label": "MEFOB Férfi", "href": "dashboards-mefob-ferfi"},
 ]
 
 # ---- TRAINING ATTENDANCE (Közgáz B only, fetched from Google Sheets) ----
@@ -209,13 +223,21 @@ CALENDAR_SHORT = {
     "LUDOVIKA SE": "Ludovika",
     "QPAC": "Qpac",
     "KÖZGÁZ LEFTOVERZ": "Leftoverz",
-    # Leány egyetemi Nyugat (MEFOB) bajnokság
+    # MEFOB bajnokságok (Leány + Fiú egyetemi Nyugat)
     "ELTE BEAC": "ELTE BEAC",
     "UNI Győr SZESE": "UNI Győr",
     "SzOESE": "SzOESE",
     "PTE-PEAC": "PTE-PEAC",
     "BME-MAFC": "BME-MAFC",
     "Közgáz SC és DSK": "Közgáz",
+    # Fiú egyetemi Nyugat extra ellenfelek
+    "Szombathelyi Egyetemi Sportegyesület": "Sz.hely",
+    "SMAFC 1860 Soproni Egyetem": "SMAFC",
+    "University of Pannonia Veszprém": "Pannonia",
+    "Mosonmagyaróvár UNI-Győr": "M.óvár",
+    "VESC": "VESC",
+    "TFSE": "TFSE",
+    "Ludovika Sportegyesület": "Ludovika",
 }
 
 
