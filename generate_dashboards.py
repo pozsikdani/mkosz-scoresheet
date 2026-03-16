@@ -2316,10 +2316,6 @@ def generate_homepage(team_summaries):
     transition:opacity .2s, transform .2s;
   }}
   .home-card:hover .home-card-arrow {{ opacity:1; transform:translateX(4px); }}
-  .home-card.placeholder {{
-    opacity:0.35; pointer-events:none;
-    border-style:dashed;
-  }}
 
   .section-title {{
     font-size:0.75rem; font-weight:700; text-transform:uppercase;
@@ -2370,12 +2366,6 @@ def generate_homepage(team_summaries):
   </div>
   <div class="home-cards">
     {cards_html}
-    <div class="home-card placeholder">
-      <div class="home-card-header">
-        <div class="home-card-title">Leftoverz</div>
-        <div class="home-card-group">Hamarosan...</div>
-      </div>
-    </div>
   </div>
   {upcoming_section}
   {recent_section}
