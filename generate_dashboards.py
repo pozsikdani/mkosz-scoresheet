@@ -1870,6 +1870,221 @@ switchView('all');
     return html
 
 
+# ── Shared calendar CSS & grid builder ──────────────────────────────────
+
+CALENDAR_CSS = """
+/* Calendar shared styles */
+.cal-legend {
+  display:flex; gap:24px; justify-content:center; flex-wrap:wrap;
+  margin-bottom:20px; font-size:.78rem; color:var(--text-dim);
+}
+.legend-item { display:flex; align-items:center; gap:6px; }
+.cal-month {
+  background:var(--card); border-radius:16px; padding:20px;
+  border:1px solid var(--border); margin-bottom:16px;
+}
+.cal-month h3 {
+  font-size:.85rem; text-transform:uppercase; letter-spacing:2.5px;
+  color:var(--accent); margin-bottom:14px; font-weight:700; text-align:center;
+  cursor:pointer; user-select:none; transition:color .2s;
+}
+.cal-month h3:hover { color:#e8e8f0; }
+.cal-toggle {
+  font-size:.7rem; display:inline-block; transition:transform .2s;
+  margin-left:6px; opacity:.6;
+}
+.cal-month.collapsed { padding:14px 20px; }
+.cal-month.collapsed h3 { margin-bottom:0; opacity:.5; }
+.cal-month.collapsed h3:hover { opacity:.8; }
+.cal-month.collapsed .cal-grid { display:none; }
+.cal-month.collapsed .cal-toggle { transform:rotate(-90deg); }
+.cal-grid {
+  display:grid; grid-template-columns:repeat(7,1fr); gap:3px;
+}
+.cal-hd {
+  text-align:center; font-size:.65rem; font-weight:700; color:var(--text-dim);
+  text-transform:uppercase; letter-spacing:1px; padding:6px 0 8px;
+}
+.cal-day {
+  min-height:80px; padding:6px 5px; border-radius:8px;
+  background:rgba(255,255,255,.015); position:relative;
+}
+.cal-day.empty { background:transparent; min-height:0; }
+.day-num { font-size:.68rem; color:var(--text-dim); font-weight:500; }
+.cal-day.has-match { border:1px solid rgba(255,255,255,0.08); }
+.cal-day.past { opacity:0.35; }
+.cal-day.past:hover { opacity:0.65; }
+.cal-day.today { border:1.5px solid #f39c12 !important; background:rgba(243,156,18,0.08); position:relative; }
+.cal-day.today .day-num { color:#f39c12; font-weight:700; }
+.cal-day.today::after {
+  content:'MA'; position:absolute; top:4px; right:5px;
+  font-size:.45rem; font-weight:800; color:#f39c12; letter-spacing:.5px; opacity:.8;
+}
+.match-info { display:flex; flex-direction:column; gap:2px; margin-top:4px; }
+.cal-match-sep { border-top:1px solid rgba(255,255,255,0.08); margin:2px 0; }
+.cal-match {
+  display:flex; align-items:center; gap:3px; flex-wrap:wrap;
+}
+.cal-team-tag {
+  font-size:.52rem; font-weight:700; padding:1px 5px; border-radius:4px;
+  border:1px solid; white-space:nowrap; line-height:1.3;
+}
+.match-opp { font-size:.62rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.match-time { font-size:.55rem; color:var(--text-dim); }
+.match-score { font-size:.62rem; font-weight:700; }
+.match-score.win { color:var(--green); }
+.match-score.loss { color:var(--red); }
+.match-badge {
+  font-size:.5rem; font-weight:800; padding:1px 4px; border-radius:4px;
+  min-width:18px; text-align:center; line-height:1.4;
+}
+.match-badge.w { background:rgba(0,184,148,.2); color:var(--green); }
+.match-badge.l { background:rgba(225,112,85,.2); color:var(--red); }
+
+@media(max-width:900px) {
+  .cal-day { min-height:65px; padding:4px; }
+  .match-opp { font-size:.55rem; }
+  .cal-team-tag { font-size:.48rem; padding:1px 3px; }
+}
+@media(max-width:600px) {
+  .cal-day { min-height:50px; padding:3px; }
+  .day-num { font-size:.58rem; }
+  .match-opp { font-size:.5rem; }
+  .match-time { display:none; }
+  .match-score { font-size:.52rem; }
+  .match-badge { font-size:.45rem; padding:1px 3px; }
+  .cal-team-tag { font-size:.44rem; padding:1px 2px; }
+  .cal-hd { font-size:.55rem; }
+}
+"""
+
+
+def _build_calendar_grid(matches_by_date, multi_team=False):
+    """Build shared calendar grid HTML + JS.
+
+    Args:
+        matches_by_date: dict keyed by (year, month, day).
+            - If multi_team=False: value = single dict with keys: opp, time, score, win, home, played
+            - If multi_team=True: value = list of dicts, each also having: team_short, league, lg_cfg
+        multi_team: if True, show team tags and handle multiple matches per day.
+
+    Returns:
+        (months_html, calendar_js) tuple — HTML for month grids and JS for past/today/collapsible.
+    """
+    if not matches_by_date:
+        return "", ""
+
+    # Determine month range
+    all_keys = list(matches_by_date.keys())
+    min_y, min_m = min((k[0], k[1]) for k in all_keys)
+    max_y, max_m = max((k[0], k[1]) for k in all_keys)
+
+    months_to_show = []
+    y, mo = min_y, min_m
+    while (y, mo) <= (max_y, max_m):
+        months_to_show.append((y, mo))
+        mo += 1
+        if mo > 12:
+            mo = 1
+            y += 1
+
+    months_html = ""
+    for year, month in months_to_show:
+        month_name = MONTH_NAMES_HU[month]
+        first_weekday, num_days = cal_module.monthrange(year, month)
+
+        headers = "".join(f'<div class="cal-hd">{d}</div>' for d in DAY_NAMES_HU)
+        cells = '<div class="cal-day empty"></div>' * first_weekday
+
+        for day in range(1, num_days + 1):
+            key = (year, month, day)
+            date_str = f"{year}-{month:02d}-{day:02d}"
+
+            if key in matches_by_date:
+                if multi_team:
+                    # Multi-team: list of matches per day
+                    day_matches = matches_by_date[key]
+                    match_items = ""
+                    for idx, mi in enumerate(day_matches):
+                        lcfg = mi["lg_cfg"]
+                        tag = f'<span class="cal-team-tag" style="color:{lcfg["color"]};background:{lcfg["bg"]};border-color:{lcfg["border"]}">{mi["team_short"]}</span>'
+
+                        if mi["played"] and mi["win"] is not None:
+                            badge_letter = "W" if mi["win"] else "L"
+                            bc = "w" if mi["win"] else "l"
+                            sc_cls = "win" if mi["win"] else "loss"
+                            detail = f'<span class="match-opp">{mi["opp"]}</span><span class="match-score {sc_cls}">{mi["score"]}</span><span class="match-badge {bc}">{badge_letter}</span>'
+                        else:
+                            detail = f'<span class="match-opp">{mi["opp"]}</span><span class="match-time">{mi["time"]}</span>'
+
+                        sep = '<div class="cal-match-sep"></div>' if idx > 0 else ''
+                        match_items += f'{sep}<div class="cal-match">{tag}{detail}</div>'
+
+                    cells += f'''<div class="cal-day has-match" data-date="{date_str}">
+  <span class="day-num">{day}</span>
+  <div class="match-info">{match_items}</div>
+</div>'''
+                else:
+                    # Single-team: one match per day
+                    mi = matches_by_date[key]
+                    if mi["played"] and mi["win"] is not None:
+                        badge_letter = "W" if mi["win"] else "L"
+                        bc = "w" if mi["win"] else "l"
+                        sc_cls = "win" if mi["win"] else "loss"
+                        score_line = f'<span class="match-score {sc_cls}">{mi["score"]}</span>'
+                        badge_html = f'<span class="match-badge {bc}">{badge_letter}</span>'
+                    else:
+                        score_line = ""
+                        badge_html = ""
+
+                    cells += f'''<div class="cal-day has-match" data-date="{date_str}">
+  <span class="day-num">{day}</span>
+  <div class="match-info">
+    <div class="cal-match">
+      <span class="match-opp">{mi["opp"]}</span>
+      {score_line}
+      {badge_html}
+    </div>
+    <span class="match-time">{mi["time"]}</span>
+  </div>
+</div>'''
+            else:
+                cells += f'<div class="cal-day" data-date="{date_str}"><span class="day-num">{day}</span></div>'
+
+        trailing = (7 - (first_weekday + num_days) % 7) % 7
+        cells += '<div class="cal-day empty"></div>' * trailing
+
+        months_html += f'''
+      <div class="cal-month" data-month="{year}-{month:02d}">
+        <h3>{month_name} {year} <span class="cal-toggle">▾</span></h3>
+        <div class="cal-grid">
+          {headers}
+          {cells}
+        </div>
+      </div>'''
+
+    calendar_js = """
+    <script>
+    (function(){
+      var today = new Date(); today.setHours(0,0,0,0);
+      var todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+      var curMonth = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+      document.querySelectorAll('.cal-day[data-date]').forEach(function(el){
+        if(el.dataset.date < todayStr) el.classList.add('past');
+        else if(el.dataset.date === todayStr) el.classList.add('today');
+      });
+      document.querySelectorAll('.cal-month[data-month]').forEach(function(el){
+        if(el.dataset.month < curMonth) el.classList.add('collapsed');
+        el.querySelector('h3').addEventListener('click', function(){
+          el.classList.toggle('collapsed');
+        });
+      });
+    })();
+    </script>"""
+
+    return months_html, calendar_js
+
+
 def generate_calendar(matches, cfg, team_key=None):
     """Generate calendar HTML page. matches = list of dicts from scrape or DB."""
     # Parse matches into dict keyed by (year, month, day)
@@ -1899,70 +2114,8 @@ def generate_calendar(matches, cfg, team_key=None):
             "played": m["played"],
         }
 
-    # Determine month range from data
-    dates = [datetime.strptime(m["date"], "%Y-%m-%d").date() for m in matches]
-    min_date, max_date = min(dates), max(dates)
-
-    months_to_show = []
-    y, mo = min_date.year, min_date.month
-    while (y, mo) <= (max_date.year, max_date.month):
-        months_to_show.append((y, mo))
-        mo += 1
-        if mo > 12:
-            mo = 1
-            y += 1
-
-    # Build HTML for each month
-    months_html = ""
-    for year, month in months_to_show:
-        month_name = MONTH_NAMES_HU[month]
-        first_weekday, num_days = cal_module.monthrange(year, month)
-
-        headers = "".join(f'<div class="cal-hd">{d}</div>' for d in DAY_NAMES_HU)
-        cells = '<div class="cal-day empty"></div>' * first_weekday
-
-        for day in range(1, num_days + 1):
-            key = (year, month, day)
-            if key in match_by_date:
-                mi = match_by_date[key]
-                ha_class = "home" if mi["home"] else "away"
-
-                if mi["played"] and mi["win"] is not None:
-                    wl = "win" if mi["win"] else "loss"
-                    badge = "W" if mi["win"] else "L"
-                    bc = "w" if mi["win"] else "l"
-                    sc_class = "win" if mi["win"] else "loss"
-                    score_line = f'<span class="match-score {sc_class}">{mi["score"]}</span>'
-                else:
-                    wl = "upcoming"
-                    badge = ""
-                    bc = "tbd"
-                    score_line = ""
-
-                badge_html = f'<span class="match-badge {bc}">{badge}</span>' if badge else ""
-
-                cells += f'''<div class="cal-day has-match {wl} {ha_class}">
-  <span class="day-num">{day}</span>{badge_html}
-  <div class="match-info">
-    <span class="match-opp">{mi["opp"]}</span>
-    <span class="match-time">{mi["time"]}</span>
-    {score_line}
-  </div>
-</div>'''
-            else:
-                cells += f'<div class="cal-day"><span class="day-num">{day}</span></div>'
-
-        trailing = (7 - (first_weekday + num_days) % 7) % 7
-        cells += '<div class="cal-day empty"></div>' * trailing
-
-        months_html += f'''
-  <div class="cal-month">
-    <h3>{month_name} {year}</h3>
-    <div class="cal-grid">
-      {headers}
-      {cells}
-    </div>
-  </div>'''
+    # Use shared calendar builder
+    months_html, calendar_js = _build_calendar_grid(match_by_date, multi_team=False)
 
     # Summary stats
     played = [m for m in matches if m["played"] and m["home_score"] is not None]
@@ -2022,17 +2175,6 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
 .header-stat .label{{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px;margin-top:2px}}
 .green{{color:var(--green)}} .red{{color:var(--red)}} .accent{{color:var(--accent)}}
 
-/* Legend */
-.cal-legend{{
-  display:flex;gap:24px;justify-content:center;flex-wrap:wrap;
-  margin-bottom:28px;font-size:.8rem;color:var(--text-dim);
-}}
-.legend-item{{display:flex;align-items:center;gap:6px}}
-.legend-dot{{width:14px;height:14px;border-radius:5px}}
-.legend-dot.win{{background:rgba(0,184,148,.2);border:1.5px solid var(--green)}}
-.legend-dot.loss{{background:rgba(225,112,85,.2);border:1.5px solid var(--red)}}
-.legend-dot.upcoming{{background:rgba(139,141,160,.2);border:1.5px solid var(--text-dim)}}
-
 /* Record badges */
 .record-row{{
   display:flex;gap:16px;justify-content:center;flex-wrap:wrap;
@@ -2044,85 +2186,15 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
 }}
 .record-badge .rval{{font-weight:800;font-size:1rem}}
 
-/* Calendar grid */
-.cal-month{{
-  background:var(--card);border-radius:16px;padding:24px;
-  border:1px solid var(--border);margin-bottom:20px;
-}}
-.cal-month h3{{
-  font-size:.95rem;text-transform:uppercase;letter-spacing:2.5px;
-  color:var(--accent);margin-bottom:16px;font-weight:700;text-align:center;
-}}
-.cal-grid{{
-  display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
-}}
-.cal-hd{{
-  text-align:center;font-size:.7rem;font-weight:700;color:var(--text-dim);
-  text-transform:uppercase;letter-spacing:1px;padding:8px 0 10px;
-}}
-.cal-day{{
-  min-height:85px;padding:7px 8px;border-radius:10px;
-  background:rgba(255,255,255,.015);position:relative;
-  transition:background .2s;
-}}
-.cal-day:hover:not(.empty){{background:rgba(255,255,255,.035)}}
-.cal-day.empty{{background:transparent;min-height:0;pointer-events:none}}
-.day-num{{font-size:.72rem;color:var(--text-dim);font-weight:500}}
+{CALENDAR_CSS}
 
-/* Match cells */
-.cal-day.has-match{{
-  border:1px solid var(--border);cursor:default;
-}}
-.cal-day.has-match.win{{
-  border-color:rgba(0,184,148,.35);
-  background:rgba(0,184,148,.06);
-}}
-.cal-day.has-match.loss{{
-  border-color:rgba(225,112,85,.3);
-  background:rgba(225,112,85,.05);
-}}
-.match-badge{{
-  position:absolute;top:6px;right:7px;
-  width:22px;height:22px;line-height:22px;text-align:center;
-  border-radius:6px;font-size:.65rem;font-weight:800;
-}}
-.match-badge.w{{background:rgba(0,184,148,.2);color:var(--green)}}
-.match-badge.l{{background:rgba(225,112,85,.2);color:var(--red)}}
-
-/* Upcoming (not yet played) */
-.cal-day.has-match.upcoming{{
-  border-color:rgba(139,141,160,.3);
-  background:rgba(139,141,160,.06);
-}}
-.cal-day.upcoming .match-opp{{color:var(--accent2)}}
-.cal-day.upcoming .match-time{{color:var(--text-dim)}}
-.match-info{{display:flex;flex-direction:column;gap:1px;margin-top:6px}}
-.match-opp{{font-size:.74rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-.match-time{{font-size:.62rem;color:var(--text-dim)}}
-.match-score{{font-size:.72rem;font-weight:700;margin-top:1px}}
-.match-score.win{{color:var(--green)}}
-.match-score.loss{{color:var(--red)}}
-
-/* Away indicator */
-.cal-day.away .match-opp{{color:var(--text-dim)}}
-
-/* Responsive */
+/* Responsive header */
 @media(max-width:900px){{
-  .cal-day{{min-height:70px;padding:5px 6px}}
-  .match-opp{{font-size:.66rem}}
-  .match-score{{font-size:.66rem}}
   .header{{flex-direction:column;text-align:center}}
   .header-stats{{justify-content:center}}
 }}
 @media(max-width:600px){{
   body{{padding:12px}}
-  .cal-day{{min-height:56px;padding:4px 5px}}
-  .cal-hd{{font-size:.6rem;padding:6px 0}}
-  .day-num{{font-size:.62rem}}
-  .match-opp{{font-size:.58rem}}
-  .match-time{{display:none}}
-  .match-score{{font-size:.6rem}}
-  .match-badge{{width:18px;height:18px;line-height:18px;font-size:.55rem;top:4px;right:4px}}
   .header h1{{font-size:1.4rem}}
   .header-stat .val{{font-size:1.3rem}}
 }}
@@ -2149,12 +2221,13 @@ body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:va
     <div class="record-badge">Idegen <span class="rval green">{away_w}W</span>–<span class="rval red">{away_l}L</span></div>
   </div>
   <div class="cal-legend">
-    <span class="legend-item"><span class="legend-dot win"></span> Győzelem</span>
-    <span class="legend-item"><span class="legend-dot loss"></span> Vereség</span>
-    <span class="legend-item"><span class="legend-dot upcoming"></span> Következő</span>
+    <span class="legend-item"><span class="match-badge w" style="font-size:.65rem">W</span> Győzelem</span>
+    <span class="legend-item"><span class="match-badge l" style="font-size:.65rem">L</span> Vereség</span>
+    <span class="legend-item" style="opacity:.4">▪ Múltbeli</span>
     <span class="legend-item">@ = Idegen pálya</span>
   </div>
   {months_html}
+  {calendar_js}
 </div>
 </body>
 </html>"""
@@ -2411,68 +2484,8 @@ def generate_homepage(team_summaries):
 
     calendar_section = ""
     if all_matches_by_date:
-        all_dates = [datetime(y, mo, d) for y, mo, d in all_matches_by_date]
-        min_d, max_d = min(all_dates), max(all_dates)
+        months_html, calendar_js = _build_calendar_grid(all_matches_by_date, multi_team=True)
 
-        months_to_show = []
-        y, mo = min_d.year, min_d.month
-        while (y, mo) <= (max_d.year, max_d.month):
-            months_to_show.append((y, mo))
-            mo += 1
-            if mo > 12:
-                mo = 1
-                y += 1
-
-        months_html = ""
-        for year, month in months_to_show:
-            month_name = MONTH_NAMES_HU[month]
-            first_weekday, num_days = cal_module.monthrange(year, month)
-
-            headers = "".join(f'<div class="cal-hd">{d}</div>' for d in DAY_NAMES_HU)
-            cells = '<div class="cal-day empty"></div>' * first_weekday
-
-            for day in range(1, num_days + 1):
-                key = (year, month, day)
-                if key in all_matches_by_date:
-                    day_matches = all_matches_by_date[key]
-                    cell_cls = "has-match"
-
-                    match_items = ""
-                    for idx, mi in enumerate(day_matches):
-                        lcfg = mi["lg_cfg"]
-                        tag = f'<span class="cal-team-tag" style="color:{lcfg["color"]};background:{lcfg["bg"]};border-color:{lcfg["border"]}">{mi["team_short"]}</span>'
-
-                        if mi["played"] and mi["win"] is not None:
-                            badge_letter = "W" if mi["win"] else "L"
-                            bc = "w" if mi["win"] else "l"
-                            sc_cls = "win" if mi["win"] else "loss"
-                            detail = f'<span class="match-opp">{mi["opp"]}</span><span class="match-score {sc_cls}">{mi["score"]}</span><span class="match-badge {bc}">{badge_letter}</span>'
-                        else:
-                            detail = f'<span class="match-opp">{mi["opp"]}</span><span class="match-time">{mi["time"]}</span>'
-
-                        sep = '<div class="cal-match-sep"></div>' if idx > 0 else ''
-                        match_items += f'{sep}<div class="cal-match">{tag}{detail}</div>'
-
-                    cells += f'''<div class="cal-day {cell_cls}" data-date="{year}-{month:02d}-{day:02d}">
-  <span class="day-num">{day}</span>
-  <div class="match-info">{match_items}</div>
-</div>'''
-                else:
-                    cells += f'<div class="cal-day" data-date="{year}-{month:02d}-{day:02d}"><span class="day-num">{day}</span></div>'
-
-            trailing = (7 - (first_weekday + num_days) % 7) % 7
-            cells += '<div class="cal-day empty"></div>' * trailing
-
-            months_html += f'''
-      <div class="cal-month" data-month="{year}-{month:02d}">
-        <h3>{month_name} {year} <span class="cal-toggle">▾</span></h3>
-        <div class="cal-grid">
-          {headers}
-          {cells}
-        </div>
-      </div>'''
-
-        # Legend
         legend_html = """
     <div class="cal-legend">
       <span class="legend-item"><span class="match-badge w" style="font-size:.65rem">W</span> Győzelem</span>
@@ -2485,23 +2498,7 @@ def generate_homepage(team_summaries):
     <div class="section-title">MECCSNAPTÁR</div>
     {legend_html}
     {months_html}
-    <script>
-    (function(){{
-      var today = new Date(); today.setHours(0,0,0,0);
-      var todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-      var curMonth = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
-      document.querySelectorAll('.cal-day[data-date]').forEach(function(el){{
-        if(el.dataset.date < todayStr) el.classList.add('past');
-        else if(el.dataset.date === todayStr) el.classList.add('today');
-      }});
-      document.querySelectorAll('.cal-month[data-month]').forEach(function(el){{
-        if(el.dataset.month < curMonth) el.classList.add('collapsed');
-        el.querySelector('h3').addEventListener('click', function(){{
-          el.classList.toggle('collapsed');
-        }});
-      }});
-    }})();
-    </script>"""
+    {calendar_js}"""
 
     return f"""<!DOCTYPE html>
 <html lang="hu">
@@ -2637,91 +2634,12 @@ def generate_homepage(team_summaries):
   .m-badge.w {{ background:rgba(0,184,148,0.15); color:var(--green); }}
   .m-badge.l {{ background:rgba(225,112,85,0.15); color:var(--red); }}
 
-  /* Calendar */
-  .cal-legend {{
-    display:flex; gap:24px; justify-content:center; flex-wrap:wrap;
-    margin-bottom:20px; font-size:.78rem; color:var(--text-dim);
-  }}
-  .legend-item {{ display:flex; align-items:center; gap:6px; }}
-  .cal-month {{
-    background:var(--card); border-radius:16px; padding:20px;
-    border:1px solid var(--border); margin-bottom:16px;
-  }}
-  .cal-month h3 {{
-    font-size:.85rem; text-transform:uppercase; letter-spacing:2.5px;
-    color:var(--accent); margin-bottom:14px; font-weight:700; text-align:center;
-    cursor:pointer; user-select:none; transition:color .2s;
-  }}
-  .cal-month h3:hover {{ color:#e8e8f0; }}
-  .cal-toggle {{
-    font-size:.7rem; display:inline-block; transition:transform .2s;
-    margin-left:6px; opacity:.6;
-  }}
-  .cal-month.collapsed {{ padding:14px 20px; }}
-  .cal-month.collapsed h3 {{ margin-bottom:0; opacity:.5; }}
-  .cal-month.collapsed h3:hover {{ opacity:.8; }}
-  .cal-month.collapsed .cal-grid {{ display:none; }}
-  .cal-month.collapsed .cal-toggle {{ transform:rotate(-90deg); }}
-  .cal-grid {{
-    display:grid; grid-template-columns:repeat(7,1fr); gap:3px;
-  }}
-  .cal-hd {{
-    text-align:center; font-size:.65rem; font-weight:700; color:var(--text-dim);
-    text-transform:uppercase; letter-spacing:1px; padding:6px 0 8px;
-  }}
-  .cal-day {{
-    min-height:80px; padding:6px 5px; border-radius:8px;
-    background:rgba(255,255,255,.015); position:relative;
-  }}
-  .cal-day.empty {{ background:transparent; min-height:0; }}
-  .day-num {{ font-size:.68rem; color:var(--text-dim); font-weight:500; }}
-  .cal-day.has-match {{ border:1px solid rgba(255,255,255,0.08); }}
-  .cal-day.past {{ opacity:0.35; }}
-  .cal-day.past:hover {{ opacity:0.65; }}
-  .cal-day.today {{ border:1.5px solid #f39c12 !important; background:rgba(243,156,18,0.08); position:relative; }}
-  .cal-day.today .day-num {{ color:#f39c12; font-weight:700; }}
-  .cal-day.today::after {{
-    content:'TODAY'; position:absolute; top:4px; right:5px;
-    font-size:.45rem; font-weight:800; color:#f39c12; letter-spacing:.5px; opacity:.8;
-  }}
-  .match-info {{ display:flex; flex-direction:column; gap:2px; margin-top:4px; }}
-  .cal-match-sep {{ border-top:1px solid rgba(255,255,255,0.08); margin:2px 0; }}
-  .cal-match {{
-    display:flex; align-items:center; gap:3px; flex-wrap:wrap;
-  }}
-  .cal-team-tag {{
-    font-size:.52rem; font-weight:700; padding:1px 5px; border-radius:4px;
-    border:1px solid; white-space:nowrap; line-height:1.3;
-  }}
-  .match-opp {{ font-size:.62rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
-  .match-time {{ font-size:.55rem; color:var(--text-dim); }}
-  .match-score {{ font-size:.62rem; font-weight:700; }}
-  .match-score.win {{ color:var(--green); }}
-  .match-score.loss {{ color:var(--red); }}
-  .match-badge {{
-    font-size:.5rem; font-weight:800; padding:1px 4px; border-radius:4px;
-    min-width:18px; text-align:center; line-height:1.4;
-  }}
-  .match-badge.w {{ background:rgba(0,184,148,.2); color:var(--green); }}
-  .match-badge.l {{ background:rgba(225,112,85,.2); color:var(--red); }}
+  {CALENDAR_CSS}
 
-  @media(max-width:900px) {{
-    .cal-day {{ min-height:65px; padding:4px; }}
-    .match-opp {{ font-size:.55rem; }}
-    .cal-team-tag {{ font-size:.48rem; padding:1px 3px; }}
-  }}
   @media(max-width:600px) {{
     .hero h1 {{ font-size:1.8rem; }}
     .home-cards {{ grid-template-columns:1fr; }}
     .up-row, .res-row {{ font-size:0.78rem; gap:4px; padding:10px 12px; }}
-    .cal-day {{ min-height:50px; padding:3px; }}
-    .day-num {{ font-size:.58rem; }}
-    .match-opp {{ font-size:.5rem; }}
-    .match-time {{ display:none; }}
-    .match-score {{ font-size:.52rem; }}
-    .match-badge {{ font-size:.45rem; padding:1px 3px; }}
-    .cal-team-tag {{ font-size:.44rem; padding:1px 2px; }}
-    .cal-hd {{ font-size:.55rem; }}
   }}
 </style>
 </head>
