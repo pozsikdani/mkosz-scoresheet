@@ -2398,9 +2398,8 @@ def generate_homepage(team_summaries):
         tcfg = item["tcfg"]
         tag = f'<span class="row-league-tag" style="color:{tcfg["color"]};background:{tcfg["bg"]};border-color:{tcfg["border"]}">{item["team_short"]}</span>'
         date_str = item["date"][5:].replace("-", ".")
-        hv = "H" if item["is_home"] else "V"
-        hv_cls = "home" if item["is_home"] else "away"
-        hv_badge = f'<span class="m-hv {hv_cls}">{hv}</span>'
+        hv = "vs" if item["is_home"] else "@"
+        hv_badge = f'<span class="m-hv">{hv}</span>'
         if item["type"] == "played":
             wl = "W" if item["win"] else "L"
             wl_cls = "w" if item["win"] else "l"
@@ -2630,9 +2629,8 @@ def generate_homepage(team_summaries):
   .m-date {{ color:var(--text-dim); font-size:0.8rem; font-weight:500; }}
   .m-hv {{
     font-size:0.68rem; font-weight:800; text-align:center;
+    color:var(--text);
   }}
-  .m-hv.home {{ color:#8fa8c8; }}
-  .m-hv.away {{ color:var(--accent4); }}
   .m-detail {{ font-weight:600; }}
   .m-time {{ color:var(--text-dim); font-size:0.78rem; text-align:right; }}
   .m-score {{ text-align:right; }}
