@@ -120,14 +120,20 @@
     margin-bottom:32px; border:1px solid var(--border);
   }
   .match-row {
-    display:grid; grid-template-columns:60px auto 1fr auto 36px;
+    display:grid; grid-template-columns:60px 30px auto 1fr auto 36px;
     align-items:center; padding:12px 16px; gap:8px;
     border-bottom:1px solid var(--border);
     font-size:0.85rem;
   }
   .match-row:last-child { border-bottom:none; }
-  .match-row.upcoming { opacity:.75; }
+  .match-row.played { opacity:.45; }
+  .match-row.played:hover { opacity:.7; }
   .m-date { color:var(--text-dim); font-size:0.8rem; font-weight:500; }
+  .m-hv {
+    font-size:0.68rem; font-weight:800; text-align:center;
+  }
+  .m-hv.home { color:#8fa8c8; }
+  .m-hv.away { color:var(--accent4); }
   .m-detail { font-weight:600; }
   .m-time { color:var(--text-dim); font-size:0.78rem; text-align:right; }
   .m-score { text-align:right; }
@@ -325,6 +331,7 @@
     <div class="matches-list">
         <div class="match-row played" data-team="KÖZGÁZ B">
           <div class="m-date">03.03</div>
+          <span class="m-hv home">H</span>
           <span class="row-league-tag" style="color:#C41E3A;background:rgba(196,30,58,0.12);border-color:rgba(196,30,58,0.3)">KÖZGÁZ B</span>
           <div class="m-detail">KÖZGÁZ B – FKE Sas</div>
           <div class="m-score win">97-89</div>
@@ -332,6 +339,7 @@
         </div>
         <div class="match-row played" data-team="Közgáz Női">
           <div class="m-date">03.04</div>
+          <span class="m-hv home">H</span>
           <span class="row-league-tag" style="color:#6c5ce7;background:rgba(108,92,231,0.12);border-color:rgba(108,92,231,0.3)">Közgáz Női</span>
           <div class="m-detail">Közgáz Női – RADOBASKET</div>
           <div class="m-score loss">49-55</div>
@@ -339,6 +347,7 @@
         </div>
         <div class="match-row played" data-team="KÖZGÁZ A">
           <div class="m-date">03.05</div>
+          <span class="m-hv home">H</span>
           <span class="row-league-tag" style="color:#C41E3A;background:rgba(196,30,58,0.12);border-color:rgba(196,30,58,0.3)">KÖZGÁZ A</span>
           <div class="m-detail">KÖZGÁZ A – Szolnok</div>
           <div class="m-score loss">68-90</div>
@@ -346,6 +355,7 @@
         </div>
         <div class="match-row played" data-team="MEFOB Férfi">
           <div class="m-date">03.09</div>
+          <span class="m-hv home">H</span>
           <span class="row-league-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Férfi</span>
           <div class="m-detail">MEFOB Férfi – Mosonmagya</div>
           <div class="m-score win">103-96</div>
@@ -353,45 +363,51 @@
         </div>
         <div class="match-row played" data-team="MEFOB Női">
           <div class="m-date">03.16</div>
+          <span class="m-hv home">H</span>
           <span class="row-league-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Női</span>
           <div class="m-detail">MEFOB Női – PTE-PEAC</div>
-          <div class="m-score win">63-41</div>
+          <div class="m-score win">76-43</div>
           <span class="m-badge w">W</span>
         </div>
         <div class="match-row upcoming" data-team="MEFOB Férfi">
           <div class="m-date">03.17</div>
+          <span class="m-hv away">V</span>
           <span class="row-league-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Férfi</span>
           <div class="m-detail">@VESC</div>
           <div class="m-time">20:30</div>
-          <span class="m-badge away">V</span>
+          <span class="m-badge">&nbsp;</span>
         </div>
         <div class="match-row upcoming" data-team="Közgáz Női">
           <div class="m-date">03.22</div>
+          <span class="m-hv away">V</span>
           <span class="row-league-tag" style="color:#6c5ce7;background:rgba(108,92,231,0.12);border-color:rgba(108,92,231,0.3)">Közgáz Női</span>
           <div class="m-detail">@V.egyház</div>
           <div class="m-time">19:00</div>
-          <span class="m-badge away">V</span>
+          <span class="m-badge">&nbsp;</span>
         </div>
         <div class="match-row upcoming" data-team="Leftoverz">
           <div class="m-date">03.23</div>
+          <span class="m-hv home">H</span>
           <span class="row-league-tag" style="color:#6c5ce7;background:rgba(108,92,231,0.12);border-color:rgba(108,92,231,0.3)">Leftoverz</span>
           <div class="m-detail">Qpac</div>
           <div class="m-time">21:15</div>
-          <span class="m-badge home">H</span>
+          <span class="m-badge">&nbsp;</span>
         </div>
         <div class="match-row upcoming" data-team="MEFOB Férfi">
           <div class="m-date">03.23</div>
+          <span class="m-hv home">H</span>
           <span class="row-league-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Férfi</span>
           <div class="m-detail">PTE-PEAC</div>
           <div class="m-time">19:50</div>
-          <span class="m-badge home">H</span>
+          <span class="m-badge">&nbsp;</span>
         </div>
         <div class="match-row upcoming" data-team="Leftoverz">
           <div class="m-date">03.25</div>
+          <span class="m-hv away">V</span>
           <span class="row-league-tag" style="color:#6c5ce7;background:rgba(108,92,231,0.12);border-color:rgba(108,92,231,0.3)">Leftoverz</span>
           <div class="m-detail">@Monor</div>
           <div class="m-time">18:30</div>
-          <span class="m-badge away">V</span>
+          <span class="m-badge">&nbsp;</span>
         </div>
     </div>
     <script>
@@ -632,7 +648,7 @@
   <div class="match-info"><div class="cal-match"><span class="cal-team-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Férfi</span><span class="match-opp">Mosonmagya</span><span class="match-score win">103-96</span><span class="match-badge w">W</span></div></div>
 </div><div class="cal-day" data-date="2026-03-10"><span class="day-num">10</span></div><div class="cal-day" data-date="2026-03-11"><span class="day-num">11</span></div><div class="cal-day" data-date="2026-03-12"><span class="day-num">12</span></div><div class="cal-day" data-date="2026-03-13"><span class="day-num">13</span></div><div class="cal-day" data-date="2026-03-14"><span class="day-num">14</span></div><div class="cal-day" data-date="2026-03-15"><span class="day-num">15</span></div><div class="cal-day has-match" data-date="2026-03-16">
   <span class="day-num">16</span>
-  <div class="match-info"><div class="cal-match"><span class="cal-team-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Női</span><span class="match-opp">PTE-PEAC</span><span class="match-score win">63-41</span><span class="match-badge w">W</span></div></div>
+  <div class="match-info"><div class="cal-match"><span class="cal-team-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Női</span><span class="match-opp">PTE-PEAC</span><span class="match-score win">76-43</span><span class="match-badge w">W</span></div></div>
 </div><div class="cal-day has-match" data-date="2026-03-17">
   <span class="day-num">17</span>
   <div class="match-info"><div class="cal-match"><span class="cal-team-tag" style="color:#00cec9;background:rgba(0,206,201,0.12);border-color:rgba(0,206,201,0.3)">MEFOB Férfi</span><span class="match-opp">@VESC</span><span class="match-time">20:30</span></div></div>

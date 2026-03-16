@@ -2281,6 +2281,7 @@ def generate_homepage(team_summaries):
                 "matchup": matchup,
                 "score": score_str,
                 "win": win,
+                "is_home": is_home,
                 "team_short": ts["short"],
                 "league": lg,
                 "lg_cfg": lg_cfg,
@@ -2322,6 +2323,9 @@ def generate_homepage(team_summaries):
         lg_cfg = item["lg_cfg"]
         tag = f'<span class="row-league-tag" style="color:{lg_cfg["color"]};background:{lg_cfg["bg"]};border-color:{lg_cfg["border"]}">{item["team_short"]}</span>'
         date_str = item["date"][5:].replace("-", ".")
+        hv = "H" if item["is_home"] else "V"
+        hv_cls = "home" if item["is_home"] else "away"
+        hv_badge = f'<span class="m-hv {hv_cls}">{hv}</span>'
         if item["type"] == "played":
             wl = "W" if item["win"] else "L"
             wl_cls = "w" if item["win"] else "l"
@@ -2329,22 +2333,22 @@ def generate_homepage(team_summaries):
             match_rows += f"""
         <div class="match-row played" data-team="{item['team_short']}">
           <div class="m-date">{date_str}</div>
+          {hv_badge}
           {tag}
           <div class="m-detail">{item['matchup']}</div>
           <div class="m-score {sc_cls}">{item['score']}</div>
           <span class="m-badge {wl_cls}">{wl}</span>
         </div>"""
         else:
-            hv = "H" if item["is_home"] else "V"
-            hv_cls = "home" if item["is_home"] else "away"
             opp_display = ('@' if not item['is_home'] else '') + item['opp']
             match_rows += f"""
         <div class="match-row upcoming" data-team="{item['team_short']}">
           <div class="m-date">{date_str}</div>
+          {hv_badge}
           {tag}
           <div class="m-detail">{opp_display}</div>
           <div class="m-time">{item.get('time','')}</div>
-          <span class="m-badge {hv_cls}">{hv}</span>
+          <span class="m-badge">&nbsp;</span>
         </div>"""
 
     matches_section = ""
@@ -2598,14 +2602,20 @@ def generate_homepage(team_summaries):
     margin-bottom:32px; border:1px solid var(--border);
   }}
   .match-row {{
-    display:grid; grid-template-columns:60px auto 1fr auto 36px;
+    display:grid; grid-template-columns:60px 30px auto 1fr auto 36px;
     align-items:center; padding:12px 16px; gap:8px;
     border-bottom:1px solid var(--border);
     font-size:0.85rem;
   }}
   .match-row:last-child {{ border-bottom:none; }}
-  .match-row.upcoming {{ opacity:.75; }}
+  .match-row.played {{ opacity:.45; }}
+  .match-row.played:hover {{ opacity:.7; }}
   .m-date {{ color:var(--text-dim); font-size:0.8rem; font-weight:500; }}
+  .m-hv {{
+    font-size:0.68rem; font-weight:800; text-align:center;
+  }}
+  .m-hv.home {{ color:#8fa8c8; }}
+  .m-hv.away {{ color:var(--accent4); }}
   .m-detail {{ font-weight:600; }}
   .m-time {{ color:var(--text-dim); font-size:0.78rem; text-align:right; }}
   .m-score {{ text-align:right; }}
