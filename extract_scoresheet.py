@@ -465,31 +465,34 @@ def extract_match_info(all_chars, template=None):
     venue = blue_text(200, 500, 123, 140)
 
     # Match ID — TYPE1: y≈175-185, TYPE2: y≈165-175, TYPE3: y≈155-165
-    match_id = blue_text(20, 200, 172 + off_id, 190 + off_id)
+    # Some county-level PDFs (RKFB) have the match ID slightly higher (~y=168)
+    match_id = blue_text(20, 200, 165 + off_id, 190 + off_id)
 
     # Date and time — TYPE1: y≈205-215, TYPE2: y≈185-195, TYPE3: y≈168-178
-    match_date = blue_text(200, 360, 202 + off, 220 + off)
-    match_time = blue_text(360, 450, 202 + off, 220 + off)
+    # Some county-level PDFs have date ~15px higher (~y=188)
+    match_date = blue_text(200, 360, 185 + off, 220 + off)
+    match_time = blue_text(360, 450, 185 + off, 220 + off)
     if not match_date and template["name"] == "TYPE3":
         # TYPE3 date is near the match_id area, not the body area
         match_date = blue_text(200, 360, 165, 180)
         match_time = blue_text(360, 450, 165, 180)
 
     # Final score — TYPE1: y≈1548-1565, TYPE3: y≈1445-1460 (x shifted +40px)
+    # Some county-level PDFs (RKFB) have the footer ~15px higher (~y=1532-1540)
     if template["name"] == "TYPE3":
         score_chars_a = collect_chars_in_rect(all_chars, 730, 770, 1445, 1460)
         score_chars_b = collect_chars_in_rect(all_chars, 940, 970, 1445, 1460)
     else:
-        score_chars_a = collect_chars_in_rect(all_chars, 698, 730, 1548 + off_footer, 1565 + off_footer)
-        score_chars_b = collect_chars_in_rect(all_chars, 908, 935, 1548 + off_footer, 1565 + off_footer)
+        score_chars_a = collect_chars_in_rect(all_chars, 698, 730, 1528 + off_footer, 1565 + off_footer)
+        score_chars_b = collect_chars_in_rect(all_chars, 908, 940, 1528 + off_footer, 1565 + off_footer)
     score_a_text = assemble_number([c for c in score_chars_a if c["c"].isdigit()])
     score_b_text = assemble_number([c for c in score_chars_b if c["c"].isdigit()])
 
     # Winner — TYPE1: y≈1575-1590, TYPE3: y≈1470-1490
-    winner = blue_text(650, 900, 1572 + off_footer, 1595 + off_footer)
+    winner = blue_text(650, 900, 1555 + off_footer, 1595 + off_footer)
 
     # Closure timestamp — TYPE1: y≈1620-1635, TYPE3: y≈1505-1520
-    closure = blue_text(900, 1080, 1618 + off_footer, 1640 + off_footer)
+    closure = blue_text(900, 1080, 1600 + off_footer, 1640 + off_footer)
 
     return {
         "match_id": match_id,

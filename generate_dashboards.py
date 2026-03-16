@@ -55,6 +55,19 @@ TEAMS = {
         "mkosz_team_id": "79078",
         "county": "budapest",
     },
+    "leftoverz": {
+        "team_pattern": "%LEFTOVER%",
+        "team_pattern_broad": "%LEFTOVER%",
+        "comp_prefix": "RKFB%",
+        "team_name": "KÖZGÁZ LEFTOVERZ",
+        "team_short": "Leftoverz",
+        "group_name": "Regionális Kiemelt Férfi - Cziffra Mihály",
+        "out_dir": "leftoverz",
+        "mkosz_season": "x2526",
+        "mkosz_comp": "hun_bud_rkfb",
+        "mkosz_team_id": "79359",
+        "county": "budapest",
+    },
 }
 
 # Navigation structure for the site
@@ -158,6 +171,19 @@ CALENDAR_SHORT = {
     "VIHAROS SZENYÓRÁK": "Viharos",
     "EZÜST RÓKÁK": "Ezüst R.",
     "KÖZGÁZ": "Közgáz",
+    # Regionális Kiemelt Férfi - Cziffra Mihály bajnokság
+    "SZENTENDREI KSE": "Szt.endre",
+    "MAFC KARDINÁLIS": "MAFC Kard.",
+    "VASHÓDOK": "VasHódok",
+    "MONOR SE": "Monor",
+    "E5VÖS OKAPIK": "E5vös",
+    "ZUGLÓI SASOK": "Zugl. Sasok",
+    "CSEPEL TC": "Csepel",
+    "MAFC MARTOS": "MAFC Mart.",
+    "GOLDENHUSZ": "Goldenhusz",
+    "LUDOVIKA SE": "Ludovika",
+    "QPAC": "Qpac",
+    "KÖZGÁZ LEFTOVERZ": "Leftoverz",
 }
 
 
@@ -2083,8 +2109,8 @@ def _nav_html(active_key=None, depth=0):
     for t in NAV_TEAMS:
         href = f'{prefix}{t["href"]}/index.html'
         cls = ' class="active"' if t["key"] == active_key else ''
-        disabled = ' class="disabled"' if t["key"] == "leftoverz" else ''
-        if t["key"] == "leftoverz":
+        # Disable nav items that don't have a TEAMS config (placeholder)
+        if t["key"] not in TEAMS:
             items += f'<span class="nav-link disabled">{t["label"]}</span>'
         else:
             items += f'<a href="{href}"{cls}>{t["label"]}</a>'
