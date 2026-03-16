@@ -2266,6 +2266,7 @@ def generate_homepage(team_summaries):
                 "time": m.get("time", ""),
                 "opp": calendar_short_name(opp),
                 "team_short": ts["short"],
+                "league": ts.get("league", "nb2"),
                 "is_home": m["is_home"],
             })
     all_upcoming.sort(key=lambda x: x["date"])
@@ -2275,11 +2276,12 @@ def generate_homepage(team_summaries):
     for u in all_upcoming:
         hv = "H" if u["is_home"] else "V"
         hv_cls = "home" if u["is_home"] else "away"
+        lg_cfg = LEAGUES.get(u["league"], LEAGUES["nb2"])
         upcoming_rows += f"""
         <div class="up-row">
           <div class="up-date">{u['date'][5:].replace('-','.')}</div>
           <div class="up-time">{u['time']}</div>
-          <div class="up-team">{u['team_short']}</div>
+          <div class="up-team" style="color:{lg_cfg['color']}">{u['team_short']}</div>
           <div class="up-opp">{('@' if not u['is_home'] else '')}{u['opp']}</div>
           <span class="up-badge {hv_cls}">{hv}</span>
         </div>"""
@@ -2312,6 +2314,8 @@ def generate_homepage(team_summaries):
                 "matchup": matchup,
                 "score": score_str,
                 "win": win,
+                "team_short": ts["short"],
+                "league": ts.get("league", "nb2"),
             })
     all_recent.sort(key=lambda x: x["date"], reverse=True)
     all_recent = all_recent[:6]
@@ -2321,9 +2325,11 @@ def generate_homepage(team_summaries):
         wl = "W" if r["win"] else "L"
         wl_cls = "w" if r["win"] else "l"
         sc_cls = "win" if r["win"] else "loss"
+        lg_cfg = LEAGUES.get(r["league"], LEAGUES["nb2"])
         recent_rows += f"""
         <div class="res-row">
           <div class="res-date">{r['date'][5:].replace('-','.')}</div>
+          <div class="res-team" style="color:{lg_cfg['color']}">{r['team_short']}</div>
           <div class="res-matchup">{r['matchup']}</div>
           <div class="res-score {sc_cls}">{r['score']}</div>
           <span class="res-badge {wl_cls}">{wl}</span>
@@ -2416,16 +2422,24 @@ def generate_homepage(team_summaries):
     background:var(--card); border-radius:14px; padding:6px;
     margin-bottom:32px; border:1px solid var(--border);
   }}
-  .up-row, .res-row {{
-    display:grid; grid-template-columns:60px 48px 70px 1fr auto;
+  .up-row {{
+    display:grid; grid-template-columns:60px 48px 80px 1fr auto;
     align-items:center; padding:12px 16px; gap:8px;
     border-bottom:1px solid var(--border);
     font-size:0.85rem;
   }}
+  .res-row {{
+    display:grid; grid-template-columns:60px 80px 1fr 70px auto;
+    align-items:center; padding:12px 16px; gap:8px;
+    border-bottom:1px solid var(--border);
+    font-size:0.85rem;
+  }}
+  .res-score {{ text-align:right; }}
+  .res-matchup {{ text-align:right; }}
   .up-row:last-child, .res-row:last-child {{ border-bottom:none; }}
   .up-date, .res-date {{ color:var(--text-dim); font-size:0.8rem; font-weight:500; }}
   .up-time {{ color:var(--text-dim); font-size:0.78rem; }}
-  .up-team {{ font-weight:700; font-size:0.78rem; color:var(--accent); }}
+  .up-team, .res-team {{ font-weight:700; font-size:0.78rem; }}
   .up-opp {{ font-weight:600; }}
   .res-matchup {{ font-weight:600; }}
   .up-badge, .res-badge {{

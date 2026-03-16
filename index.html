@@ -103,16 +103,24 @@
     background:var(--card); border-radius:14px; padding:6px;
     margin-bottom:32px; border:1px solid var(--border);
   }
-  .up-row, .res-row {
-    display:grid; grid-template-columns:60px 48px 70px 1fr auto;
+  .up-row {
+    display:grid; grid-template-columns:60px 48px 80px 1fr auto;
     align-items:center; padding:12px 16px; gap:8px;
     border-bottom:1px solid var(--border);
     font-size:0.85rem;
   }
+  .res-row {
+    display:grid; grid-template-columns:60px 80px 1fr 70px auto;
+    align-items:center; padding:12px 16px; gap:8px;
+    border-bottom:1px solid var(--border);
+    font-size:0.85rem;
+  }
+  .res-score { text-align:right; }
+  .res-matchup { text-align:right; }
   .up-row:last-child, .res-row:last-child { border-bottom:none; }
   .up-date, .res-date { color:var(--text-dim); font-size:0.8rem; font-weight:500; }
   .up-time { color:var(--text-dim); font-size:0.78rem; }
-  .up-team { font-weight:700; font-size:0.78rem; color:var(--accent); }
+  .up-team, .res-team { font-weight:700; font-size:0.78rem; }
   .up-opp { font-weight:600; }
   .res-matchup { font-weight:600; }
   .up-badge, .res-badge {
@@ -225,42 +233,42 @@
         <div class="up-row">
           <div class="up-date">03.16</div>
           <div class="up-time">18:20</div>
-          <div class="up-team">MEFOB Női</div>
+          <div class="up-team" style="color:#00cec9">MEFOB Női</div>
           <div class="up-opp">PTE-PEAC</div>
           <span class="up-badge home">H</span>
         </div>
         <div class="up-row">
           <div class="up-date">03.17</div>
           <div class="up-time">20:30</div>
-          <div class="up-team">MEFOB Férfi</div>
+          <div class="up-team" style="color:#00cec9">MEFOB Férfi</div>
           <div class="up-opp">@VESC</div>
           <span class="up-badge away">V</span>
         </div>
         <div class="up-row">
           <div class="up-date">03.22</div>
           <div class="up-time">19:00</div>
-          <div class="up-team">Közgáz Női</div>
+          <div class="up-team" style="color:#6c5ce7">Közgáz Női</div>
           <div class="up-opp">@V.egyház</div>
           <span class="up-badge away">V</span>
         </div>
         <div class="up-row">
           <div class="up-date">03.23</div>
           <div class="up-time">21:15</div>
-          <div class="up-team">Leftoverz</div>
+          <div class="up-team" style="color:#6c5ce7">Leftoverz</div>
           <div class="up-opp">Qpac</div>
           <span class="up-badge home">H</span>
         </div>
         <div class="up-row">
           <div class="up-date">03.23</div>
           <div class="up-time">19:50</div>
-          <div class="up-team">MEFOB Férfi</div>
+          <div class="up-team" style="color:#00cec9">MEFOB Férfi</div>
           <div class="up-opp">PTE-PEAC</div>
           <span class="up-badge home">H</span>
         </div>
         <div class="up-row">
           <div class="up-date">03.25</div>
           <div class="up-time">18:30</div>
-          <div class="up-team">Leftoverz</div>
+          <div class="up-team" style="color:#6c5ce7">Leftoverz</div>
           <div class="up-opp">@Monor</div>
           <span class="up-badge away">V</span>
         </div>
@@ -270,36 +278,42 @@
     <div class="recent-list">
         <div class="res-row">
           <div class="res-date">03.09</div>
+          <div class="res-team" style="color:#00cec9">MEFOB Férfi</div>
           <div class="res-matchup">MEFOB Férfi – Mosonmagya</div>
           <div class="res-score win">103-96</div>
           <span class="res-badge w">W</span>
         </div>
         <div class="res-row">
           <div class="res-date">03.05</div>
+          <div class="res-team" style="color:#C41E3A">KÖZGÁZ A</div>
           <div class="res-matchup">KÖZGÁZ A – Szolnok</div>
           <div class="res-score loss">68-90</div>
           <span class="res-badge l">L</span>
         </div>
         <div class="res-row">
           <div class="res-date">03.04</div>
+          <div class="res-team" style="color:#6c5ce7">Közgáz Női</div>
           <div class="res-matchup">Közgáz Női – RADOBASKET</div>
           <div class="res-score loss">49-55</div>
           <span class="res-badge l">L</span>
         </div>
         <div class="res-row">
           <div class="res-date">03.03</div>
+          <div class="res-team" style="color:#C41E3A">KÖZGÁZ B</div>
           <div class="res-matchup">KÖZGÁZ B – FKE Sas</div>
           <div class="res-score win">97-89</div>
           <span class="res-badge w">W</span>
         </div>
         <div class="res-row">
           <div class="res-date">03.02</div>
+          <div class="res-team" style="color:#6c5ce7">Leftoverz</div>
           <div class="res-matchup">Leftoverz – Ludovika</div>
           <div class="res-score loss">79-89</div>
           <span class="res-badge l">L</span>
         </div>
         <div class="res-row">
           <div class="res-date">03.02</div>
+          <div class="res-team" style="color:#00cec9">MEFOB Női</div>
           <div class="res-matchup">SzOESE – MEFOB Női</div>
           <div class="res-score win">39-93</div>
           <span class="res-badge w">W</span>
