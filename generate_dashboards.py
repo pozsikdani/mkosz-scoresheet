@@ -2427,7 +2427,7 @@ def generate_homepage(team_summaries):
   <div class="match-info">{match_items}</div>
 </div>'''
                 else:
-                    cells += f'<div class="cal-day"><span class="day-num">{day}</span></div>'
+                    cells += f'<div class="cal-day" data-date="{year}-{month:02d}-{day:02d}"><span class="day-num">{day}</span></div>'
 
             trailing = (7 - (first_weekday + num_days) % 7) % 7
             cells += '<div class="cal-day empty"></div>' * trailing
@@ -2457,8 +2457,10 @@ def generate_homepage(team_summaries):
     <script>
     (function(){{
       var today = new Date(); today.setHours(0,0,0,0);
+      var todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
       document.querySelectorAll('.cal-day[data-date]').forEach(function(el){{
-        if(new Date(el.dataset.date) < today) el.classList.add('past');
+        if(el.dataset.date < todayStr) el.classList.add('past');
+        else if(el.dataset.date === todayStr) el.classList.add('today');
       }});
     }})();
     </script>"""
@@ -2605,8 +2607,10 @@ def generate_homepage(team_summaries):
   .cal-day.empty {{ background:transparent; min-height:0; }}
   .day-num {{ font-size:.68rem; color:var(--text-dim); font-weight:500; }}
   .cal-day.has-match {{ border:1px solid rgba(255,255,255,0.08); }}
-  .cal-day.past {{ opacity:0.4; }}
-  .cal-day.past:hover {{ opacity:0.7; }}
+  .cal-day.past {{ opacity:0.35; }}
+  .cal-day.past:hover {{ opacity:0.65; }}
+  .cal-day.today {{ border:1.5px solid var(--accent) !important; background:rgba(196,30,58,0.08); }}
+  .cal-day.today .day-num {{ color:var(--accent); font-weight:700; }}
   .match-info {{ display:flex; flex-direction:column; gap:2px; margin-top:4px; }}
   .cal-match-sep {{ border-top:1px solid rgba(255,255,255,0.08); margin:2px 0; }}
   .cal-match {{
