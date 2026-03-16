@@ -2256,47 +2256,13 @@ def generate_homepage(team_summaries):
       </div>
     </div>"""
 
-    # Build upcoming matches list (all teams combined)
+    # Build combined matches list (last 5 played + next 5 upcoming, chronological)
+    all_played = []
     all_upcoming = []
     for ts in team_summaries:
-        for m in ts.get("upcoming", [])[:3]:
-            opp = m["away_team"] if m["is_home"] else m["home_team"]
-            all_upcoming.append({
-                "date": m["date"],
-                "time": m.get("time", ""),
-                "opp": calendar_short_name(opp),
-                "team_short": ts["short"],
-                "league": ts.get("league", "nb2"),
-                "is_home": m["is_home"],
-            })
-    all_upcoming.sort(key=lambda x: x["date"])
-    all_upcoming = all_upcoming[:6]
-
-    upcoming_rows = ""
-    for u in all_upcoming:
-        hv = "H" if u["is_home"] else "V"
-        hv_cls = "home" if u["is_home"] else "away"
-        lg_cfg = LEAGUES.get(u["league"], LEAGUES["nb2"])
-        upcoming_rows += f"""
-        <div class="up-row">
-          <div class="up-date">{u['date'][5:].replace('-','.')}</div>
-          <div class="up-time">{u['time']}</div>
-          <span class="row-league-tag" style="color:{lg_cfg['color']};background:{lg_cfg['bg']};border-color:{lg_cfg['border']}">{u['team_short']}</span>
-          <div class="up-opp">{('@' if not u['is_home'] else '')}{u['opp']}</div>
-          <span class="up-badge {hv_cls}">{hv}</span>
-        </div>"""
-
-    upcoming_section = ""
-    if upcoming_rows:
-        upcoming_section = f"""
-    <div class="section-title">KÖVETKEZŐ MECCSEK</div>
-    <div class="upcoming-list">{upcoming_rows}
-    </div>"""
-
-    # Build recent results (all teams combined)
-    all_recent = []
-    for ts in team_summaries:
-        for m in ts.get("recent", [])[-3:]:
+        lg = ts.get("league", "nb2")
+        lg_cfg = LEAGUES.get(lg, LEAGUES["nb2"])
+        for m in ts.get("recent", []):
             is_home = m["is_home"]
             opp = m["away_team"] if is_home else m["home_team"]
             our = m["home_score"] if is_home else m["away_score"]
@@ -2309,38 +2275,101 @@ def generate_homepage(team_summaries):
             else:
                 matchup = f'{opp_short} – {ts["short"]}'
                 score_str = f"{their}-{our}"
-            all_recent.append({
+            all_played.append({
                 "date": m["date"],
+                "type": "played",
                 "matchup": matchup,
                 "score": score_str,
                 "win": win,
                 "team_short": ts["short"],
-                "league": ts.get("league", "nb2"),
+                "league": lg,
+                "lg_cfg": lg_cfg,
             })
-    all_recent.sort(key=lambda x: x["date"], reverse=True)
-    all_recent = all_recent[:6]
+        for m in ts.get("upcoming", []):
+            opp = m["away_team"] if m["is_home"] else m["home_team"]
+            all_upcoming.append({
+                "date": m["date"],
+                "type": "upcoming",
+                "time": m.get("time", ""),
+                "opp": calendar_short_name(opp),
+                "is_home": m["is_home"],
+                "team_short": ts["short"],
+                "league": lg,
+                "lg_cfg": lg_cfg,
+            })
+    all_played.sort(key=lambda x: x["date"], reverse=True)
+    all_upcoming.sort(key=lambda x: x["date"])
+    last5 = all_played[:5]
+    next5 = all_upcoming[:5]
+    # Combine: last 5 (chronological) + next 5
+    combined = sorted(last5, key=lambda x: x["date"]) + next5
 
-    recent_rows = ""
-    for r in all_recent:
-        wl = "W" if r["win"] else "L"
-        wl_cls = "w" if r["win"] else "l"
-        sc_cls = "win" if r["win"] else "loss"
-        lg_cfg = LEAGUES.get(r["league"], LEAGUES["nb2"])
-        recent_rows += f"""
-        <div class="res-row">
-          <div class="res-date">{r['date'][5:].replace('-','.')}</div>
-          <span class="row-league-tag" style="color:{lg_cfg['color']};background:{lg_cfg['bg']};border-color:{lg_cfg['border']}">{r['team_short']}</span>
-          <div class="res-matchup">{r['matchup']}</div>
-          <div class="res-score {sc_cls}">{r['score']}</div>
-          <span class="res-badge {wl_cls}">{wl}</span>
+    # Collect unique team names for filter
+    team_names = []
+    seen_teams = set()
+    for ts in team_summaries:
+        if ts["short"] not in seen_teams:
+            seen_teams.add(ts["short"])
+            lg_cfg = LEAGUES.get(ts.get("league", "nb2"), LEAGUES["nb2"])
+            team_names.append({"short": ts["short"], "lg_cfg": lg_cfg})
+
+    filter_buttons = '<button class="match-filter active" data-team="all">Mind</button>'
+    for tn in team_names:
+        filter_buttons += f'<button class="match-filter" data-team="{tn["short"]}" style="--fc:{tn["lg_cfg"]["color"]};--fb:{tn["lg_cfg"]["bg"]};--fbd:{tn["lg_cfg"]["border"]}">{tn["short"]}</button>'
+
+    match_rows = ""
+    for item in combined:
+        lg_cfg = item["lg_cfg"]
+        tag = f'<span class="row-league-tag" style="color:{lg_cfg["color"]};background:{lg_cfg["bg"]};border-color:{lg_cfg["border"]}">{item["team_short"]}</span>'
+        date_str = item["date"][5:].replace("-", ".")
+        if item["type"] == "played":
+            wl = "W" if item["win"] else "L"
+            wl_cls = "w" if item["win"] else "l"
+            sc_cls = "win" if item["win"] else "loss"
+            match_rows += f"""
+        <div class="match-row played" data-team="{item['team_short']}">
+          <div class="m-date">{date_str}</div>
+          {tag}
+          <div class="m-detail">{item['matchup']}</div>
+          <div class="m-score {sc_cls}">{item['score']}</div>
+          <span class="m-badge {wl_cls}">{wl}</span>
+        </div>"""
+        else:
+            hv = "H" if item["is_home"] else "V"
+            hv_cls = "home" if item["is_home"] else "away"
+            opp_display = ('@' if not item['is_home'] else '') + item['opp']
+            match_rows += f"""
+        <div class="match-row upcoming" data-team="{item['team_short']}">
+          <div class="m-date">{date_str}</div>
+          {tag}
+          <div class="m-detail">{opp_display}</div>
+          <div class="m-time">{item.get('time','')}</div>
+          <span class="m-badge {hv_cls}">{hv}</span>
         </div>"""
 
-    recent_section = ""
-    if recent_rows:
-        recent_section = f"""
-    <div class="section-title">LEGUTÓBBI EREDMÉNYEK</div>
-    <div class="recent-list">{recent_rows}
-    </div>"""
+    matches_section = ""
+    if match_rows:
+        matches_section = f"""
+    <div class="section-title">MECCSEK</div>
+    <div class="match-filters">{filter_buttons}</div>
+    <div class="matches-list">{match_rows}
+    </div>
+    <script>
+    (function(){{
+      var btns = document.querySelectorAll('.match-filter');
+      var rows = document.querySelectorAll('.match-row');
+      btns.forEach(function(btn){{
+        btn.addEventListener('click', function(){{
+          btns.forEach(function(b){{ b.classList.remove('active'); }});
+          btn.classList.add('active');
+          var team = btn.dataset.team;
+          rows.forEach(function(r){{
+            r.style.display = (team === 'all' || r.dataset.team === team) ? '' : 'none';
+          }});
+        }});
+      }});
+    }})();
+    </script>"""
 
     # ── Combined calendar (all teams) ──
     all_matches_by_date = {}  # (year, month, day) → list of match dicts
@@ -2548,43 +2577,52 @@ def generate_homepage(team_summaries):
     letter-spacing:1.5px; color:var(--text-dim); margin-bottom:14px;
   }}
 
-  .upcoming-list, .recent-list {{
+  .match-filters {{
+    display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;
+  }}
+  .match-filter {{
+    font-family:inherit; font-size:0.72rem; font-weight:700; padding:5px 14px;
+    border-radius:20px; border:1px solid rgba(255,255,255,0.12);
+    background:rgba(255,255,255,0.04); color:var(--text-dim);
+    cursor:pointer; transition:all .2s; letter-spacing:.5px;
+  }}
+  .match-filter:hover {{ background:rgba(255,255,255,0.08); color:var(--text); }}
+  .match-filter.active {{
+    background:rgba(196,30,58,0.2); color:var(--accent); border-color:var(--accent);
+  }}
+  .match-filter[data-team]:not([data-team="all"]).active {{
+    background:var(--fb); color:var(--fc); border-color:var(--fbd);
+  }}
+  .matches-list {{
     background:var(--card); border-radius:14px; padding:6px;
     margin-bottom:32px; border:1px solid var(--border);
   }}
-  .up-row {{
-    display:grid; grid-template-columns:60px 48px auto 1fr auto;
-    align-items:center; padding:12px 16px; gap:8px;
-    border-bottom:1px solid var(--border);
-    font-size:0.85rem;
-  }}
-  .res-row {{
+  .match-row {{
     display:grid; grid-template-columns:60px auto 1fr auto 36px;
     align-items:center; padding:12px 16px; gap:8px;
     border-bottom:1px solid var(--border);
     font-size:0.85rem;
   }}
-  .res-score {{ text-align:right; }}
-  .res-matchup {{ text-align:right; }}
-  .up-row:last-child, .res-row:last-child {{ border-bottom:none; }}
-  .up-date, .res-date {{ color:var(--text-dim); font-size:0.8rem; font-weight:500; }}
-  .up-time {{ color:var(--text-dim); font-size:0.78rem; }}
-  .up-opp {{ font-weight:600; }}
-  .res-matchup {{ font-weight:600; }}
+  .match-row:last-child {{ border-bottom:none; }}
+  .match-row.upcoming {{ opacity:.75; }}
+  .m-date {{ color:var(--text-dim); font-size:0.8rem; font-weight:500; }}
+  .m-detail {{ font-weight:600; }}
+  .m-time {{ color:var(--text-dim); font-size:0.78rem; text-align:right; }}
+  .m-score {{ text-align:right; }}
+  .m-score.win {{ font-weight:700; color:var(--green); }}
+  .m-score.loss {{ font-weight:700; color:var(--red); }}
   .row-league-tag {{
     font-size:0.72rem; font-weight:700; padding:3px 8px; border-radius:6px;
     border:1px solid; white-space:nowrap;
   }}
-  .up-badge, .res-badge {{
+  .m-badge {{
     font-size:0.7rem; font-weight:800; padding:3px 8px; border-radius:6px;
     text-align:center; min-width:28px;
   }}
-  .up-badge.home {{ background:rgba(196,30,58,0.15); color:var(--accent); }}
-  .up-badge.away {{ background:rgba(253,203,110,0.15); color:var(--accent4); }}
-  .res-badge.w {{ background:rgba(0,184,148,0.15); color:var(--green); }}
-  .res-badge.l {{ background:rgba(225,112,85,0.15); color:var(--red); }}
-  .res-score.win {{ font-weight:700; color:var(--green); }}
-  .res-score.loss {{ font-weight:700; color:var(--red); }}
+  .m-badge.home {{ background:rgba(196,30,58,0.15); color:var(--accent); }}
+  .m-badge.away {{ background:rgba(253,203,110,0.15); color:var(--accent4); }}
+  .m-badge.w {{ background:rgba(0,184,148,0.15); color:var(--green); }}
+  .m-badge.l {{ background:rgba(225,112,85,0.15); color:var(--red); }}
 
   /* Calendar */
   .cal-legend {{
@@ -2684,8 +2722,7 @@ def generate_homepage(team_summaries):
   <div class="home-cards">
     {cards_html}
   </div>
-  {upcoming_section}
-  {recent_section}
+  {matches_section}
   {calendar_section}
 </div>
 </body>
