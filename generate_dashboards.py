@@ -119,7 +119,7 @@ TEAMS = {
         "mkosz_season": "x2526",
         "mkosz_comp": "hun_univn",
         "mkosz_team_id": "25102",
-        "color": "#55efc4",  # zöld-teal
+        "color": "#a0a0b0",  # szürke
     },
 }
 
