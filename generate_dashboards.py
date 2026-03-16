@@ -2528,6 +2528,11 @@ def generate_homepage(team_summaries):
     border-radius:20px; margin-bottom:36px;
     border:1px solid rgba(196,30,58,0.15);
   }}
+  .hero-logo {{
+    width:100px; height:100px; border-radius:50%;
+    margin-bottom:18px; object-fit:cover;
+    box-shadow:0 4px 20px rgba(196,30,58,0.25);
+  }}
   .hero h1 {{
     font-size:2.6rem; font-weight:900; letter-spacing:2px;
     background:linear-gradient(135deg,#fff 30%,var(--accent) 100%);
@@ -2724,6 +2729,7 @@ def generate_homepage(team_summaries):
 <div class="container">
   {_nav_html(depth=0)}
   <div class="hero">
+    <img src="kozgaz_logo.png" alt="Közgáz Basketball" class="hero-logo">
     <h1>KÖZGÁZ BASKETBALL</h1>
     <div class="sub">2025/26 szezon</div>
   </div>
