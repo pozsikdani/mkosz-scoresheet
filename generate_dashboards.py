@@ -2423,7 +2423,7 @@ def generate_homepage(team_summaries):
     margin-bottom:32px; border:1px solid var(--border);
   }}
   .up-row {{
-    display:grid; grid-template-columns:60px 48px 80px 1fr auto;
+    display:grid; grid-template-columns:60px 48px 100px 1fr auto;
     align-items:center; padding:12px 16px; gap:8px;
     border-bottom:1px solid var(--border);
     font-size:0.85rem;
