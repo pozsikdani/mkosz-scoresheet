@@ -1084,7 +1084,11 @@ def scrape_schedule(cfg):
         if score_m:
             home_score = int(score_m.group(1))
             away_score = int(score_m.group(2))
-            played = True
+            # 0-0 is impossible in basketball → treat as unplayed
+            played = not (home_score == 0 and away_score == 0)
+            if not played:
+                home_score = None
+                away_score = None
         else:
             home_score = None
             away_score = None
