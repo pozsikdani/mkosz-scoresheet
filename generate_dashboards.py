@@ -17,6 +17,13 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nb2_full.sql
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ---- TEAM CONFIGURATIONS ----
+# League definitions: label, color, border color, background tint
+LEAGUES = {
+    "nb2":       {"label": "NB2",        "color": "#C41E3A", "bg": "rgba(196,30,58,0.12)",  "border": "rgba(196,30,58,0.3)"},
+    "budapesti": {"label": "Budapesti",   "color": "#6c5ce7", "bg": "rgba(108,92,231,0.12)", "border": "rgba(108,92,231,0.3)"},
+    "mefob":     {"label": "MEFOB",      "color": "#00cec9", "bg": "rgba(0,206,201,0.12)",  "border": "rgba(0,206,201,0.3)"},
+}
+
 TEAMS = {
     "kozgaz-b": {
         "team_pattern": "%KÖZGÁZ%DSK/B%",
@@ -25,6 +32,7 @@ TEAMS = {
         "team_name": "KÖZGÁZ SC ÉS DSK/B",
         "team_short": "KÖZGÁZ B",
         "group_name": "NB2 Kelet",
+        "league": "nb2",
         "out_dir": "dashboards",
         "mkosz_season": "x2526",
         "mkosz_comp": "hun3k",
@@ -37,6 +45,7 @@ TEAMS = {
         "team_name": "KÖZGÁZ SC ÉS DSK/A",
         "team_short": "KÖZGÁZ A",
         "group_name": "NB2 Közép B",
+        "league": "nb2",
         "out_dir": "dashboards-a",
         "mkosz_season": "x2526",
         "mkosz_comp": "hun3kob",
@@ -49,6 +58,7 @@ TEAMS = {
         "team_name": "KÖZGÁZ",
         "team_short": "Közgáz Női",
         "group_name": "Női A - Cziffra Mihály",
+        "league": "budapesti",
         "out_dir": "dashboards-noi",
         "mkosz_season": "x2526",
         "mkosz_comp": "whun_bud_na",
@@ -62,6 +72,7 @@ TEAMS = {
         "team_name": "KÖZGÁZ LEFTOVERZ",
         "team_short": "Leftoverz",
         "group_name": "Regionális Kiemelt Férfi - Cziffra Mihály",
+        "league": "budapesti",
         "out_dir": "leftoverz",
         "mkosz_season": "x2526",
         "mkosz_comp": "hun_bud_rkfb",
@@ -75,6 +86,7 @@ TEAMS = {
         "team_name": "Közgáz SC és DSK",
         "team_short": "MEFOB Női",
         "group_name": "Leány egyetemi Nyugat",
+        "league": "mefob",
         "out_dir": "dashboards-mefob",
         "mkosz_season": "x2526",
         "mkosz_comp": "whun_univn",
@@ -2172,30 +2184,55 @@ NAV_CSS = """
 
 def generate_homepage(team_summaries):
     """Generate the main club homepage with team cards and upcoming matches."""
-    # Build team cards
-    cards_html = ""
+    # Group team summaries by league, preserving order
+    from collections import OrderedDict
+    league_order = ["nb2", "budapesti", "mefob"]
+    grouped = OrderedDict()
+    for lg in league_order:
+        grouped[lg] = []
     for ts in team_summaries:
-        w = ts.get("wins", 0)
-        l = ts.get("losses", 0)
-        upcoming = ts.get("upcoming", [])
-        next_match = ""
-        if upcoming:
-            nm = upcoming[0]
-            opp = nm["away_team"] if nm["is_home"] else nm["home_team"]
-            next_match = f'<div class="next-match">Következő: <strong>{calendar_short_name(opp)}</strong> — {nm["date"][5:].replace("-",".")} {nm.get("time","")}</div>'
+        lg = ts.get("league", "nb2")
+        if lg not in grouped:
+            grouped[lg] = []
+        grouped[lg].append(ts)
 
-        record_html = f'<span class="rec-w">{w}W</span> – <span class="rec-l">{l}L</span>'
-
+    # Build team cards grouped by league
+    cards_html = ""
+    for lg, teams in grouped.items():
+        if not teams:
+            continue
+        lg_cfg = LEAGUES.get(lg, LEAGUES["nb2"])
         cards_html += f"""
-      <a href="{ts['href']}/index.html" class="home-card">
-        <div class="home-card-header">
-          <div class="home-card-title">{ts['label']}</div>
-          <div class="home-card-group">{ts['group']}</div>
-        </div>
-        <div class="home-card-record">{record_html}</div>
-        {next_match}
-        <div class="home-card-arrow">&rarr;</div>
-      </a>"""
+    <div class="league-section">
+      <div class="league-header">
+        <span class="league-badge" style="background:{lg_cfg['bg']};color:{lg_cfg['color']};border-color:{lg_cfg['border']}">{lg_cfg['label']}</span>
+      </div>
+      <div class="home-cards">"""
+        for ts in teams:
+            w = ts.get("wins", 0)
+            l = ts.get("losses", 0)
+            upcoming = ts.get("upcoming", [])
+            next_match = ""
+            if upcoming:
+                nm = upcoming[0]
+                opp = nm["away_team"] if nm["is_home"] else nm["home_team"]
+                next_match = f'<div class="next-match">Következő: <strong>{calendar_short_name(opp)}</strong> — {nm["date"][5:].replace("-",".")} {nm.get("time","")}</div>'
+
+            record_html = f'<span class="rec-w">{w}W</span> – <span class="rec-l">{l}L</span>'
+
+            cards_html += f"""
+        <a href="{ts['href']}/index.html" class="home-card" style="border-color:{lg_cfg['border']}">
+          <div class="home-card-header">
+            <div class="home-card-title">{ts['label']}</div>
+            <div class="home-card-group">{ts['group']}</div>
+          </div>
+          <div class="home-card-record">{record_html}</div>
+          {next_match}
+          <div class="home-card-arrow">&rarr;</div>
+        </a>"""
+        cards_html += """
+      </div>
+    </div>"""
 
     # Build upcoming matches list (all teams combined)
     all_upcoming = []
@@ -2312,16 +2349,23 @@ def generate_homepage(team_summaries):
     letter-spacing:0.5px;
   }}
 
-  .home-cards {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; margin-bottom:36px; }}
+  .league-section {{ margin-bottom:32px; }}
+  .league-header {{ margin-bottom:14px; }}
+  .league-badge {{
+    display:inline-block; font-size:0.72rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:1.2px; padding:5px 14px; border-radius:20px;
+    border:1px solid; background:rgba(255,255,255,0.05);
+  }}
+  .home-cards {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }}
   .home-card {{
-    background:linear-gradient(135deg,#2a1218 0%,#1a1518 100%);
+    background:linear-gradient(135deg,#1c1820 0%,#151518 100%);
     border-radius:16px; padding:24px; text-decoration:none; color:var(--text);
-    border:1px solid rgba(196,30,58,0.2);
+    border:1px solid rgba(255,255,255,0.08);
     transition:all .25s; position:relative; overflow:hidden;
   }}
   .home-card:hover {{
-    border-color:var(--accent); transform:translateY(-3px);
-    box-shadow:0 12px 32px rgba(196,30,58,0.2);
+    transform:translateY(-3px);
+    box-shadow:0 12px 32px rgba(0,0,0,0.3);
   }}
   .home-card-header {{ margin-bottom:16px; }}
   .home-card-title {{ font-size:1.3rem; font-weight:800; }}
@@ -2636,6 +2680,7 @@ def generate_site():
             "href": t["href"],
             "group": cfg["group_name"],
             "short": cfg["team_short"],
+            "league": cfg.get("league", "nb2"),
             "wins": wins,
             "losses": losses,
             "upcoming": upcoming,
