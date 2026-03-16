@@ -2652,9 +2652,21 @@ def generate_homepage(team_summaries):
   {CALENDAR_CSS}
 
   @media(max-width:600px) {{
+    body {{ padding:10px; }}
+    .container {{ overflow-x:hidden; }}
     .hero h1 {{ font-size:1.8rem; }}
     .home-cards {{ grid-template-columns:1fr; }}
     .up-row, .res-row {{ font-size:0.78rem; gap:4px; padding:10px 12px; }}
+    .match-filters {{ gap:5px; }}
+    .match-filter {{ font-size:0.65rem; padding:4px 9px; letter-spacing:0; }}
+    .matches-list {{ padding:4px; overflow:hidden; }}
+    .match-row {{ grid-template-columns:48px 22px 1fr auto 32px; padding:10px 8px; gap:5px; font-size:0.78rem; }}
+    .row-league-tag {{ display:none; }}
+    .m-date {{ font-size:0.7rem; }}
+    .m-hv {{ font-size:0.6rem; }}
+    .m-badge {{ font-size:0.62rem; padding:2px 6px; min-width:24px; }}
+    .m-time {{ font-size:0.7rem; }}
+    .section-title {{ font-size:0.68rem; letter-spacing:1px; }}
   }}
 </style>
 </head>
