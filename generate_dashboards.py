@@ -2342,6 +2342,127 @@ def generate_homepage(team_summaries):
     <div class="recent-list">{recent_rows}
     </div>"""
 
+    # ── Combined calendar (all teams) ──
+    all_matches_by_date = {}  # (year, month, day) → list of match dicts
+    for ts in team_summaries:
+        lg = ts.get("league", "nb2")
+        lg_cfg = LEAGUES.get(lg, LEAGUES["nb2"])
+        for m in ts.get("cal_data", []):
+            d = datetime.strptime(m["date"], "%Y-%m-%d").date()
+            is_home = m["is_home"]
+            opponent = m["away_team"] if is_home else m["home_team"]
+            opp_short = calendar_short_name(opponent)
+            display_opp = opp_short if is_home else f"@{opp_short}"
+
+            if m["played"] and m["home_score"] is not None:
+                our_score = m["home_score"] if is_home else m["away_score"]
+                opp_score = m["away_score"] if is_home else m["home_score"]
+                is_win = our_score > opp_score
+                score_str = f"{our_score}-{opp_score}"
+            else:
+                is_win = None
+                score_str = None
+
+            key = (d.year, d.month, d.day)
+            if key not in all_matches_by_date:
+                all_matches_by_date[key] = []
+            all_matches_by_date[key].append({
+                "opp": display_opp,
+                "time": m.get("time", ""),
+                "score": score_str,
+                "win": is_win,
+                "home": is_home,
+                "played": m["played"],
+                "team_short": ts["short"],
+                "league": lg,
+                "lg_cfg": lg_cfg,
+            })
+
+    calendar_section = ""
+    if all_matches_by_date:
+        all_dates = [datetime(y, mo, d) for y, mo, d in all_matches_by_date]
+        min_d, max_d = min(all_dates), max(all_dates)
+
+        months_to_show = []
+        y, mo = min_d.year, min_d.month
+        while (y, mo) <= (max_d.year, max_d.month):
+            months_to_show.append((y, mo))
+            mo += 1
+            if mo > 12:
+                mo = 1
+                y += 1
+
+        months_html = ""
+        for year, month in months_to_show:
+            month_name = MONTH_NAMES_HU[month]
+            first_weekday, num_days = cal_module.monthrange(year, month)
+
+            headers = "".join(f'<div class="cal-hd">{d}</div>' for d in DAY_NAMES_HU)
+            cells = '<div class="cal-day empty"></div>' * first_weekday
+
+            for day in range(1, num_days + 1):
+                key = (year, month, day)
+                if key in all_matches_by_date:
+                    day_matches = all_matches_by_date[key]
+                    # Determine cell background: all wins → green, all losses → red, mixed/upcoming → neutral
+                    results = [mi["win"] for mi in day_matches if mi["win"] is not None]
+                    if results and all(r for r in results):
+                        cell_cls = "has-match win"
+                    elif results and all(not r for r in results):
+                        cell_cls = "has-match loss"
+                    elif any(mi["win"] is None for mi in day_matches):
+                        cell_cls = "has-match upcoming"
+                    else:
+                        cell_cls = "has-match mixed"
+
+                    match_items = ""
+                    for mi in day_matches:
+                        lcfg = mi["lg_cfg"]
+                        tag = f'<span class="cal-team-tag" style="color:{lcfg["color"]};background:{lcfg["bg"]};border-color:{lcfg["border"]}">{mi["team_short"]}</span>'
+
+                        if mi["played"] and mi["win"] is not None:
+                            badge_letter = "W" if mi["win"] else "L"
+                            bc = "w" if mi["win"] else "l"
+                            sc_cls = "win" if mi["win"] else "loss"
+                            detail = f'<span class="match-opp">{mi["opp"]}</span><span class="match-score {sc_cls}">{mi["score"]}</span><span class="match-badge {bc}">{badge_letter}</span>'
+                        else:
+                            detail = f'<span class="match-opp">{mi["opp"]}</span><span class="match-time">{mi["time"]}</span>'
+
+                        match_items += f'<div class="cal-match">{tag}{detail}</div>'
+
+                    cells += f'''<div class="cal-day {cell_cls}">
+  <span class="day-num">{day}</span>
+  <div class="match-info">{match_items}</div>
+</div>'''
+                else:
+                    cells += f'<div class="cal-day"><span class="day-num">{day}</span></div>'
+
+            trailing = (7 - (first_weekday + num_days) % 7) % 7
+            cells += '<div class="cal-day empty"></div>' * trailing
+
+            months_html += f'''
+      <div class="cal-month">
+        <h3>{month_name} {year}</h3>
+        <div class="cal-grid">
+          {headers}
+          {cells}
+        </div>
+      </div>'''
+
+        # Legend
+        legend_html = """
+    <div class="cal-legend">
+      <span class="legend-item"><span class="legend-dot win"></span> Győzelem</span>
+      <span class="legend-item"><span class="legend-dot loss"></span> Vereség</span>
+      <span class="legend-item"><span class="legend-dot upcoming"></span> Következő</span>
+      <span class="legend-item">@ = Idegen pálya</span>
+    </div>"""
+
+        calendar_section = f"""
+    <div class="section-title">MECCSNAPTÁR</div>
+    {legend_html}
+    {months_html}"""
+
     return f"""<!DOCTYPE html>
 <html lang="hu">
 <head>
@@ -2456,10 +2577,79 @@ def generate_homepage(team_summaries):
   .res-score.win {{ font-weight:700; color:var(--green); }}
   .res-score.loss {{ font-weight:700; color:var(--red); }}
 
+  /* Calendar */
+  .cal-legend {{
+    display:flex; gap:24px; justify-content:center; flex-wrap:wrap;
+    margin-bottom:20px; font-size:.78rem; color:var(--text-dim);
+  }}
+  .legend-item {{ display:flex; align-items:center; gap:6px; }}
+  .legend-dot {{ width:12px; height:12px; border-radius:4px; }}
+  .legend-dot.win {{ background:rgba(0,184,148,.2); border:1.5px solid var(--green); }}
+  .legend-dot.loss {{ background:rgba(225,112,85,.2); border:1.5px solid var(--red); }}
+  .legend-dot.upcoming {{ background:rgba(139,141,160,.2); border:1.5px solid var(--text-dim); }}
+  .cal-month {{
+    background:var(--card); border-radius:16px; padding:20px;
+    border:1px solid var(--border); margin-bottom:16px;
+  }}
+  .cal-month h3 {{
+    font-size:.85rem; text-transform:uppercase; letter-spacing:2.5px;
+    color:var(--accent); margin-bottom:14px; font-weight:700; text-align:center;
+  }}
+  .cal-grid {{
+    display:grid; grid-template-columns:repeat(7,1fr); gap:3px;
+  }}
+  .cal-hd {{
+    text-align:center; font-size:.65rem; font-weight:700; color:var(--text-dim);
+    text-transform:uppercase; letter-spacing:1px; padding:6px 0 8px;
+  }}
+  .cal-day {{
+    min-height:80px; padding:6px 5px; border-radius:8px;
+    background:rgba(255,255,255,.015); position:relative;
+  }}
+  .cal-day.empty {{ background:transparent; min-height:0; }}
+  .day-num {{ font-size:.68rem; color:var(--text-dim); font-weight:500; }}
+  .cal-day.has-match {{ border:1px solid var(--border); }}
+  .cal-day.has-match.win {{ border-color:rgba(0,184,148,.35); background:rgba(0,184,148,.06); }}
+  .cal-day.has-match.loss {{ border-color:rgba(225,112,85,.3); background:rgba(225,112,85,.05); }}
+  .cal-day.has-match.upcoming {{ border-color:rgba(139,141,160,.3); background:rgba(139,141,160,.06); }}
+  .cal-day.has-match.mixed {{ border-color:rgba(139,141,160,.3); background:rgba(139,141,160,.04); }}
+  .match-info {{ display:flex; flex-direction:column; gap:3px; margin-top:4px; }}
+  .cal-match {{
+    display:flex; align-items:center; gap:3px; flex-wrap:wrap;
+  }}
+  .cal-team-tag {{
+    font-size:.52rem; font-weight:700; padding:1px 5px; border-radius:4px;
+    border:1px solid; white-space:nowrap; line-height:1.3;
+  }}
+  .match-opp {{ font-size:.62rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
+  .match-time {{ font-size:.55rem; color:var(--text-dim); }}
+  .match-score {{ font-size:.62rem; font-weight:700; }}
+  .match-score.win {{ color:var(--green); }}
+  .match-score.loss {{ color:var(--red); }}
+  .match-badge {{
+    font-size:.5rem; font-weight:800; padding:1px 4px; border-radius:4px;
+    min-width:18px; text-align:center; line-height:1.4;
+  }}
+  .match-badge.w {{ background:rgba(0,184,148,.2); color:var(--green); }}
+  .match-badge.l {{ background:rgba(225,112,85,.2); color:var(--red); }}
+
+  @media(max-width:900px) {{
+    .cal-day {{ min-height:65px; padding:4px; }}
+    .match-opp {{ font-size:.55rem; }}
+    .cal-team-tag {{ font-size:.48rem; padding:1px 3px; }}
+  }}
   @media(max-width:600px) {{
     .hero h1 {{ font-size:1.8rem; }}
     .home-cards {{ grid-template-columns:1fr; }}
     .up-row, .res-row {{ font-size:0.78rem; gap:4px; padding:10px 12px; }}
+    .cal-day {{ min-height:50px; padding:3px; }}
+    .day-num {{ font-size:.58rem; }}
+    .match-opp {{ font-size:.5rem; }}
+    .match-time {{ display:none; }}
+    .match-score {{ font-size:.52rem; }}
+    .match-badge {{ font-size:.45rem; padding:1px 3px; }}
+    .cal-team-tag {{ font-size:.44rem; padding:1px 2px; }}
+    .cal-hd {{ font-size:.55rem; }}
   }}
 </style>
 </head>
@@ -2475,6 +2665,7 @@ def generate_homepage(team_summaries):
   </div>
   {upcoming_section}
   {recent_section}
+  {calendar_section}
 </div>
 </body>
 </html>"""
@@ -2723,6 +2914,7 @@ def generate_site():
             "losses": losses,
             "upcoming": upcoming,
             "recent": recent,
+            "cal_data": matches,
         })
 
     hp = generate_homepage(summaries)
