@@ -2433,8 +2433,8 @@ def generate_homepage(team_summaries):
             cells += '<div class="cal-day empty"></div>' * trailing
 
             months_html += f'''
-      <div class="cal-month">
-        <h3>{month_name} {year}</h3>
+      <div class="cal-month" data-month="{year}-{month:02d}">
+        <h3>{month_name} {year} <span class="cal-toggle">▾</span></h3>
         <div class="cal-grid">
           {headers}
           {cells}
@@ -2458,9 +2458,16 @@ def generate_homepage(team_summaries):
     (function(){{
       var today = new Date(); today.setHours(0,0,0,0);
       var todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+      var curMonth = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
       document.querySelectorAll('.cal-day[data-date]').forEach(function(el){{
         if(el.dataset.date < todayStr) el.classList.add('past');
         else if(el.dataset.date === todayStr) el.classList.add('today');
+      }});
+      document.querySelectorAll('.cal-month[data-month]').forEach(function(el){{
+        if(el.dataset.month < curMonth) el.classList.add('collapsed');
+        el.querySelector('h3').addEventListener('click', function(){{
+          el.classList.toggle('collapsed');
+        }});
       }});
     }})();
     </script>"""
@@ -2592,7 +2599,18 @@ def generate_homepage(team_summaries):
   .cal-month h3 {{
     font-size:.85rem; text-transform:uppercase; letter-spacing:2.5px;
     color:var(--accent); margin-bottom:14px; font-weight:700; text-align:center;
+    cursor:pointer; user-select:none; transition:color .2s;
   }}
+  .cal-month h3:hover {{ color:#e8e8f0; }}
+  .cal-toggle {{
+    font-size:.7rem; display:inline-block; transition:transform .2s;
+    margin-left:6px; opacity:.6;
+  }}
+  .cal-month.collapsed {{ padding:14px 20px; }}
+  .cal-month.collapsed h3 {{ margin-bottom:0; opacity:.5; }}
+  .cal-month.collapsed h3:hover {{ opacity:.8; }}
+  .cal-month.collapsed .cal-grid {{ display:none; }}
+  .cal-month.collapsed .cal-toggle {{ transform:rotate(-90deg); }}
   .cal-grid {{
     display:grid; grid-template-columns:repeat(7,1fr); gap:3px;
   }}
