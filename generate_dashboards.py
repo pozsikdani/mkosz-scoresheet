@@ -68,6 +68,18 @@ TEAMS = {
         "mkosz_team_id": "79359",
         "county": "budapest",
     },
+    "kozgaz-mefob": {
+        "team_pattern": "%Közgáz SC és DSK%",
+        "team_pattern_broad": "%Közgáz%",
+        "comp_prefix": "MFOB%",
+        "team_name": "Közgáz SC és DSK",
+        "team_short": "MEFOB Női",
+        "group_name": "Leány egyetemi Nyugat",
+        "out_dir": "dashboards-mefob",
+        "mkosz_season": "x2526",
+        "mkosz_comp": "whun_univn",
+        "mkosz_team_id": "25113",
+    },
 }
 
 # Navigation structure for the site
@@ -76,6 +88,7 @@ NAV_TEAMS = [
     {"key": "kozgaz-a", "label": "Fiatalok NB2", "href": "dashboards-a"},
     {"key": "kozgaz-noi", "label": "Közgáz Női", "href": "dashboards-noi"},
     {"key": "leftoverz", "label": "Leftoverz", "href": "leftoverz"},
+    {"key": "kozgaz-mefob", "label": "MEFOB Női", "href": "dashboards-mefob"},
 ]
 
 # ---- TRAINING ATTENDANCE (Közgáz B only, fetched from Google Sheets) ----
@@ -184,6 +197,13 @@ CALENDAR_SHORT = {
     "LUDOVIKA SE": "Ludovika",
     "QPAC": "Qpac",
     "KÖZGÁZ LEFTOVERZ": "Leftoverz",
+    # Leány egyetemi Nyugat (MEFOB) bajnokság
+    "ELTE BEAC": "ELTE BEAC",
+    "UNI Győr SZESE": "UNI Győr",
+    "SzOESE": "SzOESE",
+    "PTE-PEAC": "PTE-PEAC",
+    "BME-MAFC": "BME-MAFC",
+    "Közgáz SC és DSK": "Közgáz",
 }
 
 
