@@ -2281,7 +2281,7 @@ def generate_homepage(team_summaries):
         <div class="up-row">
           <div class="up-date">{u['date'][5:].replace('-','.')}</div>
           <div class="up-time">{u['time']}</div>
-          <div class="up-team" style="color:{lg_cfg['color']}">{u['team_short']}</div>
+          <span class="row-league-tag" style="color:{lg_cfg['color']};background:{lg_cfg['bg']};border-color:{lg_cfg['border']}">{u['team_short']}</span>
           <div class="up-opp">{('@' if not u['is_home'] else '')}{u['opp']}</div>
           <span class="up-badge {hv_cls}">{hv}</span>
         </div>"""
@@ -2329,7 +2329,7 @@ def generate_homepage(team_summaries):
         recent_rows += f"""
         <div class="res-row">
           <div class="res-date">{r['date'][5:].replace('-','.')}</div>
-          <div class="res-team" style="color:{lg_cfg['color']}">{r['team_short']}</div>
+          <span class="row-league-tag" style="color:{lg_cfg['color']};background:{lg_cfg['bg']};border-color:{lg_cfg['border']}">{r['team_short']}</span>
           <div class="res-matchup">{r['matchup']}</div>
           <div class="res-score {sc_cls}">{r['score']}</div>
           <span class="res-badge {wl_cls}">{wl}</span>
@@ -2429,7 +2429,7 @@ def generate_homepage(team_summaries):
     font-size:0.85rem;
   }}
   .res-row {{
-    display:grid; grid-template-columns:60px 80px 1fr 70px auto;
+    display:grid; grid-template-columns:60px auto 1fr auto 36px;
     align-items:center; padding:12px 16px; gap:8px;
     border-bottom:1px solid var(--border);
     font-size:0.85rem;
@@ -2439,9 +2439,12 @@ def generate_homepage(team_summaries):
   .up-row:last-child, .res-row:last-child {{ border-bottom:none; }}
   .up-date, .res-date {{ color:var(--text-dim); font-size:0.8rem; font-weight:500; }}
   .up-time {{ color:var(--text-dim); font-size:0.78rem; }}
-  .up-team, .res-team {{ font-weight:700; font-size:0.78rem; }}
   .up-opp {{ font-weight:600; }}
   .res-matchup {{ font-weight:600; }}
+  .row-league-tag {{
+    font-size:0.72rem; font-weight:700; padding:3px 8px; border-radius:6px;
+    border:1px solid; white-space:nowrap;
+  }}
   .up-badge, .res-badge {{
     font-size:0.7rem; font-weight:800; padding:3px 8px; border-radius:6px;
     text-align:center; min-width:28px;
@@ -2452,7 +2455,6 @@ def generate_homepage(team_summaries):
   .res-badge.l {{ background:rgba(225,112,85,0.15); color:var(--red); }}
   .res-score.win {{ font-weight:700; color:var(--green); }}
   .res-score.loss {{ font-weight:700; color:var(--red); }}
-  .res-row {{ grid-template-columns:60px 1fr auto auto; }}
 
   @media(max-width:600px) {{
     .hero h1 {{ font-size:1.8rem; }}
