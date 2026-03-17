@@ -14,6 +14,7 @@ import csv
 import io
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nb2_full.sqlite")
+PBP_DB_PATH = os.path.expanduser("~/Desktop/claudecode/mkosz-play-by-play/pbp.sqlite")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ---- TEAM CONFIGURATIONS ----
@@ -106,6 +107,8 @@ TEAMS = {
         "mkosz_comp": "whun_univn",
         "mkosz_team_id": "25113",
         "color": "#00cec9",  # teal
+        "data_source": "pbp",
+        "pbp_comp_code": "whun_univn",
     },
     "kozgaz-mefob-ferfi": {
         "team_pattern": "%Közgáz SC és DSK%",
@@ -120,6 +123,8 @@ TEAMS = {
         "mkosz_comp": "hun_univn",
         "mkosz_team_id": "25102",
         "color": "#a0a0b0",  # szürke
+        "data_source": "pbp",
+        "pbp_comp_code": "hun_univn",
     },
 }
 
@@ -396,6 +401,423 @@ def get_tech_unsport(conn, cfg, tp, license_number):
         WHERE p.license_number = ? AND pf.foul_category IN ('T','U')
     """, (tp, cfg["comp_prefix"], tp, tp, license_number)).fetchone()
     return (rows[0] or 0, rows[1] or 0)
+
+
+# ---- PBP DATA SOURCE FUNCTIONS (for MEFOB teams) ----
+
+def _pbp_connection():
+    """Open PBP database connection."""
+    conn = sqlite3.connect(PBP_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _pbp_match_filter(cfg):
+    """Return match_id LIKE pattern for PBP comp_code filtering."""
+    return cfg["pbp_comp_code"] + "%"
+
+
+def get_roster_pbp(conn, cfg, tp):
+    """PBP equivalent of get_roster(). Returns same tuple format."""
+    cc = _pbp_match_filter(cfg)
+    return conn.execute("""
+        WITH kg AS (
+            SELECT m.match_id,
+                   CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as kg_team
+            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+              AND m.score_a + m.score_b > 0
+        ),
+        per_game AS (
+            SELECT e.match_id, e.player_name,
+                   SUM(CASE WHEN e.is_scoring=1 THEN e.points ELSE 0 END) as pts,
+                   SUM(CASE WHEN e.event_type IN ('CLOSE_MADE','MID_MADE','DUNK_MADE') THEN 1 ELSE 0 END) as fg2,
+                   SUM(CASE WHEN e.event_type='THREE_MADE' THEN 1 ELSE 0 END) as fg3,
+                   SUM(CASE WHEN e.event_type='FT_MADE' THEN 1 ELSE 0 END) as ftm,
+                   SUM(CASE WHEN e.event_type IN ('FT_MADE','FT_MISS') THEN 1 ELSE 0 END) as fta,
+                   SUM(CASE WHEN e.event_type='FOUL' THEN 1 ELSE 0 END) as pf
+            FROM events e JOIN kg ON e.match_id=kg.match_id AND e.team=kg.kg_team
+            WHERE e.player_name IS NOT NULL
+            GROUP BY e.match_id, e.player_name
+        )
+        SELECT pg.player_name as lic, pg.player_name as name, '' as jersey,
+               COUNT(*) as games, SUM(pg.pts) as total_pts,
+               ROUND(1.0*SUM(pg.pts)/COUNT(*),1) as ppg,
+               SUM(pg.fg2) as fg2, SUM(pg.fg3) as fg3,
+               SUM(pg.ftm) as ft_made, SUM(pg.fta) as ft_att,
+               SUM(pg.pf) as pf, MAX(pg.pts) as max_pts,
+               COALESCE((SELECT SUM(ps.is_starter) FROM player_stats ps
+                         JOIN kg k2 ON ps.match_id=k2.match_id AND ps.team=k2.kg_team
+                         WHERE ps.player_name=pg.player_name), 0) as starts
+        FROM per_game pg
+        GROUP BY pg.player_name
+        ORDER BY total_pts DESC
+    """, (tp, cc, tp, tp)).fetchall()
+
+
+def get_game_log_pbp(conn, cfg, tp, player_name):
+    """PBP equivalent of get_game_log(). Returns same tuple format."""
+    cc = _pbp_match_filter(cfg)
+    return conn.execute("""
+        WITH kg AS (
+            SELECT m.match_id, m.match_date,
+                   CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as kg_team,
+                   CASE WHEN m.team_a LIKE ? THEN 'H' ELSE 'V' END as hv,
+                   CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opponent,
+                   CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as kg_score,
+                   CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as opp_score
+            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+              AND m.score_a + m.score_b > 0
+        ),
+        player_events AS (
+            SELECT e.match_id,
+                   SUM(CASE WHEN e.is_scoring=1 THEN e.points ELSE 0 END) as pts,
+                   SUM(CASE WHEN e.event_type IN ('CLOSE_MADE','MID_MADE','DUNK_MADE') THEN 1 ELSE 0 END) as fg2,
+                   SUM(CASE WHEN e.event_type='THREE_MADE' THEN 1 ELSE 0 END) as fg3,
+                   SUM(CASE WHEN e.event_type='FT_MADE' THEN 1 ELSE 0 END) as ftm,
+                   SUM(CASE WHEN e.event_type IN ('FT_MADE','FT_MISS') THEN 1 ELSE 0 END) as fta,
+                   SUM(CASE WHEN e.event_type='FOUL' THEN 1 ELSE 0 END) as pf
+            FROM events e JOIN kg ON e.match_id=kg.match_id AND e.team=kg.kg_team
+            WHERE e.player_name = ?
+            GROUP BY e.match_id
+        )
+        SELECT kg.match_id, kg.match_date, kg.hv, kg.opponent, kg.kg_score, kg.opp_score,
+               pe.pts, pe.fg2, pe.fg3, pe.ftm, pe.fta, pe.pf,
+               COALESCE(ps.is_starter, 0) as starter
+        FROM kg
+        LEFT JOIN player_events pe ON pe.match_id = kg.match_id
+        LEFT JOIN player_stats ps ON ps.match_id = kg.match_id AND ps.player_name = ?
+            AND ps.team = kg.kg_team
+        ORDER BY kg.match_date
+    """, (tp, tp, tp, tp, tp, cc, tp, tp, player_name, player_name)).fetchall()
+
+
+def get_quarter_stats_pbp(conn, cfg, tp, player_name):
+    """PBP equivalent of get_quarter_stats(). Returns same tuple format."""
+    cc = _pbp_match_filter(cfg)
+    return conn.execute("""
+        WITH kg AS (
+            SELECT m.match_id,
+                   CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as kg_team
+            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+              AND m.score_a + m.score_b > 0
+        )
+        SELECT e.quarter,
+               SUM(CASE WHEN e.is_scoring=1 THEN e.points ELSE 0 END) as pts,
+               SUM(CASE WHEN e.event_type='THREE_MADE' THEN 1 ELSE 0 END) as threes,
+               SUM(CASE WHEN e.event_type IN ('CLOSE_MADE','MID_MADE','DUNK_MADE') THEN 1 ELSE 0 END) as twos,
+               SUM(CASE WHEN e.event_type='FT_MADE' THEN 1 ELSE 0 END) as fts
+        FROM events e
+        JOIN kg ON e.match_id = kg.match_id AND e.team = kg.kg_team
+        WHERE e.player_name = ?
+        GROUP BY e.quarter ORDER BY e.quarter
+    """, (tp, cc, tp, tp, player_name)).fetchall()
+
+
+def get_opponent_ppg_pbp(conn, cfg, tp, player_name):
+    """PBP equivalent of get_opponent_ppg(). Returns same tuple format."""
+    cc = _pbp_match_filter(cfg)
+    return conn.execute("""
+        WITH kg AS (
+            SELECT m.match_id,
+                   CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as kg_team,
+                   CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opponent
+            FROM matches m WHERE m.match_id LIKE ? AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+              AND m.score_a + m.score_b > 0
+        ),
+        per_game AS (
+            SELECT kg.opponent, e.match_id,
+                   SUM(CASE WHEN e.is_scoring=1 THEN e.points ELSE 0 END) as pts
+            FROM events e JOIN kg ON e.match_id=kg.match_id AND e.team=kg.kg_team
+            WHERE e.player_name = ?
+            GROUP BY e.match_id
+        )
+        SELECT opponent,
+               ROUND(1.0*SUM(pts)/COUNT(*),1) as ppg,
+               COUNT(*) as games,
+               SUM(pts) as total
+        FROM per_game
+        GROUP BY opponent
+        ORDER BY ppg DESC
+    """, (tp, tp, cc, tp, tp, player_name)).fetchall()
+
+
+def get_tech_unsport_pbp(conn, cfg, tp, player_name):
+    """PBP has no foul category distinction. Returns (0, 0)."""
+    return (0, 0)
+
+
+def get_team_stats_pbp(conn, cfg, tp, hv_filter=None):
+    """PBP equivalent of get_team_stats(). Returns same dict format."""
+    cc = _pbp_match_filter(cfg)
+    d = {}
+
+    # Build match filter
+    if hv_filter == 'H':
+        _mf = "m.team_a LIKE ?"
+        _mp = (tp,)
+    elif hv_filter == 'V':
+        _mf = "m.team_b LIKE ?"
+        _mp = (tp,)
+    else:
+        _mf = "(m.team_a LIKE ? OR m.team_b LIKE ?)"
+        _mp = (tp, tp)
+
+    # Basic record
+    r = conn.execute(f"""
+        WITH kg AS (
+            SELECT m.match_id, m.match_date,
+                   CASE WHEN m.team_a LIKE ? THEN 'H' ELSE 'V' END as hv,
+                   CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opp,
+                   CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as kg,
+                   CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as op
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
+              AND m.score_a + m.score_b > 0
+        )
+        SELECT COUNT(*), SUM(CASE WHEN kg>op THEN 1 ELSE 0 END),
+               SUM(CASE WHEN kg<op THEN 1 ELSE 0 END),
+               SUM(kg), SUM(op),
+               ROUND(1.0*SUM(kg)/NULLIF(COUNT(*),0),1), ROUND(1.0*SUM(op)/NULLIF(COUNT(*),0),1),
+               MAX(kg), MIN(kg), MAX(op), MIN(op),
+               MAX(kg-op), MIN(kg-op),
+               SUM(CASE WHEN hv='H' AND kg>op THEN 1 ELSE 0 END),
+               SUM(CASE WHEN hv='H' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN hv='V' AND kg>op THEN 1 ELSE 0 END),
+               SUM(CASE WHEN hv='V' THEN 1 ELSE 0 END)
+        FROM kg
+    """, (tp, tp, tp, tp, cc, *_mp)).fetchone()
+    d["games"], d["wins"], d["losses"] = r[0], r[1], r[2]
+    d["scored"], d["allowed"] = r[3], r[4]
+    d["ppg"], d["opp_ppg"] = r[5], r[6]
+    d["best_score"], d["worst_score"] = r[7], r[8]
+    d["most_allowed"], d["least_allowed"] = r[9], r[10]
+    d["biggest_win"], d["biggest_loss"] = r[11], r[12]
+    d["home_w"], d["home_g"] = r[13], r[14]
+    d["away_w"], d["away_g"] = r[15], r[16]
+
+    # Game log
+    d["game_log"] = conn.execute(f"""
+        WITH kg AS (
+            SELECT m.match_id, m.match_date,
+                   CASE WHEN m.team_a LIKE ? THEN 'H' ELSE 'V' END as hv,
+                   CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opp,
+                   CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as kg,
+                   CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as op
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
+              AND m.score_a + m.score_b > 0
+        )
+        SELECT match_date, hv, opp, kg, op FROM kg ORDER BY match_date
+    """, (tp, tp, tp, tp, cc, *_mp)).fetchall()
+
+    # Quarter averages — PBP stores quarter_scores as JSON in matches table
+    matches_qs = conn.execute(f"""
+        SELECT m.quarter_scores,
+               CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t
+        FROM matches m WHERE m.match_id LIKE ? AND {_mf}
+          AND m.score_a + m.score_b > 0
+    """, (tp, cc, *_mp)).fetchall()
+
+    q_data = {str(i): {"kg": [], "op": []} for i in range(1, 5)}
+    for row in matches_qs:
+        qs_json = row[0]
+        team_side = row[1]
+        if not qs_json:
+            continue
+        try:
+            quarters = json.loads(qs_json)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for i, q in enumerate(quarters[:4], 1):
+            if team_side == 'A':
+                q_data[str(i)]["kg"].append(q[0])
+                q_data[str(i)]["op"].append(q[1])
+            else:
+                q_data[str(i)]["kg"].append(q[1])
+                q_data[str(i)]["op"].append(q[0])
+
+    d["quarters"] = []
+    for i in range(1, 5):
+        qi = str(i)
+        kg_vals = q_data[qi]["kg"]
+        op_vals = q_data[qi]["op"]
+        n = len(kg_vals) or 1
+        kg_avg = round(sum(kg_vals) / n, 1) if kg_vals else 0
+        op_avg = round(sum(op_vals) / n, 1) if op_vals else 0
+        q_won = sum(1 for k, o in zip(kg_vals, op_vals) if k > o)
+        q_lost = sum(1 for k, o in zip(kg_vals, op_vals) if k < o)
+        d["quarters"].append((qi, kg_avg, op_avg, q_won, q_lost))
+
+    # Scenario analysis — from quarter_scores JSON
+    scenarios = {"HT_LEAD": [0, 0], "HT_TRAIL": [0, 0], "3Q_LEAD": [0, 0], "3Q_TRAIL": [0, 0]}
+    match_finals = conn.execute(f"""
+        SELECT m.quarter_scores,
+               CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t,
+               CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as kg_final,
+               CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as opp_final
+        FROM matches m WHERE m.match_id LIKE ? AND {_mf}
+          AND m.score_a + m.score_b > 0
+    """, (tp, tp, tp, cc, *_mp)).fetchall()
+
+    for row in match_finals:
+        qs_json, team_side, kg_final, opp_final = row
+        if not qs_json:
+            continue
+        try:
+            quarters = json.loads(qs_json)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if len(quarters) < 3:
+            continue
+        # Halftime
+        if team_side == 'A':
+            kg_half = sum(q[0] for q in quarters[:2])
+            opp_half = sum(q[1] for q in quarters[:2])
+            kg_3q = sum(q[0] for q in quarters[:3])
+            opp_3q = sum(q[1] for q in quarters[:3])
+        else:
+            kg_half = sum(q[1] for q in quarters[:2])
+            opp_half = sum(q[0] for q in quarters[:2])
+            kg_3q = sum(q[1] for q in quarters[:3])
+            opp_3q = sum(q[0] for q in quarters[:3])
+        win = kg_final > opp_final
+        if kg_half > opp_half:
+            scenarios["HT_LEAD"][0] += 1
+            if win: scenarios["HT_LEAD"][1] += 1
+        elif kg_half < opp_half:
+            scenarios["HT_TRAIL"][0] += 1
+            if win: scenarios["HT_TRAIL"][1] += 1
+        if kg_3q > opp_3q:
+            scenarios["3Q_LEAD"][0] += 1
+            if win: scenarios["3Q_LEAD"][1] += 1
+        elif kg_3q < opp_3q:
+            scenarios["3Q_TRAIL"][0] += 1
+            if win: scenarios["3Q_TRAIL"][1] += 1
+
+    d["scenarios"] = [(k, v[0], v[1]) for k, v in scenarios.items()]
+
+    # Scoring runs — from PBP events
+    for label, is_team_val in [("runs_for", 1), ("runs_against", 0)]:
+        opp_val = 1 - is_team_val
+        rows = conn.execute(f"""
+            WITH kg AS (
+                SELECT m.match_id, m.match_date,
+                       CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t,
+                       CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opp
+                FROM matches m WHERE m.match_id LIKE ? AND {_mf}
+                  AND m.score_a + m.score_b > 0
+            ),
+            made AS (
+                SELECT e.match_id, e.event_seq, e.points, e.quarter,
+                       kg.match_date, kg.opp,
+                       CASE WHEN e.team = kg.t THEN 1 ELSE 0 END as is_team
+                FROM events e JOIN kg ON e.match_id=kg.match_id
+                WHERE e.is_scoring=1 AND e.points > 0
+            ),
+            with_rid AS (
+                SELECT *,
+                       SUM(CASE WHEN is_team={opp_val} THEN 1 ELSE 0 END) OVER (
+                           PARTITION BY match_id ORDER BY event_seq) as rid
+                FROM made
+            )
+            SELECT match_date, opp, MIN(quarter) as sq, MAX(quarter) as eq,
+                   SUM(points) as run_pts, COUNT(*) as baskets
+            FROM with_rid WHERE is_team={is_team_val}
+            GROUP BY match_id, rid
+            ORDER BY run_pts DESC LIMIT 5
+        """, (tp, tp, cc, *_mp)).fetchall()
+        d[label] = rows
+
+    # Team shooting totals — from events
+    r = conn.execute(f"""
+        WITH kg AS (
+            SELECT m.match_id,
+                   CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
+              AND m.score_a + m.score_b > 0
+        )
+        SELECT SUM(CASE WHEN e.event_type='THREE_MADE' THEN 1 ELSE 0 END) as fg3,
+               SUM(CASE WHEN e.event_type IN ('CLOSE_MADE','MID_MADE','DUNK_MADE') THEN 1 ELSE 0 END) as fg2,
+               SUM(CASE WHEN e.event_type='FT_MADE' THEN 1 ELSE 0 END) as ftm,
+               SUM(CASE WHEN e.event_type IN ('FT_MADE','FT_MISS') THEN 1 ELSE 0 END) as fta
+        FROM events e JOIN kg ON e.match_id=kg.match_id AND e.team=kg.t
+    """, (tp, cc, *_mp)).fetchone()
+    d["fg3"], d["fg2"], d["ftm"], d["fta"] = r
+
+    # Top scorers
+    d["top_scorers"] = conn.execute(f"""
+        WITH kg AS (
+            SELECT m.match_id,
+                   CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
+              AND m.score_a + m.score_b > 0
+        ),
+        per_game AS (
+            SELECT e.player_name, e.match_id,
+                   SUM(CASE WHEN e.is_scoring=1 THEN e.points ELSE 0 END) as pts
+            FROM events e JOIN kg ON e.match_id=kg.match_id AND e.team=kg.t
+            WHERE e.player_name IS NOT NULL
+            GROUP BY e.match_id, e.player_name
+        )
+        SELECT player_name as name, SUM(pts) as tp,
+               ROUND(1.0*SUM(pts)/NULLIF(COUNT(*),0),1) as ppg, COUNT(*) as gp
+        FROM per_game
+        GROUP BY player_name ORDER BY tp DESC LIMIT 3
+    """, (tp, cc, *_mp)).fetchall()
+
+    # Players used count
+    d["players_used"] = conn.execute(f"""
+        WITH kg AS (
+            SELECT m.match_id,
+                   CASE WHEN m.team_a LIKE ? THEN 'A' ELSE 'B' END as t
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
+              AND m.score_a + m.score_b > 0
+        )
+        SELECT COUNT(DISTINCT e.player_name)
+        FROM events e JOIN kg ON e.match_id=kg.match_id AND e.team=kg.t
+        WHERE e.player_name IS NOT NULL
+    """, (tp, cc, *_mp)).fetchone()[0]
+
+    # Closest games
+    d["closest"] = conn.execute(f"""
+        WITH kg AS (
+            SELECT m.match_date,
+                   CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opp,
+                   CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as kg,
+                   CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as op
+            FROM matches m WHERE m.match_id LIKE ? AND {_mf}
+              AND m.score_a + m.score_b > 0
+        )
+        SELECT match_date, opp, kg, op, ABS(kg-op) as diff
+        FROM kg ORDER BY diff ASC LIMIT 3
+    """, (tp, tp, tp, cc, *_mp)).fetchall()
+
+    return d
+
+
+def get_calendar_data_db_pbp(conn, cfg, tp):
+    """PBP equivalent of get_calendar_data_db(). Returns same dict format."""
+    cc = _pbp_match_filter(cfg)
+    rows = conn.execute("""
+        SELECT m.match_date, m.match_time,
+               CASE WHEN m.team_a LIKE ? THEN 'H' ELSE 'A' END as home_away,
+               CASE WHEN m.team_a LIKE ? THEN m.team_b ELSE m.team_a END as opponent,
+               CASE WHEN m.team_a LIKE ? THEN m.score_a ELSE m.score_b END as our_score,
+               CASE WHEN m.team_a LIKE ? THEN m.score_b ELSE m.score_a END as opp_score,
+               m.match_id
+        FROM matches m
+        WHERE m.match_id LIKE ?
+          AND (m.team_a LIKE ? OR m.team_b LIKE ?)
+          AND m.score_a + m.score_b > 0
+        ORDER BY m.match_date
+    """, (tp, tp, tp, tp, cc, tp, tp)).fetchall()
+    return [{
+        "date": r[0], "time": r[1] or "",
+        "home_team": cfg["team_name"] if r[2] == 'H' else r[3],
+        "away_team": r[3] if r[2] == 'H' else cfg["team_name"],
+        "home_score": r[4] if r[2] == 'H' else r[5],
+        "away_score": r[5] if r[2] == 'H' else r[4],
+        "match_id": r[6], "venue": "", "played": True,
+        "is_home": r[2] == 'H',
+    } for r in rows] if rows else None
 
 
 def shorten_opponent(name):
@@ -2716,9 +3138,10 @@ def generate_index(players, cfg, team_key=None):
     for name, filename, games, ppg, jersey, *rest in players:
         att = rest[0] if rest else None
         att_html = (lambda r: f'<div class="player-att">🏋️ {att} <span class="att-pct">({round(int(r[0])/int(r[1])*100)}%)</span></div>')(att.split('/')) if att else ''
+        rank_html = f'<div class="rank">#{jersey}</div>' if jersey else ''
         cards += f"""
       <a href="{filename}" class="player-card">
-        <div class="rank">#{jersey}</div>
+        {rank_html}
         <div class="pinfo"><div class="player-name">{name}</div>
         <div class="player-meta">{games} meccs &nbsp;|&nbsp; {ppg} PPG</div>{att_html}</div>
       </a>"""
@@ -2830,14 +3253,23 @@ def generate_team(team_key):
     out_dir = os.path.join(BASE_DIR, cfg["out_dir"])
     os.makedirs(out_dir, exist_ok=True)
 
-    conn = get_connection()
-    tp = _team_like(conn, cfg)
+    is_pbp = cfg.get("data_source") == "pbp"
+
+    if is_pbp:
+        conn = _pbp_connection()
+        tp = cfg["team_pattern_broad"]
+        src_label = f"PBP ({cfg['pbp_comp_code']})"
+    else:
+        conn = get_connection()
+        tp = _team_like(conn, cfg)
+        src_label = f"Scoresheet ({cfg['comp_prefix']})"
+
     print(f"\n{'='*50}")
     print(f"  {cfg['team_name']} — {cfg['group_name']}")
-    print(f"  Pattern: {tp}  |  Comp: {cfg['comp_prefix']}")
+    print(f"  Pattern: {tp}  |  Forrás: {src_label}")
     print(f"{'='*50}")
 
-    roster = get_roster(conn, cfg, tp)
+    roster = get_roster_pbp(conn, cfg, tp) if is_pbp else get_roster(conn, cfg, tp)
     if not roster:
         print(f"  ⚠ Nincs játékos adat!")
         conn.close()
@@ -2854,15 +3286,21 @@ def generate_team(team_key):
             print(f"  ⚠ Nem sikerült betölteni az edzéslátogatást")
 
     generated = []
-    for player in roster:
-        lic = player[0]
+    for idx, player in enumerate(roster):
+        lic = player[0]  # license_number (scoresheet) or player_name (PBP)
         name = player[1]
         slug = slugify(name)
 
-        game_log = get_game_log(conn, cfg, tp, lic)
-        quarter_stats = get_quarter_stats(conn, cfg, tp, lic)
-        opp_stats = get_opponent_ppg(conn, cfg, tp, lic)
-        tech, unsport = get_tech_unsport(conn, cfg, tp, lic)
+        if is_pbp:
+            game_log = get_game_log_pbp(conn, cfg, tp, lic)
+            quarter_stats = get_quarter_stats_pbp(conn, cfg, tp, lic)
+            opp_stats = get_opponent_ppg_pbp(conn, cfg, tp, lic)
+            tech, unsport = get_tech_unsport_pbp(conn, cfg, tp, lic)
+        else:
+            game_log = get_game_log(conn, cfg, tp, lic)
+            quarter_stats = get_quarter_stats(conn, cfg, tp, lic)
+            opp_stats = get_opponent_ppg(conn, cfg, tp, lic)
+            tech, unsport = get_tech_unsport(conn, cfg, tp, lic)
 
         # Training attendance (Közgáz B only)
         att = att_data.get(name)
@@ -2874,20 +3312,27 @@ def generate_team(team_key):
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(html)
 
-        generated.append((name, filename, player[3], player[5], player[2], att))
+        # For PBP: no jersey number available, use empty string
+        jersey_display = player[2] if player[2] else ''
+        generated.append((name, filename, player[3], player[5], jersey_display, att))
         print(f"  ✓ {name} → {filename}")
 
     # Team dashboard (3 views: all / home / away)
-    team_stats = get_team_stats(conn, cfg, tp)
-    team_stats_home = get_team_stats(conn, cfg, tp, hv_filter='H')
-    team_stats_away = get_team_stats(conn, cfg, tp, hv_filter='V')
+    if is_pbp:
+        team_stats = get_team_stats_pbp(conn, cfg, tp)
+        team_stats_home = get_team_stats_pbp(conn, cfg, tp, hv_filter='H')
+        team_stats_away = get_team_stats_pbp(conn, cfg, tp, hv_filter='V')
+    else:
+        team_stats = get_team_stats(conn, cfg, tp)
+        team_stats_home = get_team_stats(conn, cfg, tp, hv_filter='H')
+        team_stats_away = get_team_stats(conn, cfg, tp, hv_filter='V')
     team_html = generate_team_dashboard(team_stats, cfg, team_key=team_key, att_data=att_data,
                                         stats_home=team_stats_home, stats_away=team_stats_away)
     with open(os.path.join(out_dir, "csapat.html"), "w", encoding="utf-8") as f:
         f.write(team_html)
     print(f"\n  ✓ csapat.html (csapat dashboard)")
 
-    # Calendar — scrape from MKOSZ (or megye for county), fall back to SQLite
+    # Calendar — scrape from MKOSZ (or megye for county), fall back to SQLite/PBP
     if cfg.get("county"):
         print(f"\n  Meccsnaptár scraping (megye.hunbasket.hu)...")
         cal_data = scrape_schedule_county(cfg)
@@ -2899,8 +3344,8 @@ def generate_team(team_key):
         upcoming = len(cal_data) - played
         print(f"  ✓ {len(cal_data)} meccs scraped ({played} lejátszott, {upcoming} következő)")
     else:
-        print(f"  ⚠ Scraping sikertelen, SQLite fallback...")
-        cal_data = get_calendar_data_db(conn, cfg, tp)
+        print(f"  ⚠ Scraping sikertelen, DB fallback...")
+        cal_data = get_calendar_data_db_pbp(conn, cfg, tp) if is_pbp else get_calendar_data_db(conn, cfg, tp)
     if cal_data:
         cal_html = generate_calendar(cal_data, cfg, team_key=team_key)
         with open(os.path.join(out_dir, "naptar.html"), "w", encoding="utf-8") as f:
