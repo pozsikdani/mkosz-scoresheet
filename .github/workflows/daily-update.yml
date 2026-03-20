@@ -1,0 +1,66 @@
+name: Napi frissítés
+
+on:
+  schedule:
+    - cron: '17 6 * * *'  # 6:17 UTC (8:17 CET)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Python csomagok telepítése
+        run: pip install PyMuPDF requests beautifulsoup4
+
+      - name: PBP repo klónozása
+        run: git clone --depth 1 https://github.com/pozsikdani/mkosz-play-by-play.git /tmp/mkosz-pbp
+
+      - name: Cache visszaállítása (PDF-ek + SQLite)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            pdfs/
+            nb2_full.sqlite
+            pbp.sqlite
+          key: data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-${{ github.run_number }}
+          restore-keys: |
+            data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-
+            data-v1-
+
+      - name: Frissítési pipeline futtatása
+        id: pipeline
+        env:
+          PBP_DB_PATH: ${{ github.workspace }}/pbp.sqlite
+          PBP_REPO: /tmp/mkosz-pbp
+        run: python3 ci_update.py
+
+      - name: Cache mentése (PDF-ek + SQLite)
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            pdfs/
+            nb2_full.sqlite
+            pbp.sqlite
+          key: data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-${{ github.run_number }}
+
+      - name: Commit és push ha változott
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html dashboards/ dashboards-a/ dashboards-noi/ leftoverz/ dashboards-mefob/ dashboards-mefob-ferfi/
+          git diff --staged --quiet || (
+            git commit -m "Napi frissítés (auto): $(date +%Y-%m-%d)" &&
+            git push
+          )

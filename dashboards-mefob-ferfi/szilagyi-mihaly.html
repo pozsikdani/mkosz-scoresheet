@@ -109,18 +109,18 @@
       </div>
     </div>
     <div class="header-stats">
-      <div class="header-stat"><div class="val accent">19.8</div><div class="label">PPG</div></div>
-      <div class="header-stat"><div class="val green">10</div><div class="label">Meccs</div></div>
-      <div class="header-stat"><div class="val pink">16</div><div class="label">3FG</div></div>
+      <div class="header-stat"><div class="val accent">20.5</div><div class="label">PPG</div></div>
+      <div class="header-stat"><div class="val green">11</div><div class="label">Meccs</div></div>
+      <div class="header-stat"><div class="val pink">18</div><div class="label">3FG</div></div>
       <div class="header-stat"><div class="val" style="color:var(--accent4)">29</div><div class="label">Csúcs</div></div>
       
     </div>
   </div>
   <div class="grid grid-4 mb20">
-    <div class="card mini-stat"><div class="big" style="color:var(--accent)">198</div><div class="desc">Összes pont</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">72%</div><div class="desc">FT% (36/50)</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent3)">1.3</div><div class="desc">Fault / meccs</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">22.1%</div><div class="desc">Csapat pont részesedés</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent)">226</div><div class="desc">Összes pont</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent2)">74%</div><div class="desc">FT% (40/54)</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent3)">1.4</div><div class="desc">Fault / meccs</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">22.4%</div><div class="desc">Csapat pont részesedés</div></div>
   </div>
   <div class="grid grid-2 mb20">
     <div class="card">
@@ -132,18 +132,18 @@
       <div style="margin-top:20px;">
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent)">3FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:42%;background:var(--accent);">16 db</div></div>
-          <div class="shot-pct" style="color:var(--accent)">48 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:41%;background:var(--accent);">18 db</div></div>
+          <div class="shot-pct" style="color:var(--accent)">54 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent2)">2FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:100%;background:var(--accent2);">57 db</div></div>
-          <div class="shot-pct" style="color:var(--accent2)">114 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:100%;background:var(--accent2);">66 db</div></div>
+          <div class="shot-pct" style="color:var(--accent2)">132 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent4)">FT</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:32%;background:var(--accent4);">36/50</div></div>
-          <div class="shot-pct" style="color:var(--accent4)">36 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:30%;background:var(--accent4);">40/54</div></div>
+          <div class="shot-pct" style="color:var(--accent4)">40 pt</div>
         </div>
       </div>
       <div style="margin-top:20px;"><div class="chart-wrap" style="height:160px;"><canvas id="shotPie"></canvas></div></div>
@@ -174,7 +174,7 @@
       <div>
         <div style="color:var(--accent);font-weight:700;margin-bottom:6px;">Erősségek</div>
         <ul style="padding-left:18px;color:var(--text-dim);">
-          <li><span style="color:#fff;font-weight:600;">Hárompontos fenyegetés: 16 bedobott tripla</span></li><li><span style="color:#fff;font-weight:600;">Fegyelmezett: 1.3 fault/meccs</span></li><li><span style="color:#fff;font-weight:600;">Meghatározó pontszerző (19.8 PPG)</span></li><li><span style="color:#fff;font-weight:600;">Stabil kezdő (10/10 meccs)</span></li><li><span style="color:#fff;font-weight:600;">Nagy meccsekre képes (csúcs: 29 pont)</span></li>
+          <li><span style="color:#fff;font-weight:600;">Hárompontos fenyegetés: 18 bedobott tripla</span></li><li><span style="color:#fff;font-weight:600;">Fegyelmezett: 1.4 fault/meccs</span></li><li><span style="color:#fff;font-weight:600;">Meghatározó pontszerző (20.5 PPG)</span></li><li><span style="color:#fff;font-weight:600;">Stabil kezdő (11/11 meccs)</span></li><li><span style="color:#fff;font-weight:600;">Nagy meccsekre képes (csúcs: 29 pont)</span></li>
         </ul>
       </div>
       <div>
@@ -191,7 +191,7 @@ Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
 Chart.defaults.font.family="'Inter',sans-serif";
 
-const games = [{"date": "10.13", "opp": "Szombathelyi Egyet.", "res": "L", "pts": 24, "fg2": 6, "fg3": 2, "ft": "6/10", "pf": 0, "share": 36.9, "start": true}, {"date": "10.27", "opp": "Smafc 1860 Soproni.", "res": "W", "pts": 23, "fg2": 6, "fg3": 3, "ft": "2/2", "pf": 1, "share": 19.7, "start": true}, {"date": "11.03", "opp": "University Of Pann.", "res": "W", "pts": 17, "fg2": 6, "fg3": 0, "ft": "5/6", "pf": 3, "share": 17.5, "start": true}, {"date": "11.17", "opp": "Mosonmagyaróvár Un.", "res": "L", "pts": 29, "fg2": 6, "fg3": 3, "ft": "8/10", "pf": 0, "share": 39.7, "start": true}, {"date": "11.24", "opp": "Vesc", "res": "W", "pts": null}, {"date": "12.01", "opp": "Pte-Peac", "res": "L", "pts": 17, "fg2": 5, "fg3": 1, "ft": "4/8", "pf": 1, "share": 36.2, "start": true}, {"date": "12.08", "opp": "Tfse", "res": "L", "pts": 10, "fg2": 4, "fg3": 0, "ft": "2/2", "pf": 2, "share": 15.4, "start": true}, {"date": "02.02", "opp": "Szombathelyi Egyet.", "res": "W", "pts": null}, {"date": "02.09", "opp": "Ludovika Sportegye.", "res": "W", "pts": null}, {"date": "02.16", "opp": "Smafc 1860 Soproni.", "res": "W", "pts": 25, "fg2": 12, "fg3": 0, "ft": "1/2", "pf": 2, "share": 16.9, "start": true}, {"date": "02.23", "opp": "University Of Pann.", "res": "W", "pts": 16, "fg2": 5, "fg3": 2, "ft": "0/0", "pf": 2, "share": 16.2, "start": true}, {"date": "03.02", "opp": "Ludovika Sportegye.", "res": "W", "pts": 27, "fg2": 4, "fg3": 4, "ft": "7/8", "pf": 0, "share": 32.9, "start": true}, {"date": "03.09", "opp": "Mosonmagyaróvár Un.", "res": "W", "pts": 10, "fg2": 3, "fg3": 1, "ft": "1/2", "pf": 2, "share": 9.7, "start": true}];
+const games = [{"date": "10.13", "opp": "Szombathelyi Egyet.", "res": "L", "pts": 24, "fg2": 6, "fg3": 2, "ft": "6/10", "pf": 0, "share": 36.9, "start": true}, {"date": "10.27", "opp": "Smafc 1860 Soproni.", "res": "W", "pts": 23, "fg2": 6, "fg3": 3, "ft": "2/2", "pf": 1, "share": 19.7, "start": true}, {"date": "11.03", "opp": "University Of Pann.", "res": "W", "pts": 17, "fg2": 6, "fg3": 0, "ft": "5/6", "pf": 3, "share": 17.5, "start": true}, {"date": "11.17", "opp": "Mosonmagyaróvár Un.", "res": "L", "pts": 29, "fg2": 6, "fg3": 3, "ft": "8/10", "pf": 0, "share": 39.7, "start": true}, {"date": "11.24", "opp": "Vesc", "res": "W", "pts": null}, {"date": "12.01", "opp": "Pte-Peac", "res": "L", "pts": 17, "fg2": 5, "fg3": 1, "ft": "4/8", "pf": 1, "share": 36.2, "start": true}, {"date": "12.08", "opp": "Tfse", "res": "L", "pts": 10, "fg2": 4, "fg3": 0, "ft": "2/2", "pf": 2, "share": 15.4, "start": true}, {"date": "02.02", "opp": "Szombathelyi Egyet.", "res": "W", "pts": null}, {"date": "02.09", "opp": "Ludovika Sportegye.", "res": "W", "pts": null}, {"date": "02.16", "opp": "Smafc 1860 Soproni.", "res": "W", "pts": 25, "fg2": 12, "fg3": 0, "ft": "1/2", "pf": 2, "share": 16.9, "start": true}, {"date": "02.23", "opp": "University Of Pann.", "res": "W", "pts": 16, "fg2": 5, "fg3": 2, "ft": "0/0", "pf": 2, "share": 16.2, "start": true}, {"date": "03.02", "opp": "Ludovika Sportegye.", "res": "W", "pts": 27, "fg2": 4, "fg3": 4, "ft": "7/8", "pf": 0, "share": 32.9, "start": true}, {"date": "03.09", "opp": "Mosonmagyaróvár Un.", "res": "W", "pts": 10, "fg2": 3, "fg3": 1, "ft": "1/2", "pf": 2, "share": 9.7, "start": true}, {"date": "03.17", "opp": "Vesc", "res": "W", "pts": 28, "fg2": 9, "fg3": 2, "ft": "4/4", "pf": 2, "share": 24.6, "start": true}];
 const maxPts = 29;
 
 const tbody = document.getElementById('gameLogBody');
@@ -201,7 +201,7 @@ games.forEach(g => {
     tr.innerHTML = '<td>'+g.date+'</td><td>'+g.opp+'</td><td><span class="badge dnp">DNP</span></td><td colspan="6" style="color:var(--text-dim);font-style:italic;font-size:0.78rem;">Nem lépett pályára</td>';
   } else {
     const barW = Math.max((g.pts/maxPts)*100, 5);
-    const barColor = g.pts >= 30 ? 'var(--accent)' : g.pts >= 16 ? 'var(--accent2)' : 'var(--text-dim)';
+    const barColor = g.pts >= 31 ? 'var(--accent)' : g.pts >= 16 ? 'var(--accent2)' : 'var(--text-dim)';
     tr.innerHTML = '<td>'+g.date+'</td><td>'+g.opp+'</td><td><span class="badge '+(g.res==='W'?'w':'l')+'">'+(g.res==='W'?'GY':'V')+'</span></td><td class="bar-cell" style="min-width:80px;"><div class="bar-bg" style="width:'+barW+'%;background:'+barColor+';"></div><span class="bar-val" style="color:'+barColor+';">'+g.pts+'</span></td><td>'+g.fg2+'</td><td style="color:var(--accent);font-weight:600;">'+g.fg3+'</td><td>'+g.ft+'</td><td>'+g.pf+'</td><td style="color:var(--text-dim)">'+g.share+'%</td>';
   }
   tbody.appendChild(tr);
@@ -220,7 +220,7 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {
       pointBorderColor:played.map(g=>g.res==='W'?'#00b894':'#e17055'),
       pointRadius:6, pointHoverRadius:9, borderWidth:3,
     }, {
-      label:'Átlag (19.8)', data:played.map(()=>19.8),
+      label:'Átlag (20.5)', data:played.map(()=>20.5),
       borderColor:'rgba(255,255,255,0.2)', borderDash:[6,4],
       pointRadius:0, borderWidth:1, fill:false,
     }]
@@ -239,8 +239,8 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {
 new Chart(document.getElementById('shotPie').getContext('2d'), {
   type:'doughnut',
   data: {
-    labels:['3FG (48 pt)','2FG (114 pt)','FT (36 pt)'],
-    datasets:[{ data:[48,114,36], backgroundColor:['#C41E3A','#00cec9','#fdcb6e'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }]
+    labels:['3FG (54 pt)','2FG (132 pt)','FT (40 pt)'],
+    datasets:[{ data:[54,132,40], backgroundColor:['#C41E3A','#00cec9','#fdcb6e'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }]
   },
   options: { responsive:true, maintainAspectRatio:false, cutout:'60%',
     plugins:{ legend:{ position:'right', labels:{ padding:12, usePointStyle:true, font:{size:11} } } }
@@ -252,11 +252,11 @@ new Chart(document.getElementById('quarterChart').getContext('2d'), {
   data: {
     labels:['Q1','Q2','Q3','Q4'],
     datasets:[{
-      label:'Összes pont', data:[48, 46, 43, 61],
+      label:'Összes pont', data:[56, 54, 49, 67],
       backgroundColor:['rgba(196,30,58,0.7)','rgba(196,30,58,0.5)','rgba(196,30,58,0.55)','rgba(196,30,58,0.5)'],
       borderColor:'#C41E3A', borderWidth:2, borderRadius:6,
     },{
-      label:'3FG bedobva', data:[4, 3, 5, 4],
+      label:'3FG bedobva', data:[6, 3, 5, 4],
       backgroundColor:'rgba(253,121,168,0.5)', borderColor:'#fd79a8', borderWidth:2, borderRadius:6,
     }]
   },
@@ -270,18 +270,18 @@ new Chart(document.getElementById('quarterChart').getContext('2d'), {
 new Chart(document.getElementById('opponentChart').getContext('2d'), {
   type:'bar',
   data: {
-    labels:["Ludovika Sportegye.", "Szombathelyi Egyet.", "Smafc 1860 Soproni.", "Mosonmagyaróvár Un.", "Pte-Peac", "University Of Pann.", "Tfse"],
+    labels:["Vesc", "Ludovika Sportegye.", "Szombathelyi Egyet.", "Smafc 1860 Soproni.", "Mosonmagyaróvár Un.", "Pte-Peac", "University Of Pann.", "Tfse"],
     datasets:[{
-      label:'PPG', data:[27.0, 24.0, 24.0, 19.5, 17.0, 16.5, 10.0],
-      backgroundColor:["rgba(0,206,201,0.7)", "rgba(0,206,201,0.7)", "rgba(0,206,201,0.7)", "rgba(253,203,110,0.6)", "rgba(253,203,110,0.6)", "rgba(253,203,110,0.6)", "rgba(225,112,85,0.5)"],
-      borderColor:["#00cec9", "#00cec9", "#00cec9", "#fdcb6e", "#fdcb6e", "#fdcb6e", "#e17055"],
+      label:'PPG', data:[28.0, 27.0, 24.0, 24.0, 19.5, 17.0, 16.5, 10.0],
+      backgroundColor:["rgba(0,206,201,0.7)", "rgba(0,206,201,0.7)", "rgba(253,203,110,0.6)", "rgba(253,203,110,0.6)", "rgba(253,203,110,0.6)", "rgba(253,203,110,0.6)", "rgba(253,203,110,0.6)", "rgba(225,112,85,0.5)"],
+      borderColor:["#00cec9", "#00cec9", "#fdcb6e", "#fdcb6e", "#fdcb6e", "#fdcb6e", "#fdcb6e", "#e17055"],
       borderWidth:2, borderRadius:6,
     }]
   },
   options: {
     indexAxis:'y', responsive:true, maintainAspectRatio:false,
     plugins: { legend:{display:false} },
-    scales: { x:{ beginAtZero:true, max:32, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ grid:{display:false} } }
+    scales: { x:{ beginAtZero:true, max:33, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ grid:{display:false} } }
   }
 });
 </script>

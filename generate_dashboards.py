@@ -14,7 +14,10 @@ import csv
 import io
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nb2_full.sqlite")
-PBP_DB_PATH = os.path.expanduser("~/Desktop/claudecode/mkosz-play-by-play/pbp.sqlite")
+PBP_DB_PATH = os.environ.get(
+    "PBP_DB_PATH",
+    os.path.expanduser("~/Desktop/claudecode/mkosz-play-by-play/pbp.sqlite"),
+)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ---- TEAM CONFIGURATIONS ----
