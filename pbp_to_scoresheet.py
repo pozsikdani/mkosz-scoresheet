@@ -394,6 +394,32 @@ def main():
         sys.exit(1)
 
     pbp_conn = sqlite3.connect(args.pbp_db)
+
+    # Ensure player_stats table exists (might be missing if PBP processing failed)
+    tables = [r[0] for r in pbp_conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+    if 'player_stats' not in tables:
+        print(f"  ⚠ player_stats tábla hiányzik a PBP adatbázisban, létrehozás...")
+        pbp_conn.executescript("""
+            CREATE TABLE IF NOT EXISTS player_stats (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                match_id        TEXT NOT NULL,
+                team            TEXT NOT NULL CHECK (team IN ('A', 'B')),
+                player_name     TEXT NOT NULL,
+                is_starter      INTEGER NOT NULL DEFAULT 0,
+                minutes         INTEGER NOT NULL DEFAULT 0,
+                plus_minus      INTEGER NOT NULL DEFAULT 0,
+                val             INTEGER NOT NULL DEFAULT 0,
+                ts_pct          REAL,
+                efg_pct         REAL,
+                game_score      REAL,
+                usg_pct         REAL,
+                ast_to          REAL,
+                tov_pct         REAL,
+                UNIQUE(match_id, team, player_name)
+            );
+        """)
+        pbp_conn.commit()
+
     target_conn = sqlite3.connect(args.target_db)
 
     print(f"PBP → Scoresheet konverzió")

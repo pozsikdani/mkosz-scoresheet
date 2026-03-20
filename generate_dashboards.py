@@ -3371,7 +3371,11 @@ def generate_site():
     """Generate all team dashboards and the homepage."""
     team_data = {}
     for key in TEAMS:
-        cal = generate_team(key)
+        try:
+            cal = generate_team(key)
+        except Exception as e:
+            print(f"  ⚠ {key} generálás sikertelen: {e}")
+            cal = None
         team_data[key] = cal or []
 
     # Build homepage summaries

@@ -8,6 +8,7 @@ Használat:
 """
 
 import os
+import sqlite3
 import subprocess
 import sys
 import time
@@ -45,6 +46,37 @@ PBP_COMPS = [
     {"comp": "whun_univn"},
     {"comp": "hun_univn"},
 ]
+
+
+def _ensure_pbp_tables(db_path):
+    """Ensure PBP database has all required tables."""
+    if not os.path.exists(db_path):
+        return
+    conn = sqlite3.connect(db_path)
+    tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+    if 'player_stats' not in tables:
+        print(f"  ⚠ player_stats tábla hiányzik, létrehozás...")
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS player_stats (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                match_id        TEXT NOT NULL,
+                team            TEXT NOT NULL CHECK (team IN ('A', 'B')),
+                player_name     TEXT NOT NULL,
+                is_starter      INTEGER NOT NULL DEFAULT 0,
+                minutes         INTEGER NOT NULL DEFAULT 0,
+                plus_minus      INTEGER NOT NULL DEFAULT 0,
+                val             INTEGER NOT NULL DEFAULT 0,
+                ts_pct          REAL,
+                efg_pct         REAL,
+                game_score      REAL,
+                usg_pct         REAL,
+                ast_to          REAL,
+                tov_pct         REAL,
+                UNIQUE(match_id, team, player_name)
+            );
+        """)
+        conn.commit()
+    conn.close()
 
 
 def download_and_extract_scoresheets():
@@ -147,6 +179,9 @@ def update_pbp_teams():
         total_new += new_count
 
     conn.close()
+
+    # Ensure PBP DB has all tables (WAL checkpoint might not have flushed)
+    _ensure_pbp_tables(PBP_DB)
 
     # Convert PBP → scoresheet schema
     if total_new > 0:
