@@ -1,0 +1,23 @@
+CHANGELOG.md
+  7de5845e4c2a6915 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "0dc44931949de8574fb3435e1c37d0a3662314df",
+  "prompts": {
+    "7de5845e4c2a6915": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c060a9ad-45b6-44aa-a73f-d98e42fa51e5",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Peter Laczko <peter.laczko@railsware.com>",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 1,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    }
+  }
+}
