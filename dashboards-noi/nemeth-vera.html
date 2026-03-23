@@ -109,18 +109,18 @@
       </div>
     </div>
     <div class="header-stats">
-      <div class="header-stat"><div class="val accent">0.0</div><div class="label">PPG</div></div>
-      <div class="header-stat"><div class="val green">1</div><div class="label">Meccs</div></div>
-      <div class="header-stat"><div class="val pink">0</div><div class="label">3FG</div></div>
-      <div class="header-stat"><div class="val" style="color:var(--accent4)">0</div><div class="label">Csúcs</div></div>
+      <div class="header-stat"><div class="val accent">3.5</div><div class="label">PPG</div></div>
+      <div class="header-stat"><div class="val green">2</div><div class="label">Meccs</div></div>
+      <div class="header-stat"><div class="val pink">1</div><div class="label">3FG</div></div>
+      <div class="header-stat"><div class="val" style="color:var(--accent4)">7</div><div class="label">Csúcs</div></div>
       
     </div>
   </div>
   <div class="grid grid-4 mb20">
-    <div class="card mini-stat"><div class="big" style="color:var(--accent)">0</div><div class="desc">Összes pont</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent)">7</div><div class="desc">Összes pont</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent2)">0%</div><div class="desc">FT% (0/0)</div></div>
     <div class="card mini-stat"><div class="big" style="color:var(--accent3)">0.0</div><div class="desc">Fault / meccs</div></div>
-    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">0.0%</div><div class="desc">Csapat pont részesedés</div></div>
+    <div class="card mini-stat"><div class="big" style="color:var(--accent4)">5.3%</div><div class="desc">Csapat pont részesedés</div></div>
   </div>
   <div class="grid grid-2 mb20">
     <div class="card">
@@ -132,13 +132,13 @@
       <div style="margin-top:20px;">
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent)">3FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:0%;background:var(--accent);">0 db</div></div>
-          <div class="shot-pct" style="color:var(--accent)">0 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:75%;background:var(--accent);">1 db</div></div>
+          <div class="shot-pct" style="color:var(--accent)">3 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent2)">2FG</div>
-          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:0%;background:var(--accent2);">0 db</div></div>
-          <div class="shot-pct" style="color:var(--accent2)">0 pt</div>
+          <div class="shot-bar-outer"><div class="shot-bar-inner" style="width:100%;background:var(--accent2);">2 db</div></div>
+          <div class="shot-pct" style="color:var(--accent2)">4 pt</div>
         </div>
         <div class="shot-row">
           <div class="shot-label" style="color:var(--accent4)">FT</div>
@@ -191,8 +191,8 @@ Chart.defaults.color='#8b8da0';
 Chart.defaults.borderColor='rgba(255,255,255,0.06)';
 Chart.defaults.font.family="'Inter',sans-serif";
 
-const games = [{"date": "10.29", "opp": "Külkereskedelmi Sc", "res": "W", "pts": null}, {"date": "11.05", "opp": "Kék Rókák", "res": "L", "pts": null}, {"date": "11.16", "opp": "Beac Blse", "res": "W", "pts": null}, {"date": "11.19", "opp": "Szpa - Hse", "res": "W", "pts": null}, {"date": "11.23", "opp": "Regi Waldorf U23", "res": "W", "pts": null}, {"date": "12.17", "opp": "Beac Bics", "res": "W", "pts": null}, {"date": "01.21", "opp": "Parthus Se", "res": "W", "pts": null}, {"date": "01.28", "opp": "Beac Muff", "res": "W", "pts": null}, {"date": "02.01", "opp": "Törekvés Se", "res": "W", "pts": null}, {"date": "02.11", "opp": "Beac Budafok", "res": "W", "pts": null}, {"date": "03.04", "opp": "Radobasket-Csepel", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 0, "share": 0.0, "start": false}];
-const maxPts = 1;
+const games = [{"date": "10.29", "opp": "Külkereskedelmi Sc", "res": "W", "pts": null}, {"date": "11.05", "opp": "Kék Rókák", "res": "L", "pts": null}, {"date": "11.16", "opp": "Beac Blse", "res": "W", "pts": null}, {"date": "11.19", "opp": "Szpa - Hse", "res": "W", "pts": null}, {"date": "11.23", "opp": "Regi Waldorf U23", "res": "W", "pts": null}, {"date": "12.17", "opp": "Beac Bics", "res": "W", "pts": null}, {"date": "01.21", "opp": "Parthus Se", "res": "W", "pts": null}, {"date": "01.28", "opp": "Beac Muff", "res": "W", "pts": null}, {"date": "02.01", "opp": "Törekvés Se", "res": "W", "pts": null}, {"date": "02.11", "opp": "Beac Budafok", "res": "W", "pts": null}, {"date": "03.04", "opp": "Radobasket-Csepel", "res": "L", "pts": 0, "fg2": 0, "fg3": 0, "ft": "0/0", "pf": 0, "share": 0.0, "start": false}, {"date": "03.22", "opp": "Bkg Veresegyház", "res": "W", "pts": 7, "fg2": 2, "fg3": 1, "ft": "0/0", "pf": 0, "share": 8.4, "start": false}];
+const maxPts = 7;
 
 const tbody = document.getElementById('gameLogBody');
 games.forEach(g => {
@@ -220,7 +220,7 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {
       pointBorderColor:played.map(g=>g.res==='W'?'#00b894':'#e17055'),
       pointRadius:6, pointHoverRadius:9, borderWidth:3,
     }, {
-      label:'Átlag (0.0)', data:played.map(()=>0.0),
+      label:'Átlag (3.5)', data:played.map(()=>3.5),
       borderColor:'rgba(255,255,255,0.2)', borderDash:[6,4],
       pointRadius:0, borderWidth:1, fill:false,
     }]
@@ -239,8 +239,8 @@ new Chart(document.getElementById('scoringTrend').getContext('2d'), {
 new Chart(document.getElementById('shotPie').getContext('2d'), {
   type:'doughnut',
   data: {
-    labels:['3FG (0 pt)','2FG (0 pt)','FT (0 pt)'],
-    datasets:[{ data:[0,0,0], backgroundColor:['#C41E3A','#00cec9','#fdcb6e'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }]
+    labels:['3FG (3 pt)','2FG (4 pt)','FT (0 pt)'],
+    datasets:[{ data:[3,4,0], backgroundColor:['#C41E3A','#00cec9','#fdcb6e'], borderColor:'#151518', borderWidth:3, hoverOffset:8 }]
   },
   options: { responsive:true, maintainAspectRatio:false, cutout:'60%',
     plugins:{ legend:{ position:'right', labels:{ padding:12, usePointStyle:true, font:{size:11} } } }
@@ -252,11 +252,11 @@ new Chart(document.getElementById('quarterChart').getContext('2d'), {
   data: {
     labels:['Q1','Q2','Q3','Q4'],
     datasets:[{
-      label:'Összes pont', data:[0, 0, 0, 0],
+      label:'Összes pont', data:[3, 0, 0, 4],
       backgroundColor:['rgba(196,30,58,0.7)','rgba(196,30,58,0.5)','rgba(196,30,58,0.55)','rgba(196,30,58,0.5)'],
       borderColor:'#C41E3A', borderWidth:2, borderRadius:6,
     },{
-      label:'3FG bedobva', data:[0, 0, 0, 0],
+      label:'3FG bedobva', data:[1, 0, 0, 0],
       backgroundColor:'rgba(253,121,168,0.5)', borderColor:'#fd79a8', borderWidth:2, borderRadius:6,
     }]
   },
@@ -270,18 +270,18 @@ new Chart(document.getElementById('quarterChart').getContext('2d'), {
 new Chart(document.getElementById('opponentChart').getContext('2d'), {
   type:'bar',
   data: {
-    labels:["Radobasket-Csepel"],
+    labels:["Bkg Veresegyház", "Radobasket-Csepel"],
     datasets:[{
-      label:'PPG', data:[0.0],
-      backgroundColor:["rgba(0,206,201,0.7)"],
-      borderColor:["#00cec9"],
+      label:'PPG', data:[7.0, 0.0],
+      backgroundColor:["rgba(0,206,201,0.7)", "rgba(225,112,85,0.5)"],
+      borderColor:["#00cec9", "#e17055"],
       borderWidth:2, borderRadius:6,
     }]
   },
   options: {
     indexAxis:'y', responsive:true, maintainAspectRatio:false,
     plugins: { legend:{display:false} },
-    scales: { x:{ beginAtZero:true, max:10, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ grid:{display:false} } }
+    scales: { x:{ beginAtZero:true, max:12, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ grid:{display:false} } }
   }
 });
 </script>
