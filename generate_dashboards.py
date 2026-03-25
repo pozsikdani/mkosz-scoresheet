@@ -51,6 +51,7 @@ TEAMS = {
         "mkosz_season": "x2526",
         "mkosz_comp": "hun3k",
         "mkosz_team_id": "9239",
+        "mkosz_extra_comps": ["hun3_plya"],
         "color": "#C41E3A",  # Közgáz piros
     },
     "kozgaz-a": {
@@ -65,6 +66,7 @@ TEAMS = {
         "mkosz_season": "x2526",
         "mkosz_comp": "hun3kob",
         "mkosz_team_id": "9219",
+        "mkosz_extra_comps": ["hun3_plya"],
         "color": "#e17055",  # narancs-piros
     },
     "kozgaz-noi": {
@@ -227,6 +229,8 @@ CALENDAR_SHORT = {
     "KÜLKERESKEDELMI SC": "Külker",
     "PARTHUS SE": "Parthus",
     "PILIS BASKET": "Pilis",
+    "BKG DSE": "BKG DSE",
+    "RADOBASKET TÖRÖKBÁLINT": "Rado.bálint",
     "RADOBASKET-CSEPEL": "Radobask.",
     "REGI WALDORF U23": "Waldorf",
     "SZPA - HSE": "SZPA-HSE",
@@ -1519,23 +1523,16 @@ def _parse_hu_date(text):
     return f"{year}-{month:02d}-{int(day):02d}"
 
 
-def scrape_schedule(cfg):
-    """Scrape match schedule from MKOSZ website. Returns list of dicts."""
-    season = cfg.get("mkosz_season")
-    comp = cfg.get("mkosz_comp")
-    team_id = cfg.get("mkosz_team_id")
-    if not all([season, comp, team_id]):
-        return None
-
+def _scrape_schedule_one(season, comp, team_id, team_name_upper):
+    """Scrape match schedule from a single MKOSZ competition page. Returns list of dicts."""
     url = f"https://mkosz.hu/bajnoksag-musor/{season}/{comp}/phase/0/csapat/{team_id}"
     req = urllib.request.Request(url, headers={"User-Agent": MKOSZ_USER_AGENT})
     try:
         html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8")
     except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
-        print(f"  ⚠ MKOSZ scrape hiba: {e}")
-        return None
+        print(f"  ⚠ MKOSZ scrape hiba ({comp}): {e}")
+        return []
 
-    team_name_upper = cfg["team_name"].upper()
     matches = []
     trs = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
     for tr in trs:
@@ -1601,6 +1598,33 @@ def scrape_schedule(cfg):
             "played": played,
             "is_home": is_home,
         })
+
+    return matches
+
+
+def scrape_schedule(cfg):
+    """Scrape match schedule from MKOSZ website. Returns list of dicts."""
+    season = cfg.get("mkosz_season")
+    comp = cfg.get("mkosz_comp")
+    team_id = cfg.get("mkosz_team_id")
+    if not all([season, comp, team_id]):
+        return None
+
+    team_name_upper = cfg["team_name"].upper()
+    matches = _scrape_schedule_one(season, comp, team_id, team_name_upper)
+
+    # Also scrape extra competitions (e.g. playoffs)
+    for extra_comp in cfg.get("mkosz_extra_comps", []):
+        extra = _scrape_schedule_one(season, extra_comp, team_id, team_name_upper)
+        if extra:
+            # Deduplicate by date+home_team+away_team
+            existing = {(m["date"], m["home_team"], m["away_team"]) for m in matches}
+            for m in extra:
+                key = (m["date"], m["home_team"], m["away_team"])
+                if key not in existing:
+                    matches.append(m)
+                    existing.add(key)
+            print(f"    + {len(extra)} rájátszás meccs ({extra_comp})")
 
     return matches if matches else None
 
