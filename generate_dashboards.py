@@ -3297,67 +3297,66 @@ def generate_team(team_key):
     print(f"{'='*50}")
 
     roster = get_roster_pbp(conn, cfg, tp) if is_pbp else get_roster(conn, cfg, tp)
-    if not roster:
-        print(f"  ⚠ Nincs játékos adat!")
-        conn.close()
-        return
-
-    # Fetch training attendance from Google Sheets (Közgáz B only)
-    att_data = {}
-    if team_key == "kozgaz-b":
-        print(f"\n  Edzéslátogatás fetch (Google Sheets)...")
-        att_data = fetch_training_attendance()
-        if att_data:
-            print(f"  ✓ {len(att_data)} játékos edzéslátogatása betöltve")
-        else:
-            print(f"  ⚠ Nem sikerült betölteni az edzéslátogatást")
-
     generated = []
-    for idx, player in enumerate(roster):
-        lic = player[0]  # license_number (scoresheet) or player_name (PBP)
-        name = player[1]
-        slug = slugify(name)
 
-        if is_pbp:
-            game_log = get_game_log_pbp(conn, cfg, tp, lic)
-            quarter_stats = get_quarter_stats_pbp(conn, cfg, tp, lic)
-            opp_stats = get_opponent_ppg_pbp(conn, cfg, tp, lic)
-            tech, unsport = get_tech_unsport_pbp(conn, cfg, tp, lic)
-        else:
-            game_log = get_game_log(conn, cfg, tp, lic)
-            quarter_stats = get_quarter_stats(conn, cfg, tp, lic)
-            opp_stats = get_opponent_ppg(conn, cfg, tp, lic)
-            tech, unsport = get_tech_unsport(conn, cfg, tp, lic)
-
-        # Training attendance (Közgáz B only)
-        att = att_data.get(name)
-
-        html = generate_html(player, game_log, quarter_stats, opp_stats, tech, unsport, cfg, training_att=att)
-
-        filename = f"{slug}.html"
-        filepath = os.path.join(out_dir, filename)
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(html)
-
-        # For PBP: no jersey number available, use empty string
-        jersey_display = player[2] if player[2] else ''
-        generated.append((name, filename, player[3], player[5], jersey_display, att))
-        print(f"  ✓ {name} → {filename}")
-
-    # Team dashboard (3 views: all / home / away)
-    if is_pbp:
-        team_stats = get_team_stats_pbp(conn, cfg, tp)
-        team_stats_home = get_team_stats_pbp(conn, cfg, tp, hv_filter='H')
-        team_stats_away = get_team_stats_pbp(conn, cfg, tp, hv_filter='V')
+    if not roster:
+        print(f"  ⚠ Nincs játékos adat — csak naptár generálás")
     else:
-        team_stats = get_team_stats(conn, cfg, tp)
-        team_stats_home = get_team_stats(conn, cfg, tp, hv_filter='H')
-        team_stats_away = get_team_stats(conn, cfg, tp, hv_filter='V')
-    team_html = generate_team_dashboard(team_stats, cfg, team_key=team_key, att_data=att_data,
-                                        stats_home=team_stats_home, stats_away=team_stats_away)
-    with open(os.path.join(out_dir, "csapat.html"), "w", encoding="utf-8") as f:
-        f.write(team_html)
-    print(f"\n  ✓ csapat.html (csapat dashboard)")
+        # Fetch training attendance from Google Sheets (Közgáz B only)
+        att_data = {}
+        if team_key == "kozgaz-b":
+            print(f"\n  Edzéslátogatás fetch (Google Sheets)...")
+            att_data = fetch_training_attendance()
+            if att_data:
+                print(f"  ✓ {len(att_data)} játékos edzéslátogatása betöltve")
+            else:
+                print(f"  ⚠ Nem sikerült betölteni az edzéslátogatást")
+
+        for idx, player in enumerate(roster):
+            lic = player[0]  # license_number (scoresheet) or player_name (PBP)
+            name = player[1]
+            slug = slugify(name)
+
+            if is_pbp:
+                game_log = get_game_log_pbp(conn, cfg, tp, lic)
+                quarter_stats = get_quarter_stats_pbp(conn, cfg, tp, lic)
+                opp_stats = get_opponent_ppg_pbp(conn, cfg, tp, lic)
+                tech, unsport = get_tech_unsport_pbp(conn, cfg, tp, lic)
+            else:
+                game_log = get_game_log(conn, cfg, tp, lic)
+                quarter_stats = get_quarter_stats(conn, cfg, tp, lic)
+                opp_stats = get_opponent_ppg(conn, cfg, tp, lic)
+                tech, unsport = get_tech_unsport(conn, cfg, tp, lic)
+
+            # Training attendance (Közgáz B only)
+            att = att_data.get(name)
+
+            html = generate_html(player, game_log, quarter_stats, opp_stats, tech, unsport, cfg, training_att=att)
+
+            filename = f"{slug}.html"
+            filepath = os.path.join(out_dir, filename)
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(html)
+
+            # For PBP: no jersey number available, use empty string
+            jersey_display = player[2] if player[2] else ''
+            generated.append((name, filename, player[3], player[5], jersey_display, att))
+            print(f"  ✓ {name} → {filename}")
+
+        # Team dashboard (3 views: all / home / away)
+        if is_pbp:
+            team_stats = get_team_stats_pbp(conn, cfg, tp)
+            team_stats_home = get_team_stats_pbp(conn, cfg, tp, hv_filter='H')
+            team_stats_away = get_team_stats_pbp(conn, cfg, tp, hv_filter='V')
+        else:
+            team_stats = get_team_stats(conn, cfg, tp)
+            team_stats_home = get_team_stats(conn, cfg, tp, hv_filter='H')
+            team_stats_away = get_team_stats(conn, cfg, tp, hv_filter='V')
+        team_html = generate_team_dashboard(team_stats, cfg, team_key=team_key, att_data=att_data,
+                                            stats_home=team_stats_home, stats_away=team_stats_away)
+        with open(os.path.join(out_dir, "csapat.html"), "w", encoding="utf-8") as f:
+            f.write(team_html)
+        print(f"\n  ✓ csapat.html (csapat dashboard)")
 
     # Calendar — scrape from MKOSZ (or megye for county), fall back to SQLite/PBP
     if cfg.get("county"):
