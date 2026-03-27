@@ -56,7 +56,7 @@ mkosz-scoresheet/
 │   ├── naptar.html
 │   └── *.html               # 18 egyéni játékos dashboard
 ├── kadocsa_dashboard.html   # Eredeti önálló Kadocsa Márton dashboard (legacy, superseded by dashboards/)
-├── nb2_full.sqlite          # Teljes NB2 adatbázis (gitignore-ban, regenerálható)
+├── scoresheet.sqlite          # Teljes NB2 adatbázis (gitignore-ban, regenerálható)
 └── season.sqlite            # Csak Közgáz meccsek (gitignore-ban)
 ```
 
@@ -78,10 +78,10 @@ python3 download_scoresheets.py x2526 hun3k   ./pdfs/   # Kelet (72 meccs)
 python3 download_scoresheets.py x2526 hun3n   ./pdfs/   # Nyugat (72 meccs)
 
 # 2. Feldolgozás — egy parancs az összesre
-python3 extract_scoresheet.py ./pdfs/ --db nb2_full.sqlite
+python3 extract_scoresheet.py ./pdfs/ --db scoresheet.sqlite
 
 # Vagy újrafeldolgozás (meglévő meccseket is felülírja):
-python3 extract_scoresheet.py ./pdfs/ --db nb2_full.sqlite --force
+python3 extract_scoresheet.py ./pdfs/ --db scoresheet.sqlite --force
 ```
 
 ### Egyéb CLI opciók
@@ -406,7 +406,7 @@ DNS: Websupport.hu-n 4× A record (185.199.108-111.153) + CNAME (www → pozsikd
 # Ha új meccsek kerültek az MKOSZ-re:
 python3 download_scoresheets.py x2526 hun3k ./pdfs/         # Kelet (KÖZGÁZ B)
 python3 download_scoresheets.py x2526 hun3kob ./pdfs/       # Közép B (KÖZGÁZ A)
-python3 extract_scoresheet.py ./pdfs/ --db nb2_full.sqlite  # Feldolgozás
+python3 extract_scoresheet.py ./pdfs/ --db scoresheet.sqlite  # Feldolgozás
 python3 generate_dashboards.py site                         # Teljes site újragenerálás (edzéslátogatás is frissül)
 git add index.html dashboards/ dashboards-a/ && git commit && git push  # kozgazkosar.hu frissül
 
@@ -531,7 +531,7 @@ Az edzéslátogatás adatok automatikusan a Google Sheets-ből kerülnek betölt
 ## Aktuális állapot (2026-03-14)
 
 Minden működik és szinkronban van:
-- ✅ `nb2_full.sqlite` — 368 meccs feldolgozva (alapszakasz, 2025/26)
+- ✅ `scoresheet.sqlite` — 368 meccs feldolgozva (alapszakasz, 2025/26)
 - ✅ Teljes site — főoldal + 18+18 játékos + 2 csapat + 2 naptár dashboard
 - ✅ Meccsnaptár — MKOSZ weboldalról scrape-elve, lejátszott + jövőbeli meccsek
 - ✅ Custom domain — www.kozgazkosar.hu (GitHub Pages, HTTPS)

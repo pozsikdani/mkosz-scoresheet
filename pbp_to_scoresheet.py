@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Convert play-by-play data (pbp.sqlite) to scoresheet schema (nb2_full.sqlite)
+Convert play-by-play data (pbp.sqlite) to scoresheet schema (scoresheet.sqlite)
 for dashboard generation.
 
 Usage:
     python3 pbp_to_scoresheet.py
-    python3 pbp_to_scoresheet.py --pbp-db /path/to/pbp.sqlite --target-db nb2_full.sqlite
+    python3 pbp_to_scoresheet.py --pbp-db /path/to/pbp.sqlite --target-db scoresheet.sqlite
     python3 pbp_to_scoresheet.py --comp whun_univn --prefix MFOB
 """
 
@@ -24,7 +24,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_PBP_DB = os.path.join(
     os.path.dirname(SCRIPT_DIR), "mkosz-play-by-play", "pbp.sqlite"
 )
-DEFAULT_TARGET_DB = os.path.join(SCRIPT_DIR, "nb2_full.sqlite")
+DEFAULT_TARGET_DB = os.path.join(SCRIPT_DIR, "scoresheet.sqlite")
 
 # Competition → match_id prefix mapping
 COMP_CONFIG = {

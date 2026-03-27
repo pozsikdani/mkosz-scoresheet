@@ -18,7 +18,7 @@ import time
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SEASON = "x2526"
 PDF_DIR = os.path.join(SCRIPT_DIR, "pdfs")
-SCORESHEET_DB = os.path.join(SCRIPT_DIR, "nb2_full.sqlite")
+SCORESHEET_DB = os.path.join(SCRIPT_DIR, "scoresheet.sqlite")
 PBP_DB = os.environ.get(
     "PBP_DB_PATH",
     os.path.expanduser("~/Desktop/claudecode/mkosz-play-by-play/pbp.sqlite"),
