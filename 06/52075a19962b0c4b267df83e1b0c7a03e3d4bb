@@ -1,0 +1,33 @@
+README.md
+  cc1e7e1eff2b82b9 12,23,43
+CLAUDE.md
+  cc1e7e1eff2b82b9 59,81,84,409,534
+pbp_to_scoresheet.py
+  cc1e7e1eff2b82b9 3,8,27
+ci_update.py
+  cc1e7e1eff2b82b9 21
+CHANGELOG.md
+  cc1e7e1eff2b82b9 9,17
+.github/workflows/daily-extract.yml
+  cc1e7e1eff2b82b9 34,54,62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "0652075a19962b0c4b267df83e1b0c7a03e3d4bb",
+  "prompts": {
+    "cc1e7e1eff2b82b9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "85d12401-fbc2-4b2a-b6f0-5ec8a5ce3610",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Peter Laczko <peter.laczko@railsware.com>",
+      "messages": [],
+      "total_additions": 17,
+      "total_deletions": 17,
+      "accepted_lines": 17,
+      "overriden_lines": 0
+    }
+  }
+}
