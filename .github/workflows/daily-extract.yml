@@ -1,15 +1,15 @@
-name: Napi frissítés
+name: Napi scoresheet feldolgozás
 
 on:
   schedule:
-    - cron: '17 6 * * *'  # 6:17 UTC (8:17 CET)
+    - cron: '0 6 * * *'  # 6:00 UTC (8:00 CET) — runs before dashboard generation at 6:17
   workflow_dispatch: {}
 
 permissions:
   contents: write
 
 jobs:
-  update:
+  extract:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -38,7 +38,7 @@ jobs:
             data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-
             data-v1-
 
-      - name: Frissítési pipeline futtatása
+      - name: Scoresheet feldolgozás + PBP konverzió
         id: pipeline
         env:
           PBP_DB_PATH: ${{ github.workspace }}/pbp.sqlite
@@ -59,8 +59,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html dashboards/ dashboards-a/ dashboards-noi/ leftoverz/ dashboards-mefob/ dashboards-mefob-ferfi/
+          git add nb2_full.sqlite
           git diff --staged --quiet || (
-            git commit -m "Napi frissítés (auto): $(date +%Y-%m-%d)" &&
+            git commit -m "Scoresheet frissítés (auto): $(date +%Y-%m-%d)" &&
             git push
           )

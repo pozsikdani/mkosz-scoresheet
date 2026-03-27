@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-CI pipeline: letöltés, feldolgozás, dashboard generálás.
+CI pipeline: scoresheet PDF letöltés, feldolgozás, PBP konverzió.
+
+Dashboard generálás a mkosz-dashboard repo-ban történik.
 
 Használat:
     python3 ci_update.py                  # Teljes pipeline
@@ -209,20 +211,6 @@ def update_pbp_teams():
     return total_new
 
 
-def generate_site():
-    """Regenerate all dashboards + homepage."""
-    print(f"\n{'='*60}")
-    print("Dashboard generálás")
-    print(f"{'='*60}")
-    env = os.environ.copy()
-    env["PBP_DB_PATH"] = PBP_DB
-    subprocess.run(
-        [sys.executable, os.path.join(SCRIPT_DIR, "generate_dashboards.py"), "site"],
-        check=True,
-        env=env,
-    )
-
-
 def main():
     print("=" * 60)
     print(f"CI frissítés indítása — {SEASON}")
@@ -234,9 +222,6 @@ def main():
 
     new_pdfs = download_and_extract_scoresheets()
     new_pbp = update_pbp_teams()
-
-    # Always regenerate (calendar data may have changed even without new matches)
-    generate_site()
 
     print(f"\n{'='*60}")
     print(f"Összefoglaló: {new_pdfs} új PDF, {new_pbp} új PBP meccs")
