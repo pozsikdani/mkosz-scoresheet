@@ -1,0 +1,27 @@
+README.md
+  cc1e7e1eff2b82b9 1,3,5,7,9-12,17,19-20,22-23,25-26,29,31-39,41,43
+.github/workflows/daily-extract.yml
+  cc1e7e1eff2b82b9 1-66
+ci_update.py
+  cc1e7e1eff2b82b9 3-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "63b9382869320fe80eb58ed7dbd6ff643d75e99b",
+  "prompts": {
+    "cc1e7e1eff2b82b9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "85d12401-fbc2-4b2a-b6f0-5ec8a5ce3610",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Peter Laczko <peter.laczko@railsware.com>",
+      "messages": [],
+      "total_additions": 247,
+      "total_deletions": 264,
+      "accepted_lines": 247,
+      "overriden_lines": 0
+    }
+  }
+}
