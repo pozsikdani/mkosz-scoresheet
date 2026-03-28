@@ -29,6 +29,12 @@ SCORESHEET_COMPS = [
     # Budapesti bajnokságok
     {"comp": "whun_bud_na", "county": "budapest"},
     {"comp": "hun_bud_rkfb", "county": "budapest"},
+    # NB1B
+    {"comp": "hun2a", "county": None},
+    {"comp": "hun2b", "county": None},
+    # MEFOB
+    {"comp": "hun_univn", "county": None},
+    {"comp": "whun_univn", "county": None},
 ]
 
 
