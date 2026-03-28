@@ -1,0 +1,25 @@
+ci_update.py
+  cc1e7e1eff2b82b9 3,5,9,86
+.github/workflows/daily-extract.yml
+  cc1e7e1eff2b82b9 5,37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "6d46b57bd7425bc3651eef63e5fe5863439d6741",
+  "prompts": {
+    "cc1e7e1eff2b82b9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "85d12401-fbc2-4b2a-b6f0-5ec8a5ce3610",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Peter Laczko <peter.laczko@railsware.com>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 156,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}
