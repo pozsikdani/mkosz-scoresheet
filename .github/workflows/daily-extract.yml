@@ -2,7 +2,7 @@ name: Napi scoresheet feldolgozás
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # 6:00 UTC (8:00 CET) — runs before dashboard generation at 6:17
+    - cron: '0 6 * * *'  # 6:00 UTC
   workflow_dispatch: {}
 
 permissions:
@@ -23,26 +23,18 @@ jobs:
       - name: Python csomagok telepítése
         run: pip install PyMuPDF requests beautifulsoup4
 
-      - name: PBP repo klónozása
-        run: git clone --depth 1 https://github.com/pozsikdani/mkosz-play-by-play.git /tmp/mkosz-pbp
-
       - name: Cache visszaállítása (PDF-ek + SQLite)
         uses: actions/cache/restore@v4
         with:
           path: |
             pdfs/
             scoresheet.sqlite
-            pbp.sqlite
           key: data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-${{ github.run_number }}
           restore-keys: |
             data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-
             data-v1-
 
-      - name: Scoresheet feldolgozás + PBP konverzió
-        id: pipeline
-        env:
-          PBP_DB_PATH: ${{ github.workspace }}/pbp.sqlite
-          PBP_REPO: /tmp/mkosz-pbp
+      - name: Scoresheet feldolgozás
         run: python3 ci_update.py
 
       - name: Cache mentése (PDF-ek + SQLite)
@@ -52,7 +44,6 @@ jobs:
           path: |
             pdfs/
             scoresheet.sqlite
-            pbp.sqlite
           key: data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-${{ github.run_number }}
 
       - name: Commit és push ha változott
