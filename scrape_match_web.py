@@ -92,8 +92,65 @@ def _find_match_url_for_pdf(
     return None
 
 
-def _parse_match_page(html: str, pdf_id: str) -> dict | None:
-    """A meccs-adatlap HTML parse-olása → match_info dict."""
+def _parse_player_rows(table_html: str, team: str) -> list[dict]:
+    """Egy csapat player tábláját parse-olja.
+
+    Formátum:
+      <a href=".../jatekos/.../{license_number}/{slug}" title="Név">
+        <div class="main-chart-name">Név</div>
+      </a>
+      <td>{összes_pont}/{háromp_pont}</td>
+      <td>{ft_made}/{ft_att}</td>
+
+    Returns list of dicts with: name, license_number, team, points,
+    fg2_made, fg3_made, ft_made, ft_attempted
+    """
+    players = []
+    # Egyetlen regex ami mindent megfog: license, name, pts, ft
+    pattern = re.compile(
+        r'<a\s+href="[^"]*?/jatekos/[^/]+/[^/]+/(\d+)/[^"]+"\s*'
+        r'title="([^"]+)">.*?'
+        r'</a>.*?'
+        r'<td>(\d+)/(\d+)</td>\s*<td>(\d+)/(\d+)</td>',
+        re.DOTALL,
+    )
+    for m in pattern.finditer(table_html):
+        license_number = m.group(1)
+        name = m.group(2).strip()
+        points = int(m.group(3))
+        pts_from_3 = int(m.group(4))  # pont (nem dobás!) a háromponthatos szekcióban
+        ft_made = int(m.group(5))
+        ft_att = int(m.group(6))
+
+        # Derivált értékek
+        fg3_made = pts_from_3 // 3  # háromponthatos dobások száma
+        fg2_points = points - pts_from_3 - ft_made
+        fg2_made = max(0, fg2_points // 2)  # kétponthatos dobások
+
+        players.append({
+            "license_number": license_number,
+            "name": name.upper(),  # konzisztens formátum a scoresheet-tel
+            "team": team,
+            "jersey_number": None,  # nem elérhető a web oldalon
+            "starter": 0,           # nem elérhető — default 0
+            "entry_quarter": None,
+            "role": "player",
+            "points": points,
+            "fg2_made": fg2_made,
+            "fg3_made": fg3_made,
+            "ft_made": ft_made,
+            "ft_attempted": ft_att,
+            "personal_fouls": 0,    # nem elérhető a web oldalon
+        })
+    return players
+
+
+def _parse_match_page(html: str, pdf_id: str) -> tuple[dict, list[dict]] | None:
+    """A meccs-adatlap HTML parse-olása → (match_info, player_stats_list).
+
+    Returns:
+        (match_info_dict, [player_stat_dict, ...]) vagy None ha a fő infó nem parseolható.
+    """
     # Dátum
     match_date = _parse_hu_date(html)
 
@@ -125,10 +182,10 @@ def _parse_match_page(html: str, pdf_id: str) -> dict | None:
         winner = "B"
 
     # Egyedi match_id — hogy ne ütközzön a scoresheet-ből származókkal,
-    # "WEB-{comp_prefix}-{pdf_id}" formát használunk.
+    # "WEB-{pdf_id}" formát használunk.
     match_id = f"WEB-{pdf_id}"
 
-    return {
+    match_info = {
         "match_id": match_id,
         "team_a": team_a.upper(),  # konzisztens a többi meccshez
         "team_b": team_b.upper(),
@@ -141,14 +198,28 @@ def _parse_match_page(html: str, pdf_id: str) -> dict | None:
         "closure_timestamp": None,
     }
 
+    # Player stats — a két match_rankings_table tartalmazza őket (home, away)
+    # Az oldal sorrendje: home → away
+    parts = html.split("match_rankings_table")
+    player_stats: list[dict] = []
+    # parts[0] a header (nincs benne player), parts[1] a home, parts[2] az away
+    if len(parts) >= 3:
+        player_stats += _parse_player_rows(parts[1], "A")
+        player_stats += _parse_player_rows(parts[2], "B")
+    elif len(parts) == 2:
+        # Egyetlen tábla — nem tudjuk eldönteni melyik csapat
+        pass
+
+    return match_info, player_stats
+
 
 def fetch_match_info_web(
     season: str,
     comp_code: str,
     pdf_id: str,
     county: str | None = None,
-) -> dict | None:
-    """Képes PDF fallback: megye.hunbasket.hu-ról szedi a fő meccs-infót.
+) -> tuple[dict, list[dict]] | None:
+    """Képes PDF fallback: megye.hunbasket.hu-ról szedi a fő meccs-infót + player stats.
 
     Args:
         season: pl. "x2526"
@@ -157,7 +228,10 @@ def fetch_match_info_web(
         county: pl. "budapest" — megyei bajnokságokhoz
 
     Returns:
-        dict insert_match() kompatibilis formában, vagy None ha nem sikerült.
+        (match_info, player_stats_list) tuple:
+          - match_info: insert_match() kompatibilis dict
+          - player_stats_list: list of dicts per player (nevelős, license, pts, ft, 3pt)
+        Vagy None ha nem sikerült.
     """
     if not county:
         # Országos bajnokságok (mkosz.hu) nem támogatottak egyelőre —
@@ -174,13 +248,16 @@ def fetch_match_info_web(
     if not page:
         return None
 
-    info = _parse_match_page(page, pdf_id)
-    if info:
-        print(
-            f"    [web fallback] ✓ {info['team_a']} vs {info['team_b']} "
-            f"({info['score_a']}-{info['score_b']}, {info['match_date']})"
-        )
-    return info
+    parsed = _parse_match_page(page, pdf_id)
+    if parsed is None:
+        return None
+    info, players = parsed
+    print(
+        f"    [web fallback] ✓ {info['team_a']} vs {info['team_b']} "
+        f"({info['score_a']}-{info['score_b']}, {info['match_date']}) "
+        f"— {len(players)} játékos"
+    )
+    return info, players
 
 
 # CLI teszt
@@ -193,4 +270,15 @@ if __name__ == "__main__":
     season, comp_code, pdf_id = sys.argv[1], sys.argv[2], sys.argv[3]
     county = sys.argv[4] if len(sys.argv) > 4 else None
     result = fetch_match_info_web(season, comp_code, pdf_id, county)
-    print(result)
+    if result:
+        info, players = result
+        print("\nMatch info:", info)
+        print(f"\nPlayers ({len(players)}):")
+        for p in players:
+            print(
+                f"  [{p['team']}] {p['name']} ({p['license_number']}): "
+                f"{p['points']} pts, 2FG={p['fg2_made']} 3FG={p['fg3_made']} "
+                f"FT={p['ft_made']}/{p['ft_attempted']}"
+            )
+    else:
+        print("FAILED")

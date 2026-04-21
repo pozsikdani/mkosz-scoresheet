@@ -1783,12 +1783,14 @@ def _parse_pdf_filename(source_pdf):
 
 
 def _process_image_pdf_fallback(pdf_path, source_pdf, conn):
-    """Képes PDF fallback: web-ről szedjük a fő meccs-infót (nincs player stat).
+    """Képes PDF fallback: web-ről szedjük a fő meccs-infót + játékos stats.
 
-    Csak a `matches` táblába szúrunk be egy sort. Nincs player, foul, scoring_event.
-    A játékos dashboardokon a meccs "DNP" sorral fog megjelenni (LEFT JOIN).
+    A `matches`, `players` és `player_game_stats` táblákba ír. Nincs:
+    - quarter_scores, scoring_events (esemény-szintű adat),
+    - personal_fouls, team_fouls, timeouts,
+    - jersey_number (a weboldal nem tartalmazza).
 
-    Returns (match_id, counts) ha sikerült, különben újra raise-li az eredeti hibát.
+    Returns (match_id, counts) ha sikerült, különben RuntimeError.
     """
     if fetch_match_info_web is None:
         raise RuntimeError(
@@ -1810,22 +1812,47 @@ def _process_image_pdf_fallback(pdf_path, source_pdf, conn):
     # Jelenleg csak x2526-ot támogatunk (hard-coded, mint a CI).
     season = "x2526"
     print(f"    [képes PDF] web fallback: {source_pdf}")
-    match_info = fetch_match_info_web(season, comp_code, pdf_id, county=county)
-    if not match_info:
+    result = fetch_match_info_web(season, comp_code, pdf_id, county=county)
+    if not result:
         raise RuntimeError(
             f"Képes PDF és web fallback sikertelen: {source_pdf}"
         )
+    match_info, player_stats = result
 
     match_id = match_info["match_id"]
     # Régi adat törlése (ha van) majd insert
     delete_match(conn, match_id)
     insert_match(conn, match_info, source_pdf=source_pdf)
 
-    # Üres counts — csak a matches row létezik
+    # Players és player_game_stats direkt insert (nincs scoring_events-ből számolható).
+    # A player_game_stats.jersey_number NOT NULL — mivel a weblap nem tartalmaz
+    # mezszámot, placeholder értéket használunk (900+idx csapaton belül) hogy
+    # a UNIQUE(match_id, team, jersey_number) constraint ne ütközzön.
+    idx_by_team = {"A": 0, "B": 0}
+    for p in player_stats:
+        idx_by_team[p["team"]] += 1
+        jersey_placeholder = 900 + idx_by_team[p["team"]]
+        conn.execute("""
+            INSERT OR IGNORE INTO players (match_id, team, license_number, name,
+                                 jersey_number, role, starter, entry_quarter)
+            VALUES (?,?,?,?,?,?,?,?)
+        """, (match_id, p["team"], p["license_number"], p["name"],
+              jersey_placeholder, p["role"], p["starter"], p["entry_quarter"]))
+        conn.execute("""
+            INSERT OR REPLACE INTO player_game_stats
+                (match_id, team, license_number, name, jersey_number,
+                 points, fg2_made, fg3_made, ft_made, ft_attempted,
+                 personal_fouls, starter, entry_quarter)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (match_id, p["team"], p["license_number"], p["name"],
+              jersey_placeholder, p["points"], p["fg2_made"], p["fg3_made"],
+              p["ft_made"], p["ft_attempted"], p["personal_fouls"],
+              p["starter"], p["entry_quarter"]))
+
     counts = {
         "running_score": 0,
         "scoring_events": 0,
-        "players": 0,
+        "players": len(player_stats),
         "personal_fouls": 0,
         "team_fouls": 0,
         "timeouts": 0,
