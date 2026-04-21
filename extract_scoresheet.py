@@ -20,6 +20,12 @@ import json
 import argparse
 from collections import Counter
 
+# Web fallback for image-based (scanned) PDFs — only basic match info
+try:
+    from scrape_match_web import fetch_match_info_web
+except ImportError:
+    fetch_match_info_web = None
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_PDF_PATH = os.path.join(SCRIPT_DIR, "hun3k_125657.pdf")
 DEFAULT_DB_PATH = os.path.join(SCRIPT_DIR, "season.sqlite")
@@ -1757,6 +1763,76 @@ def compute_player_game_stats(conn, match_id):
 # Single-PDF processing
 # ---------------------------------------------------------------------------
 
+def _infer_county_from_comp(comp_code):
+    """Infer county (megye) from comp_code prefix — only for megyei bajnokságok.
+
+    Budapest megyei comp codes: *bud_* substring.
+    """
+    if "_bud_" in comp_code or comp_code.startswith("bud_"):
+        return "budapest"
+    return None
+
+
+def _parse_pdf_filename(source_pdf):
+    """Parse 'hun_bud_rkfb_133.pdf' → ('hun_bud_rkfb', '133'). None if not parseable."""
+    name = source_pdf.rsplit(".", 1)[0]
+    m = re.match(r"^(.+)_(\d+)$", name)
+    if not m:
+        return None, None
+    return m.group(1), m.group(2)
+
+
+def _process_image_pdf_fallback(pdf_path, source_pdf, conn):
+    """Képes PDF fallback: web-ről szedjük a fő meccs-infót (nincs player stat).
+
+    Csak a `matches` táblába szúrunk be egy sort. Nincs player, foul, scoring_event.
+    A játékos dashboardokon a meccs "DNP" sorral fog megjelenni (LEFT JOIN).
+
+    Returns (match_id, counts) ha sikerült, különben újra raise-li az eredeti hibát.
+    """
+    if fetch_match_info_web is None:
+        raise RuntimeError(
+            "Képes PDF (0 karakter) — scrape_match_web.py nem elérhető"
+        )
+
+    comp_code, pdf_id = _parse_pdf_filename(source_pdf)
+    if not comp_code or not pdf_id:
+        raise RuntimeError(
+            f"Képes PDF (0 karakter) és PDF név nem parse-olható: {source_pdf}"
+        )
+    county = _infer_county_from_comp(comp_code)
+    if not county:
+        raise RuntimeError(
+            f"Képes PDF (0 karakter) és nem megyei bajnokság: {source_pdf}"
+        )
+
+    # Szezon a schedule URL-hez kell — detektáljuk a mkosz-szerű alapértelmezésből.
+    # Jelenleg csak x2526-ot támogatunk (hard-coded, mint a CI).
+    season = "x2526"
+    print(f"    [képes PDF] web fallback: {source_pdf}")
+    match_info = fetch_match_info_web(season, comp_code, pdf_id, county=county)
+    if not match_info:
+        raise RuntimeError(
+            f"Képes PDF és web fallback sikertelen: {source_pdf}"
+        )
+
+    match_id = match_info["match_id"]
+    # Régi adat törlése (ha van) majd insert
+    delete_match(conn, match_id)
+    insert_match(conn, match_info, source_pdf=source_pdf)
+
+    # Üres counts — csak a matches row létezik
+    counts = {
+        "running_score": 0,
+        "scoring_events": 0,
+        "players": 0,
+        "personal_fouls": 0,
+        "team_fouls": 0,
+        "timeouts": 0,
+    }
+    return match_id, counts
+
+
 def process_single_pdf(pdf_path, conn):
     """Extract one PDF and insert all data into the multi-match database.
 
@@ -1766,6 +1842,10 @@ def process_single_pdf(pdf_path, conn):
 
     # 1. Extract raw data from PDF
     all_chars, all_circles = extract_all_from_pdf(pdf_path)
+
+    # Képes PDF detekció: ha nincs kinyerhető szöveg, web fallback
+    if not all_chars:
+        return _process_image_pdf_fallback(pdf_path, source_pdf, conn)
 
     # 2. Detect template (TYPE1 vs TYPE2 based on y-coordinate layout)
     template = detect_template(all_chars)
