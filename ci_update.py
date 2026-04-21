@@ -26,6 +26,8 @@ SCORESHEET_COMPS = [
     {"comp": "hun3kob", "county": None},
     {"comp": "hun3k", "county": None},
     {"comp": "hun3n", "county": None},
+    # NB2 rájátszás (alsóház)
+    {"comp": "hun3_plya", "county": None},
     # Budapesti bajnokságok
     {"comp": "whun_bud_na", "county": "budapest"},
     {"comp": "hun_bud_rkfb", "county": "budapest"},
