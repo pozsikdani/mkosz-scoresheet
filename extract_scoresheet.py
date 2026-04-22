@@ -1817,12 +1817,15 @@ def _process_image_pdf_fallback(pdf_path, source_pdf, conn):
         raise RuntimeError(
             f"Képes PDF és web fallback sikertelen: {source_pdf}"
         )
-    match_info, player_stats = result
+    match_info, player_stats, quarter_scores = result
 
     match_id = match_info["match_id"]
     # Régi adat törlése (ha van) majd insert
     delete_match(conn, match_id)
     insert_match(conn, match_info, source_pdf=source_pdf)
+
+    # Quarter scores insert (insert_quarter_scores helpert használjuk)
+    insert_quarter_scores(conn, match_id, quarter_scores)
 
     # Players és player_game_stats direkt insert (nincs scoring_events-ből számolható).
     # A player_game_stats.jersey_number NOT NULL — mivel a weblap nem tartalmaz
@@ -1856,6 +1859,7 @@ def _process_image_pdf_fallback(pdf_path, source_pdf, conn):
         "personal_fouls": 0,
         "team_fouls": 0,
         "timeouts": 0,
+        "quarter_scores": len(quarter_scores),
     }
     return match_id, counts
 

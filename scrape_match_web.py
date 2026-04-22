@@ -145,11 +145,34 @@ def _parse_player_rows(table_html: str, team: str) -> list[dict]:
     return players
 
 
-def _parse_match_page(html: str, pdf_id: str) -> tuple[dict, list[dict]] | None:
-    """A meccs-adatlap HTML parse-olása → (match_info, player_stats_list).
+def _parse_quarter_scores(html: str) -> list[dict]:
+    """Negyedenkénti pontszámok: '(22-7,26-20,13-28,17-14)' formátum.
+
+    Returns list of dicts: [{quarter: "1", score_a: 22, score_b: 7}, ...]
+    """
+    m = re.search(r'pbp-head-quarters">\s*\(([^)]+)\)', html)
+    if not m:
+        return []
+    quarters = []
+    for i, part in enumerate(m.group(1).split(","), start=1):
+        part = part.strip()
+        sm = re.match(r"(\d+)-(\d+)", part)
+        if not sm:
+            continue
+        quarters.append({
+            "quarter": str(i),
+            "score_a": int(sm.group(1)),
+            "score_b": int(sm.group(2)),
+        })
+    return quarters
+
+
+def _parse_match_page(html: str, pdf_id: str) -> tuple[dict, list[dict], list[dict]] | None:
+    """A meccs-adatlap HTML parse-olása → (match_info, player_stats, quarter_scores).
 
     Returns:
-        (match_info_dict, [player_stat_dict, ...]) vagy None ha a fő infó nem parseolható.
+        (match_info_dict, [player_stat_dict, ...], [quarter_dict, ...])
+        vagy None ha a fő infó nem parseolható.
     """
     # Dátum
     match_date = _parse_hu_date(html)
@@ -210,7 +233,10 @@ def _parse_match_page(html: str, pdf_id: str) -> tuple[dict, list[dict]] | None:
         # Egyetlen tábla — nem tudjuk eldönteni melyik csapat
         pass
 
-    return match_info, player_stats
+    # Quarter scores (negyedenkénti pontszámok)
+    quarter_scores = _parse_quarter_scores(html)
+
+    return match_info, player_stats, quarter_scores
 
 
 def fetch_match_info_web(
@@ -218,8 +244,8 @@ def fetch_match_info_web(
     comp_code: str,
     pdf_id: str,
     county: str | None = None,
-) -> tuple[dict, list[dict]] | None:
-    """Képes PDF fallback: megye.hunbasket.hu-ról szedi a fő meccs-infót + player stats.
+) -> tuple[dict, list[dict], list[dict]] | None:
+    """Képes PDF fallback: megye.hunbasket.hu-ról szedi a fő meccs-infót + player stats + quarter scores.
 
     Args:
         season: pl. "x2526"
@@ -228,10 +254,7 @@ def fetch_match_info_web(
         county: pl. "budapest" — megyei bajnokságokhoz
 
     Returns:
-        (match_info, player_stats_list) tuple:
-          - match_info: insert_match() kompatibilis dict
-          - player_stats_list: list of dicts per player (nevelős, license, pts, ft, 3pt)
-        Vagy None ha nem sikerült.
+        (match_info, player_stats_list, quarter_scores) tuple vagy None.
     """
     if not county:
         # Országos bajnokságok (mkosz.hu) nem támogatottak egyelőre —
@@ -251,13 +274,13 @@ def fetch_match_info_web(
     parsed = _parse_match_page(page, pdf_id)
     if parsed is None:
         return None
-    info, players = parsed
+    info, players, quarters = parsed
     print(
         f"    [web fallback] ✓ {info['team_a']} vs {info['team_b']} "
         f"({info['score_a']}-{info['score_b']}, {info['match_date']}) "
-        f"— {len(players)} játékos"
+        f"— {len(players)} játékos, {len(quarters)} negyed"
     )
-    return info, players
+    return info, players, quarters
 
 
 # CLI teszt
@@ -271,8 +294,11 @@ if __name__ == "__main__":
     county = sys.argv[4] if len(sys.argv) > 4 else None
     result = fetch_match_info_web(season, comp_code, pdf_id, county)
     if result:
-        info, players = result
+        info, players, quarters = result
         print("\nMatch info:", info)
+        print(f"\nQuarters ({len(quarters)}):")
+        for q in quarters:
+            print(f"  Q{q['quarter']}: {q['score_a']}-{q['score_b']}")
         print(f"\nPlayers ({len(players)}):")
         for p in players:
             print(
