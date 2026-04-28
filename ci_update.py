@@ -34,6 +34,9 @@ SCORESHEET_COMPS = [
     # NB1B
     {"comp": "hun2a", "county": None},
     {"comp": "hun2b", "county": None},
+    # NB1B Piros rájátszás (felső + alsó házi)
+    {"comp": "hun2a_ply", "county": None},
+    {"comp": "hun2a_plya", "county": None},
     # MEFOB
     {"comp": "hun_univn", "county": None},
     {"comp": "whun_univn", "county": None},
