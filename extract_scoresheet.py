@@ -707,8 +707,8 @@ def extract_players(all_chars, all_circles, team, cfg, coach_cfg):
             role = "captain"
             name = name.replace("(KAP)", "").replace("( KAP)", "").strip()
 
-        # X marker — x 330-360, any color
-        x_chars = [c for c in collect_chars_in_rect(all_chars, 325, 365, y_min, y_max)
+        # X marker — x 285-365, any color
+        x_chars = [c for c in collect_chars_in_rect(all_chars, 285, 365, y_min, y_max)
                    if c["c"].upper() == "X"]
         entry_quarter = None
         starter = 0
@@ -873,6 +873,16 @@ def _parse_foul_slot(all_chars_in_slot, all_circles):
         elif lc["c"] == "c":  # lowercase "c" = offsetting (42.§)
             offsetting = 1
 
+    # Fallback: néhány PDF-en az annotation T/U/B/C/D ugyanolyan méretű,
+    # mint a perc-szám (mindketten ~11pt) — ilyenkor a main_letters-ben
+    # marad. Ha még nincs foul_category, ott is keressük.
+    if foul_category is None:
+        for lc in main_letters:
+            letter = lc["c"].upper()
+            if letter in FOUL_CATEGORY_LETTERS:
+                foul_category = letter
+                break
+
     return {
         "minute": minute_text,
         "quarter": quarter,
@@ -904,9 +914,13 @@ def extract_personal_fouls(all_chars, all_circles, team, player_cfg, foul_slots,
     for pi, player in enumerate(team_players):
         y_min = y_start + pi * rh
         y_max = y_min + rh
+        # Extend y_max downward: foul-category subscript letters (U/T/B/C/D)
+        # are sometimes ~8-12px below the row boundary. Capping at +12 is safe
+        # because the next row's main digits are at row-center (≈18px from row top).
+        y_max_ext = y_max + 12
 
         for slot_idx, (x_min, x_max) in enumerate(foul_slots):
-            slot_chars = collect_chars_in_rect(all_chars, x_min, x_max, y_min, y_max)
+            slot_chars = collect_chars_in_rect(all_chars, x_min, x_max, y_min, y_max_ext)
             parsed = _parse_foul_slot(slot_chars, all_circles)
             if parsed is None:
                 continue
