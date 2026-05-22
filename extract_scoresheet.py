@@ -784,12 +784,167 @@ def extract_players(all_chars, all_circles, team, cfg, coach_cfg):
 # Personal fouls extraction
 # ---------------------------------------------------------------------------
 
-# 5 foul slots per player, approximate x-boundaries
+# 5 foul slots per player, approximate x-boundaries (legacy; the new clustering
+# parser uses these only to define the FULL foul region (min..max x).)
 FOUL_SLOTS_A = [(367, 395), (395, 415), (415, 433), (433, 451), (451, 475)]
 FOUL_SLOTS_B = [(362, 393), (393, 415), (415, 435), (435, 453), (453, 475)]
 
+# Full foul region x-bounds per team (used by the clustering parser).
+# Kicsit lazábban a left edge-en, mert az első cella main digit-je néha x=365 körül van.
+FOUL_REGION_X = {
+    "A": (360, 478),
+    "B": (358, 478),
+}
+
 
 FOUL_CATEGORY_LETTERS = {"T", "U", "B", "C", "D"}
+
+
+def _cluster_fouls_by_proximity(chars, gap_threshold=3.0):
+    """Klaszterezi a karaktereket x-pozíció szerint.
+    Két karakter ugyanabba a klaszterbe kerül, ha az x-távolság gap_threshold alatt van.
+    Egy klaszter = egy fault cella.
+
+    A 3.0px gap_threshold tipikus szétválasztja a cellákat (kb. 4-6px) miközben az
+    egy cellán belüli main+annotation szóköz (0-2px) együtt marad.
+
+    Visszaad clusterek listáját, mindegyik a char-dict-ek listája.
+    """
+    if not chars:
+        return []
+    digit_letter = [c for c in chars if c["c"].isdigit() or c["c"].isalpha()]
+    if not digit_letter:
+        return []
+    sorted_chars = sorted(digit_letter, key=lambda c: c["x"])
+
+    clusters = [[sorted_chars[0]]]
+    for ch in sorted_chars[1:]:
+        prev_cluster = clusters[-1]
+        prev_max_x = max(c.get("x1", c["x"] + 6) for c in prev_cluster)
+        gap = ch["x"] - prev_max_x
+        if gap <= gap_threshold:
+            prev_cluster.append(ch)
+        else:
+            clusters.append([ch])
+    return clusters
+
+
+def _parse_foul_cluster(cluster_chars, all_circles):
+    """Egy fault-cella tartalmából (egy klaszter karakter) parse-olja a fault adatot.
+
+    - Szín → negyed (mindig megbízható, a digit-szín kódolja)
+    - Pozíció-alapú szétválasztás: az annotation (FT-szám) y_top + jobb-felső helyzet alapján
+    - Karikás main digit → offensive (támadó hiba)
+    - T/U/B/C/D betűk → foul_category
+    - "c" kisbetű → offsetting (kiütik egymást)
+    - Csak "GD" betűk és nincs digit → game disqualification marker
+
+    Visszaad foul dict-et vagy None-t.
+    """
+    if not cluster_chars:
+        return None
+
+    digits = [c for c in cluster_chars if c["c"].isdigit()]
+    letters = [c for c in cluster_chars if c["c"].isalpha()]
+
+    # "GD" marker: csak betűk, nincs digit
+    if letters and not digits:
+        gd_text = "".join(c["c"] for c in sorted(letters, key=lambda c: c["x"]))
+        if "GD" in gd_text.upper():
+            quarter = color_to_quarter(letters[0]["color"])
+            return {
+                "minute": None,
+                "quarter": quarter,
+                "foul_type": "defensive",
+                "foul_category": "GD",
+                "free_throws": None,
+                "offsetting": 0,
+            }
+        return None
+
+    if not digits:
+        return None
+
+    # Quarter: a legnagyobb digit színéből (vagy az első ha mind egyforma)
+    # Védelem: ha vannak különböző színű digitek (cella szennyezés), a
+    # többségi színt vagy a legnagyobb digitet vesszük.
+    sizes = sorted({d["size"] for d in digits}, reverse=True)
+    main_size = sizes[0]
+    main_digits_all = [d for d in digits if d["size"] == main_size]
+    # Megbízhatóbb: a legnagyobb digitek színének átlagolása nélkül vegyük a leftmost main digit-et
+    main_digits_sorted = sorted(main_digits_all, key=lambda c: c["x"])
+    quarter = color_to_quarter(main_digits_sorted[0]["color"])
+
+    # Pozíció-alapú szétválasztás main vs annotation digit-ekre.
+    # Az annotation karakter jellemzője: jobb felső sarokban → KISEBB y (feljebb)
+    # ÉS NAGYOBB x (jobbra) a main középponttól.
+    # Ezt két komplementáris szabállyal érvényesítjük:
+    #   (a) Méret: ha vannak különböző méretek, a kisebb annotation
+    #   (b) Y-pozíció: az annotation y < main y (feljebb a PDF-ben)
+    if len(sizes) >= 2:
+        # Méret-alapú elsődleges szétválasztás
+        ann_size = sizes[-1]
+        ann_digits = [d for d in digits if d["size"] == ann_size]
+        main_digits = [d for d in digits if d["size"] != ann_size]
+    else:
+        # Egy méret — y-pozíció alapján próbálunk szétválasztani.
+        # Ha az utolsó (jobboldali) digit y-ja számottevően kisebb (≥2.5px feljebb)
+        # mint a többi, akkor superscript-nek tekintjük.
+        sorted_by_x = sorted(digits, key=lambda c: c["x"])
+        rightmost = sorted_by_x[-1]
+        if len(sorted_by_x) >= 2:
+            rest_avg_y = sum(d["y"] for d in sorted_by_x[:-1]) / (len(sorted_by_x) - 1)
+            if rest_avg_y - rightmost["y"] >= 2.5 and rightmost["c"] in "123":
+                ann_digits = [rightmost]
+                main_digits = sorted_by_x[:-1]
+            else:
+                ann_digits = []
+                main_digits = digits
+        else:
+            ann_digits = []
+            main_digits = digits
+
+    # Perc-szám (main_digits-ből)
+    minute_text = assemble_number(sorted(main_digits, key=lambda c: c["x"]))
+    # Ha 2-jegyű és > 10 → valószínűleg connection a következő cellával: levágjuk
+    # Védelmi safeguard, de a clustering ezt többnyire megelőzi.
+    if minute_text.isdigit() and len(minute_text) >= 2 and int(minute_text) > 10:
+        # A jegyzőkönyv egy negyede max 10 perc — ha pl. 17 jött ki,
+        # akkor valószínűleg a következő cella superscriptje keveredett ide.
+        # Inkább csak az első digit-et tartjuk meg.
+        minute_text = minute_text[0]
+
+    # Free throws: az annotation digit (1, 2, vagy 3) értéke
+    free_throws = None
+    if ann_digits:
+        ft_text = assemble_number(sorted(ann_digits, key=lambda c: c["x"]))
+        if ft_text.isdigit() and 1 <= int(ft_text) <= 3:
+            free_throws = int(ft_text)
+
+    # Foul kategória: T/U/B/C/D betűk
+    foul_category = None
+    offsetting = 0
+    for lc in letters:
+        if lc["c"].upper() in FOUL_CATEGORY_LETTERS:
+            foul_category = lc["c"].upper()
+        elif lc["c"] == "c":
+            offsetting = 1
+
+    # Offensive (támadó hiba): bármely main digit egy körön belül van
+    foul_type = "defensive"
+    for md in main_digits:
+        if is_circled(md["x"], md["y"], all_circles):
+            foul_type = "offensive"
+            break
+
+    return {
+        "minute": minute_text,
+        "quarter": quarter,
+        "foul_type": foul_type,
+        "foul_category": foul_category,
+        "free_throws": free_throws,
+        "offsetting": offsetting,
+    }
 
 
 def _parse_foul_slot(all_chars_in_slot, all_circles):
@@ -897,16 +1052,17 @@ def extract_personal_fouls(all_chars, all_circles, team, player_cfg, foul_slots,
                            players_list, coach_cfg=None):
     """Extract personal fouls for one team's players and coaches.
 
-    Each foul slot may contain (per FIBA B.8.3):
-    - Main digit(s): minute of the foul
-    - Annotation digit: free throws awarded (1, 2, or 3)
-    - Annotation letter: foul category (T/U/B/C/D) or offsetting ("c")
-    - Circle: offensive foul
-    - "GD" text: game disqualification marker
+    NEW (2026-05): klaszterezés-alapú parser — a player sorában az összes
+    fault-cella karakterét egyetlen blokkban gyűjtjük, majd x-proximity
+    alapján klaszterezzük cellákra. Egy klaszter = egy fault.
+    Előny: nem függünk a fix slot x-tartományoktól (amik ha rosszul vannak,
+    cellák összeolvadnak vagy szétesnek), és minden fault detektálva lesz
+    mindaddig, amíg vizuálisan különálló blokkok.
     """
     fouls = []
     y_start = player_cfg["y_start"]
     rh = player_cfg["row_height"]
+    x_min_region, x_max_region = FOUL_REGION_X[team]
 
     # --- Player fouls ---
     team_players = [p for p in players_list if p["team"] == team and p["role"] in ("player", "captain")]
@@ -919,12 +1075,12 @@ def extract_personal_fouls(all_chars, all_circles, team, player_cfg, foul_slots,
         # because the next row's main digits are at row-center (≈18px from row top).
         y_max_ext = y_max + 12
 
-        for slot_idx, (x_min, x_max) in enumerate(foul_slots):
-            slot_chars = collect_chars_in_rect(all_chars, x_min, x_max, y_min, y_max_ext)
-            parsed = _parse_foul_slot(slot_chars, all_circles)
+        row_chars = collect_chars_in_rect(all_chars, x_min_region, x_max_region, y_min, y_max_ext)
+        clusters = _cluster_fouls_by_proximity(row_chars)
+        for slot_idx, cluster in enumerate(clusters):
+            parsed = _parse_foul_cluster(cluster, all_circles)
             if parsed is None:
                 continue
-
             fouls.append({
                 "team": team,
                 "jersey_number": player["jersey_number"],
@@ -939,12 +1095,12 @@ def extract_personal_fouls(all_chars, all_circles, team, player_cfg, foul_slots,
             # Extend y-range downward: annotation letters (e.g. "C") may be ~15px below the minute
             extended_y_max = cy_max + 20
 
-            for slot_idx, (x_min, x_max) in enumerate(foul_slots):
-                slot_chars = collect_chars_in_rect(all_chars, x_min, x_max, cy_min, extended_y_max)
-                parsed = _parse_foul_slot(slot_chars, all_circles)
+            row_chars = collect_chars_in_rect(all_chars, x_min_region, x_max_region, cy_min, extended_y_max)
+            clusters = _cluster_fouls_by_proximity(row_chars)
+            for slot_idx, cluster in enumerate(clusters):
+                parsed = _parse_foul_cluster(cluster, all_circles)
                 if parsed is None:
                     continue
-
                 fouls.append({
                     "team": team,
                     "jersey_number": None,  # coaches have no jersey number
