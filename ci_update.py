@@ -14,32 +14,16 @@ import subprocess
 import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SEASON = "x2526"
+SEASON = "x2627"
 PDF_DIR = os.path.join(SCRIPT_DIR, "pdfs")
 SCORESHEET_DB = os.path.join(SCRIPT_DIR, "scoresheet.sqlite")
 
 # --- Scoresheet competitions (PDF-based) ---
 SCORESHEET_COMPS = [
-    # NB2 — mind az 5 csoport
-    {"comp": "hun3ki", "county": None},
-    {"comp": "hun3koa", "county": None},
-    {"comp": "hun3kob", "county": None},
-    {"comp": "hun3k", "county": None},
-    {"comp": "hun3n", "county": None},
-    # NB2 rájátszás (alsóház)
-    {"comp": "hun3_plya", "county": None},
-    # Budapesti bajnokságok
-    {"comp": "whun_bud_na", "county": "budapest"},
-    {"comp": "hun_bud_rkfb", "county": "budapest"},
-    # NB1B
-    {"comp": "hun2a", "county": None},
-    {"comp": "hun2b", "county": None},
-    # NB1B Piros rájátszás (felső + alsó házi)
-    {"comp": "hun2a_ply", "county": None},
-    {"comp": "hun2a_plya", "county": None},
-    # MEFOB
-    {"comp": "hun_univn", "county": None},
-    {"comp": "whun_univn", "county": None},
+    # 2026/27 óta csak a Közgáz SC és DSK/B által érintett csoportok
+    # (a többi csapat oldalait a kozgazkosar.hu 2026-09 óta már nem szolgálja)
+    {"comp": "hun3k", "county": None},          # NB2 Kelet — alapszakasz
+    {"comp": "hun3_plya", "county": None},      # NB2 alsóházi rájátszás (később, ha bekerül)
 ]
 
 
