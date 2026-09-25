@@ -922,12 +922,21 @@ def _parse_foul_cluster(cluster_chars, all_circles):
             free_throws = int(ft_text)
 
     # Foul kategória: T/U/B/C/D betűk
+    # FONTOS: subscript pozíció-check — a T/U/B/C/D annotation MINDIG a fő digit
+    # ALATT áll a jegyzőkönyvben. Ha a betű y-ja a legfelső main digit y-ja
+    # FÖLÖTT (kisebb y = feljebb a lapon) vagy azzal egy szinten van, akkor
+    # bleed-through az előző (fentebbi) sorból (a +12 y-extension miatt), és
+    # NEM ehhez a játékoshoz tartozik. Ilyenkor ne fogadjuk el.
+    digit_y_top = min(md["y"] for md in main_digits) if main_digits else 0
     foul_category = None
     offsetting = 0
     for lc in letters:
-        if lc["c"].upper() in FOUL_CATEGORY_LETTERS:
-            foul_category = lc["c"].upper()
-        elif lc["c"] == "c":
+        letter_upper = lc["c"].upper()
+        if letter_upper in FOUL_CATEGORY_LETTERS:
+            # Subscript: y-ja határozottan a digit y-ja alatt (nagyobb y)
+            if lc["y"] > digit_y_top + 2:
+                foul_category = letter_upper
+        elif lc["c"] == "c":  # kisbetű "c" = offsetting (42.§)
             offsetting = 1
 
     # Offensive (támadó hiba): bármely main digit egy körön belül van
@@ -1021,20 +1030,31 @@ def _parse_foul_slot(all_chars_in_slot, all_circles):
             free_throws = int(ft_text)
 
     # Annotation letters → foul category or offsetting
+    # FONTOS: az U/T/B/C/D SUBSCRIPT — a fő digit ALATT áll. Ha az annotation
+    # letter y-ja a digit y-ja FÖLÖTT vagy azzal egy szinten van, akkor ez a
+    # letter valójában a fenti sor játékosához tartozik (bleed-through a
+    # y_max +12 extension miatt). Ilyenkor NE fogadjuk el, hogy ne kapja meg
+    # tévesen ez a játékos is a kategóriát.
+    digit_y_min = min(c["y"] for c in main_digits)
     for lc in ann_letters:
         letter = lc["c"].upper()
+        # Csak akkor subscript, ha a letter y-ja határozottan lefelé van a digittől
+        # (a "y" bal-felső sarok; kisebb y = feljebb).
+        is_below_digit = lc["y"] > digit_y_min + 2
         if letter in FOUL_CATEGORY_LETTERS:
-            foul_category = letter
-        elif lc["c"] == "c":  # lowercase "c" = offsetting (42.§)
+            if is_below_digit:
+                foul_category = letter
+        elif lc["c"] == "c":  # lowercase "c" = offsetting (42.§, jobb felső index — fentebb áll)
             offsetting = 1
 
     # Fallback: néhány PDF-en az annotation T/U/B/C/D ugyanolyan méretű,
     # mint a perc-szám (mindketten ~11pt) — ilyenkor a main_letters-ben
     # marad. Ha még nincs foul_category, ott is keressük.
+    # Ugyanaz az "y > digit_y_min + 2" subscript-check itt is kell.
     if foul_category is None:
         for lc in main_letters:
             letter = lc["c"].upper()
-            if letter in FOUL_CATEGORY_LETTERS:
+            if letter in FOUL_CATEGORY_LETTERS and lc["y"] > digit_y_min + 2:
                 foul_category = letter
                 break
 
