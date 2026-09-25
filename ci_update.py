@@ -24,6 +24,7 @@ SCORESHEET_COMPS = [
     # (a többi csapat oldalait a kozgazkosar.hu 2026-09 óta már nem szolgálja)
     {"comp": "hun3k", "county": None},          # NB2 Kelet — alapszakasz
     {"comp": "hun3_plya", "county": None},      # NB2 alsóházi rájátszás (később, ha bekerül)
+    {"comp": "huna_cup", "county": None},       # Hepp Kupa (Öregek Kupája)
 ]
 
 
