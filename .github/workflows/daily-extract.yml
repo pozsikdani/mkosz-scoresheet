@@ -2,7 +2,7 @@ name: Napi scoresheet feldolgozás
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # 6:00 UTC
+    - cron: '0 22 * * *'  # 22:00 UTC (előző nap) — a dashboard 00:00 UTC-s regenja elé fusson
   workflow_dispatch: {}
 
 permissions:
