@@ -20,11 +20,14 @@ SCORESHEET_DB = os.path.join(SCRIPT_DIR, "scoresheet.sqlite")
 
 # --- Scoresheet competitions (PDF-based) ---
 SCORESHEET_COMPS = [
-    # 2026/27 óta csak a Közgáz SC és DSK/B által érintett csoportok
-    # (a többi csapat oldalait a kozgazkosar.hu 2026-09 óta már nem szolgálja)
+    # KÖZGÁZ-oldali (kozgazkosar.hu + mkosz-dashboard)
     {"comp": "hun3k", "county": None},          # NB2 Kelet — alapszakasz
     {"comp": "hun3_plya", "county": None},      # NB2 alsóházi rájátszás (később, ha bekerül)
     {"comp": "huna_cup", "county": None},       # Hepp Kupa (Öregek Kupája)
+    # scout-web-oldali (mkosz-scout-web — a Játékosok tab player_game_stats-ához kell)
+    {"comp": "hun2a", "county": None},          # NB1 B Piros alapszakasz
+    {"comp": "hun2a_ply", "county": None},      # NB1 B Piros felső házi rájátszás
+    {"comp": "hun2a_plya", "county": None},     # NB1 B Piros alsó házi rájátszás
 ]
 
 
