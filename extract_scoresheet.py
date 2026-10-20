@@ -117,6 +117,26 @@ def assemble_number(chars):
     return "".join(ch["c"] for ch in sorted_chars).strip()
 
 
+def find_label_line_y(chars, label, x_min, x_max, y_min, y_max, tol=3.0):
+    """Return the y of the printed line containing `label`, or None.
+
+    The footer's y position drifts by up to ~15px between PDFs of the same
+    template (the header above it has variable-height rows), so a fixed y
+    window is unreliable. The printed labels always sit on the same line as
+    their value, so anchoring on the label is stable.
+    """
+    lines = {}
+    for ch in chars:
+        if x_min <= ch["x"] <= x_max and y_min <= ch["y"] <= y_max:
+            key = next((k for k in lines if abs(k - ch["y"]) <= tol), ch["y"])
+            lines.setdefault(key, []).append(ch)
+    for y in sorted(lines):
+        text = "".join(c["c"] for c in sorted(lines[y], key=lambda c: c["x"]))
+        if label in text:
+            return y
+    return None
+
+
 def is_circled(x, y, circles, tolerance=4):
     """Check if position (x, y) falls inside any circle."""
     for cx0, cy0, cx1, cy1 in circles:
@@ -485,20 +505,37 @@ def extract_match_info(all_chars, template=None):
 
     # Final score — TYPE1: y≈1548-1565, TYPE3: y≈1445-1460 (x shifted +40px)
     # Some county-level PDFs (RKFB) have the footer ~15px higher (~y=1532-1540)
+    # Each footer value is anchored on its own printed label (see
+    # find_label_line_y); the fixed y window is only a fallback for PDFs where
+    # the label is not extractable (e.g. image-only scoresheets).
     if template["name"] == "TYPE3":
-        score_chars_a = collect_chars_in_rect(all_chars, 730, 770, 1445, 1460)
-        score_chars_b = collect_chars_in_rect(all_chars, 940, 970, 1445, 1460)
+        score_x_a, score_x_b = (730, 770), (940, 970)
+        score_fallback = (1445, 1460)
     else:
-        score_chars_a = collect_chars_in_rect(all_chars, 698, 730, 1528 + off_footer, 1565 + off_footer)
-        score_chars_b = collect_chars_in_rect(all_chars, 908, 940, 1528 + off_footer, 1565 + off_footer)
+        score_x_a, score_x_b = (698, 730), (908, 940)
+        score_fallback = (1528 + off_footer, 1565 + off_footer)
+    score_label_y = find_label_line_y(all_chars, "Végeredmény", 480, 800, 1350, 1750)
+    score_band = ((score_label_y - 9, score_label_y + 9)
+                  if score_label_y is not None else score_fallback)
+    score_chars_a = collect_chars_in_rect(all_chars, score_x_a[0], score_x_a[1], *score_band)
+    score_chars_b = collect_chars_in_rect(all_chars, score_x_b[0], score_x_b[1], *score_band)
     score_a_text = assemble_number([c for c in score_chars_a if c["c"].isdigit()])
     score_b_text = assemble_number([c for c in score_chars_b if c["c"].isdigit()])
 
-    # Winner — TYPE1: y≈1575-1590, TYPE3: y≈1470-1490
-    winner = blue_text(650, 900, 1555 + off_footer, 1595 + off_footer)
+    # Winner — on the "Győztes csapat" label line
+    winner_y = find_label_line_y(all_chars, "Győztes", 480, 800, 1350, 1750)
+    if winner_y is not None:
+        winner = blue_text(650, 900, winner_y - 9, winner_y + 9)
+    else:
+        winner = blue_text(650, 900, 1555 + off_footer, 1595 + off_footer)
 
-    # Closure timestamp — TYPE1: y≈1620-1635, TYPE3: y≈1505-1520
-    closure = blue_text(900, 1080, 1600 + off_footer, 1640 + off_footer)
+    # Closure timestamp — one line ABOVE the two-line
+    # "Jegyzőkönyv ... lezárásának időpontja" caption (~8px higher)
+    closure_y = find_label_line_y(all_chars, "lezárás", 700, 920, 1350, 1750)
+    if closure_y is not None:
+        closure = blue_text(900, 1080, closure_y - 18, closure_y - 1)
+    else:
+        closure = blue_text(900, 1080, 1600 + off_footer, 1640 + off_footer)
 
     return {
         "match_id": match_id,
@@ -2165,12 +2202,15 @@ def process_directory(pdf_dir, db_path, force=False):
     for pdf_path in pdf_files:
         filename = os.path.basename(pdf_path)
 
-        # Check if already processed
+        # Check if already processed. A row without a final score is treated as
+        # incomplete and re-extracted: the footer may have been unreadable for
+        # the parser version that first processed it (see find_label_line_y).
         if not force:
             existing = conn.execute(
-                "SELECT match_id FROM matches WHERE source_pdf = ?", (filename,)
+                "SELECT match_id, score_a, score_b FROM matches WHERE source_pdf = ?",
+                (filename,)
             ).fetchone()
-            if existing:
+            if existing and existing[1] is not None and existing[2] is not None:
                 print(f"  ⏭  {filename} (már feldolgozva: {existing[0]})")
                 conn.execute("""
                     INSERT INTO extraction_log (match_id, source_pdf, status)
@@ -2178,6 +2218,8 @@ def process_directory(pdf_dir, db_path, force=False):
                 """, (existing[0], filename))
                 conn.commit()
                 continue
+            if existing:
+                print(f"  ↻  {filename} (újra: {existing[0]} eredmény nélkül volt)")
 
         start = time.time()
         try:
