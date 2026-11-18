@@ -85,11 +85,14 @@ def main():
     print(f"Összefoglaló: {new_pdfs} új PDF")
     print("=" * 60)
 
-    # Write output for GitHub Actions
+    # Az új PDF-ek száma a workflow-nak: nulla esetén a cache-mentés és a
+    # commit kimarad (2026-11-18). A has_changes eddig mindig "true" volt,
+    # tehát nem mondott semmit; a nevét megtartjuk, de már a valóságot mondja.
     github_output = os.environ.get("GITHUB_OUTPUT")
     if github_output:
         with open(github_output, "a") as f:
-            f.write("has_changes=true\n")
+            f.write(f"new_pdfs={new_pdfs}\n")
+            f.write(f"has_changes={'true' if new_pdfs else 'false'}\n")
 
 
 if __name__ == "__main__":
