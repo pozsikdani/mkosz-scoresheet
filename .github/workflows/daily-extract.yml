@@ -1,8 +1,17 @@
 name: Napi scoresheet feldolgozás
 
+# Kétóránként, nem naponta egyszer (2026-11-18). A meccs estéjén felkerülő
+# jegyzőkönyv eddig másfél nappal később ért a honlapra: a lánc három lépése
+# (ez → mkosz-stats import → mkosz-dashboard regen) naponta egyszer futott, és
+# a GitHub a kerek percre ütemezett futásokat órákkal csúsztatja (mérve
+# 2026-11-18: ez a 22:00-s futás 01:31 és 04:19 között indult, az import 6:30
+# helyett 13:44 és 16:23 között). A :17 perc szándékos: a kerek óra a GitHub
+# ütemezőjének a legterheltebb pillanata. A repó publikus, az Actions-perc
+# ingyenes. Kihagyni nincs mit: a futás érdemi része maga a letöltés-ellenőrzés,
+# a kiolvasás inkrementális, és commit csak akkor lesz, ha az adatbázis változott.
 on:
   schedule:
-    - cron: '0 22 * * *'  # 22:00 UTC (előző nap) — a dashboard 00:00 UTC-s regenja elé fusson
+    - cron: '17 */2 * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -46,6 +55,9 @@ jobs:
             scoresheet.sqlite
           key: data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-${{ github.run_number }}
 
+      # Nem az új PDF-ek számához kötve: ha egy korábbi futásban letöltött PDF
+      # kiolvasása akkor elhasalt, most sikerülhet, és az adatbázis attól is
+      # változik. A „változott-e" kérdésre a git válaszol, nem a számláló.
       - name: Commit és push ha változott
         run: |
           git config user.name "github-actions[bot]"
