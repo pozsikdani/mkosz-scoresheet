@@ -184,6 +184,60 @@ A `match_id` formátum: `{prefix}-{sorszám}`, pl. `F2KB-0011`.
 2. **Soronkénti assembly**: Ha egy név a saját celláján belül törik két sorba, a karaktereket soronként (y-line) assembleljük, nem x-pozíció szerint — elkerüli az interleaving-et
 3. **Digit szűrés**: A nevek nem tartalmaznak számjegyeket; ez megakadályozza, hogy a balra csúszott mezszám első digitje a név részeként jelenjen meg
 
+### Sorok a licencszámokhoz igazítva (2026-11-19)
+
+A csapat játékos-sorait **nem fix y-ablakokból** vesszük, hanem a ténylegesen
+megtalált licencszám-sorokhoz igazítjuk (`player_row_bands`). 2026 októberétől
+az MKOSZ PDF-jeinek egy részén a sorköz 24,5 helyett 26,8 px, és az első sor
+licencszáma az ablak tetejére vagy fölé csúszik — emiatt kimaradt az első sor
+(egy Közgáz-meccsen 13 pont és a kezdő-jelölés), kimaradt a 12. sor, és a
+faultokat a sor fix +12 px-es toldása miatt a kód kétszer számolta.
+
+Mérve mindkét elrendezésen, a licencsorhoz képest: **egysoros név +1,8**,
+mezszám és X 0…+2,2, a sor saját faultjai 0 (az alsó indexek +8…+12), a szomszéd
+sorok ±24-27 px-re. Ezért a sáv a licencsor fölött 4 px-szel kezdődik és a
+következő licencsorig tart; a faultok ebből jönnek, így az alsó indexek
+(U/T/B/C/D) benne vannak, a következő sor faultjai nem.
+
+**A név kivétel, és ez egy drágán tanult lecke:** a **tördelt** (két sorba törő)
+név első sora a licencsor FÖLÖTT van (−4,5), a második sora és a „(KAP)" alatta
+(+8,1). Ha a nevet a sávból olvassuk, a tördelt nevek egy sorral feljebb
+csúsznak, és a régi „a sávtetőhöz közeli sorokat eldobjuk" szabály az előző sor
+saját nevét dobja ki helyettük — a tavalyi anyagon ez 989 sor nevét rontotta
+volna el. Ezért a név a licencsor körüli saját ablakból jön
+(`NAME_ABOVE`/`NAME_BELOW` = ±13 px). Az eredeti mérésem csak egysoros neveket
+nézett, és emiatt ez majdnem kiment: **a geometriát tördelt néven is meg kell
+mérni.**
+
+A csapatrész végét **nem koordináta zárja le**, hanem a sorok száma (max. 12) és
+az egyenletes sorköz megtörése (`spacing * 1.6`). Egy korábbi változatban az
+edző-sáv elé húzott határ levágta a 12. sort: az új sorköznél az pont
+1306,8-nál van, a határ 1310-nél — **kevesebb mint egy pixelen múlt**. Ha nincs
+egyetlen licencsor sem, a kód a régi fix ablakokra esik vissza
+(`_fixed_row_bands`).
+
+### Mérési csapdák (2026-11-19)
+
+1. **Az éles `scoresheet.sqlite` NEM alapvonal egy kód-diffhez.** A sorait
+   hónapok alatt, különböző kódverziókkal írta a CI, így a diff minden azóta
+   történt változást mutat, nem csak a mostanit. Alapvonalhoz a *módosítatlan*
+   kódot kell lefuttatni ugyanazokon a PDF-eken:
+   `git show origin/main:extract_scoresheet.py > /tmp/base.py && python3 /tmp/base.py pdfs --db /tmp/base.sqlite`.
+2. **A `match_id` nem elég kulcs az összehasonlításhoz.** A jegyzőkönyvszám
+   szezononként újrakezdődik (a 2025/26-os `hun2a_135735.pdf` és a 2026/27-es
+   `hun2a_123447.pdf` is `F1PF-0011`), tehát két különböző meccs írja felül
+   egymást. Összehasonlításnál a `matches.source_pdf` a kulcs. Ez magában az
+   adatbázisban is valódi hiba — külön javítandó.
+3. **A legjobb egyetlen mérőszám** erre a kiolvasóra: hány csapat-félidőben
+   egyezik a játékosok pontösszege a hivatalos eredménnyel (`matches.score_a/b`).
+   Ez önellenőrző, és egy rossz javítás azonnal lerontja.
+4. **A metrikakészlet addig hiányos, amíg van mező, amit egyik szám sem fog meg.**
+   A box score licencszám szerint kapcsol, ezért a NEVEK elromlását egyetlen
+   fenti mérőszám sem mutatta — a sorok száma, a pontok és a faultok mind
+   rendben voltak, miközben 989 név elcsúszott egy sorral. Összehasonlításkor a
+   `players.name` is kerüljön bele (`source_pdf` + `team` + `license_number`
+   kulcson), külön bontva: üressé vált / kiegészült / más névre váltott.
+
 ### PDF template detekció
 - Három template létezik: TYPE1 (`off_body=0`), TYPE2 (`off_body=-20`), TYPE3 (`off_body=5, row_height=24.31`)
 - TYPE3 (VMG DSE hazai meccsek, Közép A): eltérő y-offsetek — header feljebb, grid lejjebb, footer jóval feljebb

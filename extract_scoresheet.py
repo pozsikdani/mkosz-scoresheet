@@ -12,6 +12,7 @@ Tables: matches, referees, officials, players, personal_fouls,
 
 import fitz  # PyMuPDF
 import sqlite3
+import statistics
 import os
 import re
 import glob
@@ -668,15 +669,93 @@ def _offset_coach_region(region, off):
     }
 
 
-def extract_players(all_chars, all_circles, team, cfg, coach_cfg):
+# A csapatrész sorai a 2025/26-os PDF-eken fix y-ablakokba estek (sormagasság
+# 24,5 px), és a kód ezekben kereste a játékosokat. 2026 októberétől az MKOSZ
+# PDF-jeinek egy részén más az elrendezés: a sorköz 26,8 px, és az első sor
+# licencszáma az ablak tetejére vagy fölé csúszik. Ettől kimaradt az első sor
+# (az FKE–Közgáz meccsen 13 pont és a kezdő-jelölés), kimaradt a 12. sor, és a
+# faultok egy részét kétszer számolta a kód, mert a sor +12 px-es toldása
+# belelógott a következő sorba.
+#
+# A sorokat ezért nem ablakokból vesszük, hanem a ténylegesen megtalált
+# licencszámokhoz igazítjuk: a sor a licencsor fölött pár px-szel kezdődik, és a
+# következő licencsorig tart.
+#
+# Mérve mindkét elrendezésen, a licencsorhoz képest: egysoros név +1,8, mezszám
+# és X 0…+2,2, a sor saját faultjai 0 (az alsó indexek +8…+12). A TÖRDELT név
+# viszont fölfelé lóg ki: első sora −4,5, a második sora és a „(KAP)" +8,1.
+# Ezért a nevet nem a sávból, hanem a licencsorhoz igazított saját ablakból
+# olvassuk — sávhatárral mérve a tördelt nevek egy sorral feljebb csúsznának.
+LICENSE_MIN_DIGITS = 5
+ROW_TOP_ABOVE_LICENSE = 4.0
+# A névhez tartozó ablak a licencsor körül: a tördelt név első sora −4,5-nél, a
+# második +8,1-nél van, a szomszéd sorok neve ±16 px-nél távolabb.
+NAME_ABOVE, NAME_BELOW = 13.0, 13.0
+
+
+def player_row_bands(all_chars, cfg, coach_cfg=None):
+    """A csapatrész (y_min, y_max) sávjai, a licencsorokhoz igazítva.
+
+    Üres lista, ha egy licencsort sem talál — a hívó ilyenkor a régi, fix
+    ablakokra esik vissza, hogy egy szokatlan PDF-en se maradjon adat nélkül.
+    """
+    # Lefelé bőven: a 12. sor a nagyobb sorköznél 26,8 px-enként halad, és az
+    # edző sávjának a tetejét súrolja (mérve: a sor 1306,8-nál, a sáv 1310-nél).
+    # Egy szűkebb határ épp ezt a sort vágta le — a csapatrész végét nem
+    # koordináta zárja le, hanem a sorok száma és az egyenletes sorköz vége.
+    y_lo = cfg["y_start"] - 25
+    y_hi = cfg["y_start"] + (cfg["max_rows"] + 2) * cfg["row_height"]
+    if coach_cfg:
+        y_hi = min(y_hi, coach_cfg["asst_y"][1])
+
+    digits = [c for c in collect_chars_in_rect(all_chars, 20, 85, y_lo, y_hi,
+                                               color_filter=OFFICIAL_BLUE)
+              if c["c"].isdigit()]
+    lines = {}
+    for ch in digits:
+        key = next((k for k in lines if abs(k - ch["y"]) <= 3.0), ch["y"])
+        lines.setdefault(key, []).append(ch)
+    lic_ys = sorted(y for y, chars in lines.items() if len(chars) >= LICENSE_MIN_DIGITS)
+    if not lic_ys:
+        return []
+
+    gaps = [b - a for a, b in zip(lic_ys, lic_ys[1:])]
+    spacing = statistics.median(gaps) if gaps else cfg["row_height"]
+    # A csapatrész addig tart, amíg a sorköz egyenletes: egy ennél jóval nagyobb
+    # ugrás már az alatta álló sor (edző), nem a következő játékos.
+    kept = [lic_ys[0]]
+    for prev, y in zip(lic_ys, lic_ys[1:]):
+        if y - prev > spacing * 1.6 or len(kept) >= cfg["max_rows"]:
+            break
+        kept.append(y)
+
+    bands = []
+    for i, y in enumerate(kept):
+        nxt = kept[i + 1] if i + 1 < len(kept) else y + spacing
+        bands.append((y - ROW_TOP_ABOVE_LICENSE, nxt - ROW_TOP_ABOVE_LICENSE))
+    return bands
+
+
+def _fixed_row_bands(cfg):
+    """A régi, fix ablakok — tartalék, ha egyetlen licencsort sem találunk.
+
+    Nem azonos a korábbi viselkedéssel: a faultoknál a régi kód a sávot még
+    +12 px-szel lefelé toldotta az alsó indexek miatt, itt ez nincs. A teljes
+    anyagon (1078 PDF) egyetlen üres űrlapon aktiválódik, ahol egy játékos sincs,
+    ezért nem építünk rá.
+    """
+    rh = cfg["row_height"]
+    return [(cfg["y_start"] + i * rh, cfg["y_start"] + (i + 1) * rh)
+            for i in range(cfg["max_rows"])]
+
+
+def extract_players(all_chars, all_circles, team, cfg, coach_cfg, rows=None):
     """Extract player roster for one team."""
     players = []
-    y_start = cfg["y_start"]
-    rh = cfg["row_height"]
+    if rows is None:
+        rows = player_row_bands(all_chars, cfg, coach_cfg) or _fixed_row_bands(cfg)
 
-    for row_idx in range(cfg["max_rows"]):
-        y_min = y_start + row_idx * rh
-        y_max = y_min + rh
+    for row_idx, (y_min, y_max) in enumerate(rows):
 
         # License number — x 20-80, blue, size ~13
         license_chars = collect_chars_in_rect(all_chars, 20, 85, y_min, y_max,
@@ -686,13 +765,15 @@ def extract_players(all_chars, all_circles, team, cfg, coach_cfg):
             continue  # empty row
         license_num = assemble_number(license_chars)
 
-        # Player name — x 95-275, blue (must not overlap with jersey at x≈282)
-        # Long names can wrap to a second line in the PDF, and the wrapped
-        # portion may spill into the NEXT row's y-band (within ~2px of the
-        # top).  To avoid garbling, we group chars by y-line and drop any
-        # line that sits within 8px of the row's top edge when there are
-        # other, lower lines present (those are the actual name for this row).
-        name_chars = collect_chars_in_rect(all_chars, 95, 275, y_min, y_max,
+        # Player name — x 95-275, blue (must not overlap with jersey at x≈282).
+        # A licencsorhoz igazítva, nem a sávhoz: a tördelt név első sora a
+        # licencsor FÖLÖTT van (−4,5), a második alatta (+8,1). Sávhatárral
+        # mérve az első sor az előző sorhoz esne, és ott a régi „a sávtetőhöz
+        # közeli sorokat eldobjuk" szabály az előző sor saját nevét dobta volna
+        # ki helyette (a tavalyi anyagon 989 sor neve romlott volna el).
+        lic_y = sum(c["y"] for c in license_chars) / len(license_chars)
+        name_chars = collect_chars_in_rect(all_chars, 95, 275,
+                                            lic_y - NAME_ABOVE, lic_y + NAME_BELOW,
                                             color_filter=OFFICIAL_BLUE)
         # Player names never contain digits.  In some PDFs the first digit
         # of the jersey number sits at x≈274 which falls inside the name
@@ -712,12 +793,8 @@ def extract_players(all_chars, all_circles, team, cfg, coach_cfg):
             y_lines.append(cur_line)
 
             if len(y_lines) > 1:
-                # Drop lines whose y is within 8px of the row top (overflow
-                # from previous row's wrapped name).
-                kept = [ln for ln in y_lines if ln[0]["y"] - y_min >= 8]
-                if kept:
-                    y_lines = kept
-
+                # Az ablak már csak ennek a sornak a név-sorait tartalmazza,
+                # ezért nincs mit eldobni: a tördelt név mindkét sora kell.
                 # Assemble each y-line separately to avoid interleaving
                 # characters from wrapped names (e.g. "SCHWARCZENBERGER"
                 # wrapping within its own cell → two overlapping x-ranges).
@@ -756,6 +833,8 @@ def extract_players(all_chars, all_circles, team, cfg, coach_cfg):
                 starter = 1
 
         players.append({
+            # Melyik sorból jött — a faultokat ugyanabból a sávból olvassuk.
+            "row_index": row_idx,
             "team": team,
             "license_number": license_num,
             "name": name,
@@ -1106,7 +1185,7 @@ def _parse_foul_slot(all_chars_in_slot, all_circles):
 
 
 def extract_personal_fouls(all_chars, all_circles, team, player_cfg, foul_slots,
-                           players_list, coach_cfg=None):
+                           players_list, coach_cfg=None, rows=None):
     """Extract personal fouls for one team's players and coaches.
 
     NEW (2026-05): klaszterezés-alapú parser — a player sorában az összes
@@ -1117,22 +1196,25 @@ def extract_personal_fouls(all_chars, all_circles, team, player_cfg, foul_slots,
     mindaddig, amíg vizuálisan különálló blokkok.
     """
     fouls = []
-    y_start = player_cfg["y_start"]
-    rh = player_cfg["row_height"]
     x_min_region, x_max_region = FOUL_REGION_X[team]
+    if rows is None:
+        rows = player_row_bands(all_chars, player_cfg, coach_cfg) or _fixed_row_bands(player_cfg)
 
     # --- Player fouls ---
     team_players = [p for p in players_list if p["team"] == team and p["role"] in ("player", "captain")]
 
     for pi, player in enumerate(team_players):
-        y_min = y_start + pi * rh
-        y_max = y_min + rh
-        # Extend y_max downward: foul-category subscript letters (U/T/B/C/D)
-        # are sometimes ~8-12px below the row boundary. Capping at +12 is safe
-        # because the next row's main digits are at row-center (≈18px from row top).
-        y_max_ext = y_max + 12
-
-        row_chars = collect_chars_in_rect(all_chars, x_min_region, x_max_region, y_min, y_max_ext)
+        # A játékos saját sávja — nem a szűrt lista sorszámából számolva, mert
+        # egy kihagyott sor eltolná az egészet.
+        row_idx = player.get("row_index", pi)
+        if row_idx >= len(rows):
+            continue
+        y_min, y_max = rows[row_idx]
+        # A sáv a következő licencsorig tart, ezért az alsó indexek (U/T/B/C/D,
+        # a fő számjegy alatt 8-12 px-szel) benne vannak, a következő sor
+        # faultjai viszont nem — korábban egy fix +12 px-es toldás volt itt, és
+        # az új, nagyobb sorköznél az szedte össze kétszer ugyanazt a faultot.
+        row_chars = collect_chars_in_rect(all_chars, x_min_region, x_max_region, y_min, y_max)
         clusters = _cluster_fouls_by_proximity(row_chars)
         for slot_idx, cluster in enumerate(clusters):
             parsed = _parse_foul_cluster(cluster, all_circles)
@@ -2124,14 +2206,19 @@ def process_single_pdf(pdf_path, conn):
     ta_coach = _offset_coach_region(TEAM_A_COACH, off)
     tb_coach = _offset_coach_region(TEAM_B_COACH, off)
 
-    players_a = extract_players(all_chars, all_circles, "A", ta_players, ta_coach)
-    players_b = extract_players(all_chars, all_circles, "B", tb_players, tb_coach)
+    # A sorsávokat egyszer számoljuk ki csapatonként: a játékos és a faultja
+    # ugyanabból a sávból jön, különben elcsúszhatnának egymáshoz képest.
+    rows_a = player_row_bands(all_chars, ta_players, ta_coach) or _fixed_row_bands(ta_players)
+    rows_b = player_row_bands(all_chars, tb_players, tb_coach) or _fixed_row_bands(tb_players)
+
+    players_a = extract_players(all_chars, all_circles, "A", ta_players, ta_coach, rows=rows_a)
+    players_b = extract_players(all_chars, all_circles, "B", tb_players, tb_coach, rows=rows_b)
     all_players = players_a + players_b
 
     fouls_a = extract_personal_fouls(all_chars, all_circles, "A", ta_players,
-                                      FOUL_SLOTS_A, all_players, ta_coach)
+                                      FOUL_SLOTS_A, all_players, ta_coach, rows=rows_a)
     fouls_b = extract_personal_fouls(all_chars, all_circles, "B", tb_players,
-                                      FOUL_SLOTS_B, all_players, tb_coach)
+                                      FOUL_SLOTS_B, all_players, tb_coach, rows=rows_b)
     all_personal_fouls = fouls_a + fouls_b
 
     team_fouls_a = extract_team_fouls(all_chars, "A", template)
