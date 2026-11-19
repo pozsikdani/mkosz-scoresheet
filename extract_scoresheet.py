@@ -806,10 +806,13 @@ def extract_players(all_chars, all_circles, team, cfg, coach_cfg, rows=None):
         else:
             name = ""
 
-        # Jersey number — x 265-330, blue
-        # Some PDFs position the tens digit of 2-digit jerseys as far left
-        # as x≈270, so we start at 265 to capture them reliably.
-        jersey_chars = collect_chars_in_rect(all_chars, 265, 330, y_min, y_max,
+        # Jersey number — x 258-330, blue
+        # A kétjegyű mezszám tízes jegye PDF-enként más x-nél kezdődik: a
+        # korábbi 265-ös határ a 2026/27-es NB1 B jegyzőkönyveken levágta
+        # (mérve a hun2a_135813-on: a jegyek 263-nál kezdődnek, így „10"-ből 0,
+        # „17"-ből 7, „77"-ből 7 lett, és több játékos kapta ugyanazt a számot).
+        # A névoszlop ide nem lóg át: a nevekből a számjegyeket kiszűrjük.
+        jersey_chars = collect_chars_in_rect(all_chars, 258, 330, y_min, y_max,
                                               color_filter=OFFICIAL_BLUE)
         jersey_chars = [c for c in jersey_chars if c["c"].isdigit()]
         jersey_text = assemble_number(jersey_chars)
