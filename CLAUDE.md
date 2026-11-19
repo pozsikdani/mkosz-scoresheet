@@ -184,6 +184,36 @@ A `match_id` formátum: `{prefix}-{sorszám}`, pl. `F2KB-0011`.
 2. **Soronkénti assembly**: Ha egy név a saját celláján belül törik két sorba, a karaktereket soronként (y-line) assembleljük, nem x-pozíció szerint — elkerüli az interleaving-et
 3. **Digit szűrés**: A nevek nem tartalmaznak számjegyeket; ez megakadályozza, hogy a balra csúszott mezszám első digitje a név részeként jelenjen meg
 
+### A meccs kulcsa a PDF neve, nem a jegyzőkönyvszám (2026-11-19)
+
+A `matches.match_id` a **forrás-PDF nevéből** jövő azonosító (`hun3k_141597`),
+a jegyzőkönyvszám pedig a `sheet_number` oszlopban van (`F2KE-0021`).
+
+**Miért:** a jegyzőkönyvszám szezononként újrakezdődik, tehát a 2025/26-os
+`hun3k_125493.pdf` és a 2026/27-es `hun3k_141597.pdf` is `F2KE-0021` — a két
+meccs felülírta egymást. Mérve 2026-11-19-én: 1402 sikeresen kiolvasott PDF-ből
+csak 1248 meccs volt az adatbázisban, 55 ütköző azonosítóval. A migráció és egy
+teljes újrakiolvasás után 1301 meccs, úgy, hogy egy idei meccs sem veszett el.
+
+A PDF-ből jövő azonosító ráadásul **ugyanaz, amit a `mkosz-stats` importálója
+használ** (`extract_gamecode_from_pdf`), tehát a két oldal kulcsa egybeesik.
+A fogyasztók (mkosz-stats, mkosz-dashboard, mkosz-scout) átlátszó kulcsként
+használják, a `match_id` alakját egyik sem elemzi.
+
+**Meglévő adatbázis átállítása:**
+```bash
+python3 extract_scoresheet.py --migrate-ids --dry-run --db scoresheet.sqlite  # próbamenet
+python3 extract_scoresheet.py --migrate-ids --db scoresheet.sqlite
+```
+A migráció minden táblában átírja a kulcsot, a végén `PRAGMA foreign_key_check`
+fut, és hibát dob, ha sérült hivatkozás maradt. Az ellenőrzést a művelet
+idejére kikapcsolja (a `defer_foreign_keys` a Python implicit tranzakciójában
+nem él), ezért a záró ellenőrzés **nem elhagyható**.
+
+A felülírt meccsek visszanyeréséhez nem kell `--force`: a „már feldolgozva"
+vizsgálat a `source_pdf`-re néz, tehát amelyik PDF sora elveszett, azt a
+következő futás magától újra feldolgozza.
+
 ### Sorok a licencszámokhoz igazítva (2026-11-19)
 
 A csapat játékos-sorait **nem fix y-ablakokból** vesszük, hanem a ténylegesen
