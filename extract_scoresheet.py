@@ -1365,10 +1365,19 @@ def create_schema(conn):
     """Create all tables if they don't exist. Supports multi-match storage."""
     conn.execute("PRAGMA foreign_keys = ON")
     c = conn.cursor()
+    # Meglévő adatbázison az új oszlop utólag kerül fel; a kulcsot a
+    # migrate_match_ids() írja át (lásd --migrate-ids).
+    try:
+        cols = [r[1] for r in c.execute("PRAGMA table_info(matches)")]
+        if cols and "sheet_number" not in cols:
+            c.execute("ALTER TABLE matches ADD COLUMN sheet_number TEXT")
+    except sqlite3.Error:
+        pass
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS matches (
             match_id        TEXT PRIMARY KEY,
+            sheet_number    TEXT,
             team_a          TEXT NOT NULL,
             team_b          TEXT NOT NULL,
             venue           TEXT,
@@ -1547,6 +1556,70 @@ def create_schema(conn):
     conn.commit()
 
 
+# A match_id-t használó táblák — a migráció mindegyikben átírja a kulcsot.
+MATCH_ID_TABLES = [
+    "referees", "officials", "players", "personal_fouls", "team_fouls",
+    "timeouts", "quarter_scores", "running_score", "scoring_events",
+    "player_game_stats", "extraction_log",
+]
+
+
+def migrate_match_ids(conn, dry_run=False):
+    """A régi kulcsot (jegyzőkönyvszám) a PDF nevéből jövő azonosítóra cseréli.
+
+    A jegyzőkönyvszám szezononként újrakezdődik, ezért két meccs felülírhatta
+    egymást. A migráció minden táblában átírja a kulcsot, a jegyzőkönyvszám
+    pedig a matches.sheet_number oszlopba kerül.
+
+    Visszaad egy (átírt, kihagyott, ütköző) hármast. Kihagyott: amihez nincs
+    source_pdf. Ütköző: ahol a cél azonosító már foglalt — ilyet nem írunk át,
+    mert az adatvesztés lenne; a hívó dönt róla.
+    """
+    # A szülő kulcsának átírása közben a gyerekek még a régire mutatnak, ezért
+    # az ellenőrzést a migráció idejére kikapcsoljuk — a defer_foreign_keys
+    # csak tranzakción belül él, és a Python implicit tranzakciója eldobja.
+    # Cserébe a végén teljes foreign_key_check fut, és hibát dob, ha bármi
+    # sérült hivatkozás maradt.
+    conn.execute("PRAGMA foreign_keys = OFF")
+    rows = list(conn.execute(
+        "SELECT match_id, source_pdf FROM matches WHERE source_pdf IS NOT NULL"))
+    existing = {r[0] for r in conn.execute("SELECT match_id FROM matches")}
+    done = skipped = conflicts = 0
+    for old_id, source_pdf in rows:
+        new_id = gamecode_from_pdf(source_pdf)
+        if not new_id:
+            skipped += 1
+            continue
+        if new_id == old_id:
+            continue
+        if new_id in existing:
+            conflicts += 1
+            print(f"  ⚠️  ütközés, kihagyva: {old_id} → {new_id} (már létezik)")
+            continue
+        if dry_run:
+            done += 1
+            continue
+        conn.execute(
+            "UPDATE matches SET match_id=?, sheet_number=COALESCE(sheet_number,?) "
+            "WHERE match_id=?", (new_id, old_id, old_id))
+        for table in MATCH_ID_TABLES:
+            try:
+                conn.execute(f"UPDATE {table} SET match_id=? WHERE match_id=?",
+                             (new_id, old_id))
+            except sqlite3.Error as e:
+                print(f"  ⚠️  {table}: {e}")
+        existing.discard(old_id)
+        existing.add(new_id)
+        done += 1
+    if not dry_run:
+        conn.commit()
+        conn.execute("PRAGMA foreign_keys = ON")
+        bad = list(conn.execute("PRAGMA foreign_key_check"))
+        if bad:
+            raise RuntimeError(f"a migráció után sérült hivatkozás maradt: {bad[:3]}")
+    return done, skipped, conflicts
+
+
 def delete_match(conn, match_id):
     """Delete all data for a match (ON DELETE CASCADE handles child rows)."""
     conn.execute("PRAGMA foreign_keys = ON")
@@ -1557,11 +1630,12 @@ def insert_match(conn, match_info, source_pdf=None):
     """Insert into matches table."""
     m = match_info
     conn.execute("""
-        INSERT INTO matches (match_id, team_a, team_b, venue, match_date, match_time,
-                             score_a, score_b, winner, closure_timestamp, source_pdf)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)
-    """, (m["match_id"], m["team_a"], m["team_b"], m["venue"], m["match_date"],
-          m["match_time"], m["score_a"], m["score_b"], m["winner"],
+        INSERT INTO matches (match_id, sheet_number, team_a, team_b, venue, match_date,
+                             match_time, score_a, score_b, winner, closure_timestamp,
+                             source_pdf)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (m["match_id"], m.get("sheet_number"), m["team_a"], m["team_b"], m["venue"],
+          m["match_date"], m["match_time"], m["score_a"], m["score_b"], m["winner"],
           m["closure_timestamp"], source_pdf))
 
 
@@ -2085,6 +2159,22 @@ def _infer_county_from_comp(comp_code):
     return None
 
 
+def gamecode_from_pdf(source_pdf):
+    """A meccs azonosítója a PDF nevéből: 'hun3k_141597.pdf' → 'hun3k_141597'.
+
+    Ez a kulcs, nem a jegyzőkönyvszám. A jegyzőkönyvszám (F2KE-0021)
+    szezononként újrakezdődik: a 2025/26-os hun3k_125493.pdf és a 2026/27-es
+    hun3k_141597.pdf is F2KE-0021, és így a két meccs felülírta egymást —
+    1402 sikeresen kiolvasott PDF-ből csak 1248 meccs maradt az adatbázisban
+    (55 ütköző azonosító, 2026-11-19). A mkosz-stats importálója amúgy is
+    ebből a névből vezeti le a kulcsát (extract_gamecode_from_pdf), tehát
+    ezzel a két oldal azonosítója egy.
+    """
+    if not source_pdf:
+        return None
+    return os.path.basename(source_pdf).replace(".pdf", "").strip() or None
+
+
 def _parse_pdf_filename(source_pdf):
     """Parse 'hun_bud_rkfb_133.pdf' → ('hun_bud_rkfb', '133'). None if not parseable."""
     name = source_pdf.rsplit(".", 1)[0]
@@ -2131,6 +2221,8 @@ def _process_image_pdf_fallback(pdf_path, source_pdf, conn):
         )
     match_info, player_stats, quarter_scores = result
 
+    match_info["sheet_number"] = match_info["match_id"]
+    match_info["match_id"] = gamecode_from_pdf(source_pdf) or match_info["match_id"]
     match_id = match_info["match_id"]
     # Régi adat törlése (ha van) majd insert
     delete_match(conn, match_id)
@@ -2196,6 +2288,9 @@ def process_single_pdf(pdf_path, conn):
 
     # 3. Extract structured data with template-aware coordinates
     match_info = extract_match_info(all_chars, template)
+    # A jegyzőkönyvszám megmarad (a PDF-ben ez áll), de nem ez a kulcs.
+    match_info["sheet_number"] = match_info["match_id"]
+    match_info["match_id"] = gamecode_from_pdf(source_pdf) or match_info["match_id"]
     match_id = match_info["match_id"]
 
     rs_records = extract_running_score(all_chars, all_circles, template)
@@ -2397,7 +2492,23 @@ if __name__ == "__main__":
                         help="Már feldolgozott PDF-ek újrafeldolgozása")
     parser.add_argument("--single", type=str, default=None,
                         help="Egyetlen PDF fájl feldolgozása")
+    parser.add_argument("--migrate-ids", action="store_true",
+                        help="A meglévő adatbázis kulcsát a PDF nevéből jövő "
+                             "azonosítóra írja át (jegyzőkönyvszám → gamecode)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="--migrate-ids próbamenet: csak kiírja, mi történne")
     args = parser.parse_args()
+
+    if args.migrate_ids:
+        db_path = args.db or DEFAULT_DB_PATH
+        conn = sqlite3.connect(db_path)
+        create_schema(conn)
+        done, skipped, conflicts = migrate_match_ids(conn, dry_run=args.dry_run)
+        mode = "próbamenet: átírható" if args.dry_run else "átírva"
+        print(f"{mode}: {done} meccs, kihagyva (nincs PDF-név): {skipped}, "
+              f"ütközés: {conflicts}")
+        conn.close()
+        exit(0)
 
     # Determine mode
     if args.single:
