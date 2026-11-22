@@ -32,28 +32,31 @@ jobs:
       - name: Python csomagok telepítése
         run: pip install PyMuPDF requests beautifulsoup4
 
-      - name: Cache visszaállítása (PDF-ek + SQLite)
+      # CSAK a PDF-ek. A scoresheet.sqlite verziókövetett: a checkout hozza, és
+      # ez a futás commitolja vissza. Amíg a cache is tartalmazta, a restore
+      # ráírt a checkout példányára, így minden kézi adatjavítás elveszett a
+      # következő futáskor — a 2026-11-20-i kulcs-migrációt (125693e, 1303
+      # meccs, 0 régi kulcs) a másnapi auto-commit így írta vissza 1249 régi
+      # kulcsúra. A kulcs v2, hogy a régi, DB-t is tartalmazó archívumok ne
+      # jöjjenek vissza.
+      - name: Cache visszaállítása (PDF-ek)
         uses: actions/cache/restore@v4
         with:
-          path: |
-            pdfs/
-            scoresheet.sqlite
-          key: data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-${{ github.run_number }}
+          path: pdfs/
+          key: data-v2-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-${{ github.run_number }}
           restore-keys: |
-            data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-
-            data-v1-
+            data-v2-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-
+            data-v2-
 
       - name: Scoresheet feldolgozás
         run: python3 ci_update.py
 
-      - name: Cache mentése (PDF-ek + SQLite)
+      - name: Cache mentése (PDF-ek)
         uses: actions/cache/save@v4
         if: always()
         with:
-          path: |
-            pdfs/
-            scoresheet.sqlite
-          key: data-v1-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-${{ github.run_number }}
+          path: pdfs/
+          key: data-v2-${{ hashFiles('extract_scoresheet.py', 'download_scoresheets.py') }}-${{ github.run_number }}
 
       # Nem az új PDF-ek számához kötve: ha egy korábbi futásban letöltött PDF
       # kiolvasása akkor elhasalt, most sikerülhet, és az adatbázis attól is
