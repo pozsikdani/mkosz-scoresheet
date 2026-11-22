@@ -297,6 +297,24 @@ Korábbi javítások (kronológiai sorrendben):
 3. TYPE3 template support (8 VMG DSE hazai meccs)
 4. **Shot classification fix** (`compute_player_game_stats()`, ~1722. sor): `shot_type` oszlop helyett `points` delta alapú osztályozás. A `shot_type='3FG'` néha 1 vagy 2 pontos eseményeknél is megjelent (continuation FT-k). Javítás: `points=3→fg3, points=2→fg2, points=1→ft_made, points∈{0,1}→ft_attempted`. Liga-szinten 2721 eseményt érintett.
 5. **Game log query fix**: `get_game_log()` a 6. paraméterben `COMP_PREFIX`-et kap (nem `TEAM_PATTERN`-t) a `match_id LIKE ?` feltételhez — különben üres eredmény
+6. **A pontszám levágott első számjegye** (`_reclaim_leading_digit()`, 2026-11-22). A
+   folyamatos eredmény tízes (vagy százas) számjegye pont az oszlophatáron áll, és
+   néha a mezszám-cellába esik. Ahol a jegyző mezszámot is írt, a
+   `extract_running_score()` határkorrekciója szétszedi a kettőt — de
+   **folytatólagos büntetőnél a mezszám-cella üres**, így a beszorult számjegy
+   egyedül marad, és semmi nem jelzi, hogy odatévedt. Ilyenkor a sor elveszett, a
+   pontjait pedig a következő sor nyelte le: `hun3k_141651`-ben a „74"-ből mezszám 7
+   + eredmény 4 lett, ettől Látos elvesztett egy büntetőt, Somogyi pedig kapott egy
+   nem létező triplát (a csapatösszeg 105 maradt, ezért a box-score metrika vak volt rá).
+   **A pozíció nem dönti el**: a felmérés szerint valódi egyjegyű mezszám is áll a
+   cellahatártól 4 px-re, beszorult számjegy is 1 px-re, és hogy melyik van közelebb,
+   PDF-enként változik. Ezért a bizonyíték maga az eredmény: a számjegyet csak akkor
+   vesszük vissza, ha az eredmény önmagában lehetetlen (visszafelé lépne), a
+   visszaillesztett viszont pont 1-3 ponttal nő. Mérve mind az 1092 PDF-en: 50
+   megváltozott játékos-sor, ebből 27 a hivatalos MKOSZ box score-hoz, 18 a
+   play-by-play-hez **közelebb került, 0 romlott**; név nem sérült.
+   A `_try_repair_score()` csak HÁTULRA fűz számjegyet, ezt a hibát nem fogta meg.
+   A nyers `running_score` tábla a PDF szerinti (hibás) bontást őrzi — nincs fogyasztója.
 
 ## Hasznos lekérdezések
 

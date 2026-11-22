@@ -1768,6 +1768,36 @@ def _try_repair_score(score_str, current_score):
     return None
 
 
+def _reclaim_leading_digit(jersey_val, score_val, current_score):
+    """Give back the score's leading digit when the column edge cut it off.
+
+    The running score's tens (or hundreds) digit sits right on the border of
+    the jersey column, so on some sheets it lands in the jersey cell.  Where
+    the scorer also wrote a jersey number, the boundary correction in
+    extract_running_score() splits the two apart; on a continuation free throw
+    the jersey cell is empty, so the stray digit stands there alone and
+    nothing marks it as stray (hun3k_141651: "74" became jersey 7 / score 4,
+    which cost Latos a free throw and gave Somogyi a three that never was).
+
+    Position alone cannot tell it from a real one-digit jersey -- both sit a
+    few pixels from the border, and which one sits closer varies by PDF -- so
+    the evidence has to be the score itself: take the digit only when the
+    score as read is impossible (it would move the running total backwards)
+    and the restored score is a plausible next one (1-3 points).
+
+    Returns the restored score string, or None to leave the row alone.
+    """
+    if not jersey_val or len(jersey_val) != 1 or not jersey_val.isdigit():
+        return None
+    if not score_val or not score_val.isdigit():
+        return None
+    if int(score_val) - current_score >= 0:
+        return None
+    if 1 <= int(jersey_val + score_val) - current_score <= 3:
+        return jersey_val + score_val
+    return None
+
+
 def compute_scoring_events(rs_records, players_list, match_id):
     """Transform raw running_score records into structured scoring events.
 
@@ -1837,6 +1867,14 @@ def compute_scoring_events(rs_records, players_list, match_id):
             jersey_val = ja["character"] if ja else None
             jersey_circled = ja["circled"] if ja else 0
             color = sa["color"]
+
+            # A lone digit in the jersey cell may be the score's own
+            # leading digit, cut off by the column border.
+            restored = _reclaim_leading_digit(jersey_val, score_val, score_a)
+            if restored is not None:
+                score_val = restored
+                jersey_val = None
+                jersey_circled = 0
 
             if jersey_val and jersey_val != "-" and jersey_val.isdigit():
                 last_jersey_a = jersey_val
@@ -1918,6 +1956,14 @@ def compute_scoring_events(rs_records, players_list, match_id):
             jersey_val = jb["character"] if jb else None
             jersey_circled = jb["circled"] if jb else 0
             color = sb["color"]
+
+            # A lone digit in the jersey cell may be the score's own
+            # leading digit, cut off by the column border.
+            restored = _reclaim_leading_digit(jersey_val, score_val, score_b)
+            if restored is not None:
+                score_val = restored
+                jersey_val = None
+                jersey_circled = 0
 
             if jersey_val and jersey_val != "-" and jersey_val.isdigit():
                 last_jersey_b = jersey_val
