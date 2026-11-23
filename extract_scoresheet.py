@@ -240,6 +240,11 @@ ROW_TOP = 306
 ROW_HEIGHT = 26.05
 NUM_ROWS = 42
 
+# A pontszám saját számjegyei 6-8 px-re állnak egymástól, a pontszám és a perc
+# 15-17 px-re. Ennél nagyobb rés a pontszám-cellán belül tehát percet jelent,
+# ami balra csúszott be. (Mérve 1364 PDF-en.)
+MINUTE_SPILL_GAP = 12.0
+
 
 def _get_row(y):
     r = int((y - ROW_TOP) / ROW_HEIGHT) + 1
@@ -398,6 +403,45 @@ def extract_running_score(all_chars, all_circles, template=None):
                     cells.setdefault(score_key, [])
                     cells[score_key] = right_chars + cells[score_key]
                 cells[key] = char_list[:split_at]
+
+    # Case 3: A*-2 (score) columns — the minute can spill LEFT into the score
+    # cell.  The minute's digits sit only ~15px right of the score's, and on
+    # some PDFs the column edge falls between them by less than a pixel
+    # (hun3k_141651: the minute at x=729.9, the M1 column starting at 730), so
+    # the cell reads "451" for score 45 + minute 1.  The score then looks
+    # inflated and _try_repair_score() trims the stray digit away: the score
+    # comes out right and the minute is simply lost, which is why the second
+    # half of some matches has no minutes at all.
+    #
+    # Position cannot decide this either — measured over 1364 PDFs, 98.7% of
+    # second-half minutes DO land in the M column, so moving the boundary
+    # would trade a rare failure for a common one.  The evidence is the gap:
+    # a score's own digits sit 6-8px apart, the score and the minute 15-17px.
+    # On a two-digit minute only its tens digit spills, so the stray part is
+    # PREPENDED to whatever the minute cell already holds — that is the
+    # "minute 10 read as 0" case.
+    for key in list(cells.keys()):
+        row, header, cname = key
+        if not (cname.startswith("A") and cname.endswith("-2")):
+            continue
+        char_list = cells[key]
+        if len(char_list) < 2:
+            continue
+        char_list.sort(key=lambda t: t[0])
+
+        split_at = -1
+        for i in range(1, len(char_list)):
+            if char_list[i][0] - char_list[i - 1][0] > MINUTE_SPILL_GAP:
+                split_at = i
+                break
+        if split_at < 0:
+            continue
+
+        minute_chars = char_list[split_at:]
+        m_key = (row, header, "M" + cname[1])
+        cells.setdefault(m_key, [])
+        cells[m_key] = minute_chars + cells[m_key]
+        cells[key] = char_list[:split_at]
 
     records = []
     for (row, header, cname), char_list in sorted(cells.items()):
@@ -1713,6 +1757,14 @@ SCORING_COLOR_QUARTER = {
     "blue": 4,
 }
 
+# A hosszabbítás a jegyzőkönyvön a saját, "Hosszabbítás" fejlécű
+# oszlopcsoportjába kerül, de UGYANAZZAL a kék tintával, mint a 4. negyed —
+# a szín tehát nem különbözteti meg, a fejléc igen. A rendes negyedek a
+# színből jönnek, mert az oszlopcsoport csak helykitöltés (egy hasáb 42 sor,
+# utána a következő csoportban folytatódik), nem periódus.
+OVERTIME_HEADER = "Hosszabbítás"
+OVERTIME_QUARTER = 5
+
 
 def _try_repair_score(score_str, current_score):
     """Try to repair a truncated or inflated score value.
@@ -1882,6 +1934,8 @@ def compute_scoring_events(rs_records, players_list, match_id):
 
             if jersey and jersey.isdigit():
                 quarter = SCORING_COLOR_QUARTER.get(color, None)
+                if row["header"] == OVERTIME_HEADER:
+                    quarter = OVERTIME_QUARTER
                 if score_val == "-":
                     # Missed FT
                     seq += 1
@@ -1971,6 +2025,8 @@ def compute_scoring_events(rs_records, players_list, match_id):
 
             if jersey and jersey.isdigit():
                 quarter = SCORING_COLOR_QUARTER.get(color, None)
+                if row["header"] == OVERTIME_HEADER:
+                    quarter = OVERTIME_QUARTER
                 if score_val == "-":
                     seq += 1
                     events.append({

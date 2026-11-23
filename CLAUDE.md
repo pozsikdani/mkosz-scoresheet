@@ -315,6 +315,31 @@ Korábbi javítások (kronológiai sorrendben):
    play-by-play-hez **közelebb került, 0 romlott**; név nem sérült.
    A `_try_repair_score()` csak HÁTULRA fűz számjegyet, ezt a hibát nem fogta meg.
    A nyers `running_score` tábla a PDF szerinti (hibás) bontást őrzi — nincs fogyasztója.
+7. **A perc balra csúszása és a hosszabbítás negyede** (2026-11-23, Andris jelzésére).
+   (a) A perc számjegyei csak ~15 px-re állnak a pontszámtól, és néhány PDF-en az
+   oszlophatár kevesebb mint egy pixellel a kettő KÖZÉ esik (`hun3k_141651`: a perc
+   x=729,9-nél, az `M1` oszlop 730-nál kezdődik). Ilyenkor a cella „451"-et ad
+   (45 pont + 1 perc), amit a `_try_repair_score()` levág: a pontszám jó lesz, a perc
+   elvész — ezért nem jött ki a 2. félidő percének nagy része. **Oszlophatárt tolni
+   itt TILOS**: mérve 1364 PDF-en, a 2. félidei percek 98,7%-a a helyén van, a
+   határ eltolása a ritka hibát cserélné gyakorira. A szabály ezért a RÉSHEZ kötött,
+   mint a 6. pontban: a pontszám saját számjegyei 6-8 px-re állnak egymástól, a
+   pontszám és a perc 15-17 px-re (`MINUTE_SPILL_GAP = 12.0`). Kétjegyű percnél csak
+   a tízes jegy csúszik be, ezért a levált rész ELÉ kerül a perc-cella tartalmának —
+   ez a „10 helyett 0" eset.
+   (b) A hosszabbítás a saját, „Hosszabbítás" fejlécű oszlopcsoportjába kerül, de
+   UGYANAZZAL a kék tintával, mint a 4. negyed, a negyed pedig a színből jött — ezért
+   a hosszabbítás kosarai a 4. negyedbe kerültek. A fejléc a megkülönböztető jel
+   (`OVERTIME_QUARTER = 5`); a csoport nem periódus, csak helykitöltés (42 sor/hasáb).
+   Mérve 1364 PDF-en, módosítatlan alapvonalhoz képest: **a box score 25 264 sorából
+   0 változott** (pont, név, 3FG, büntető), negyed csak 4→5 irányba (451 esemény,
+   31 meccs), perc 206-szor `0`→`10`, 61 új perc, **0 elveszett**, és a visszafelé
+   lépő percek 625-ről 393-ra estek.
+
+   **Ami ebből MEGMARADT:** 393 visszafelé lépő perc (0,9%). Ebből ~47 a B-csapat
+   mezszámának első számjegye, ami balra, a perc-oszlopba csúszik (a mezszámot a
+   `fix_truncated_jerseys()` utólag helyreállítja, a perc-oszlop viszont szennyezett
+   marad). A maradék ~337 az A oldalon van, és más okú — külön vizsgálandó.
 
 ## Hasznos lekérdezések
 
