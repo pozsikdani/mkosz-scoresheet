@@ -3,6 +3,9 @@
 ## 2026-11-23
 
 ### Fixed
+- **A név-ablak levágta a nevek elejét** (`NAME_X_MIN` 95 → 74): a TYPE3 sablon
+  MINDEN nevének (141/141) és 22 TYPE2-sornak hiányzott az első betűje
+  („AGY GERGŐ" a „NAGY GERGŐ" helyett). 163 név állt helyre, 0 ürült ki.
 - **A magányos „-" (kihagyott büntető) átlógónak látszott**: a Hosszabbítás
   oszlopcsoportban a kötőjel átlépte az „átlógott" küszöböt, és a kiolvasó a
   következő csoport mezszám-oszlopába vitte — ahol amúgy is eldobja. Ettől nem

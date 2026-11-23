@@ -745,6 +745,17 @@ def _offset_coach_region(region, off):
 # Ezért a nevet nem a sávból, hanem a licencsorhoz igazított saját ablakból
 # olvassuk — sávhatárral mérve a tördelt nevek egy sorral feljebb csúsznának.
 LICENSE_MIN_DIGITS = 5
+
+# A név-ablak bal széle. Mérve mind az 1364 PDF-en, sablononként:
+#   licenc jobb széle   TYPE1 68,4   TYPE2 69,3   TYPE3 60,3   (max)
+#   név kezdete         TYPE1 104,4  TYPE2 78,7   TYPE3 88,5   (min)
+# A két tartomány között mindenhol tiszta rés van, a határ a közepén áll.
+# A korábbi 95 a TYPE3 MINDEN nevének (141/141) és 22 TYPE2-sornak levágta az
+# első betűjét — „NAGY GERGŐ" helyett „AGY GERGŐ". A licencszám így sem tud
+# beszivárogni: a név-karakterek közül a számjegyeket amúgy is kiszűrjük
+# (a név sosem tartalmaz számot), a licenc pedig csupa számjegy.
+NAME_X_MIN = 74
+NAME_X_MAX = 275
 ROW_TOP_ABOVE_LICENSE = 4.0
 # A névhez tartozó ablak a licencsor körül: a tördelt név első sora −4,5-nél, a
 # második +8,1-nél van, a szomszéd sorok neve ±16 px-nél távolabb.
@@ -830,7 +841,7 @@ def extract_players(all_chars, all_circles, team, cfg, coach_cfg, rows=None):
         # közeli sorokat eldobjuk" szabály az előző sor saját nevét dobta volna
         # ki helyette (a tavalyi anyagon 989 sor neve romlott volna el).
         lic_y = sum(c["y"] for c in license_chars) / len(license_chars)
-        name_chars = collect_chars_in_rect(all_chars, 95, 275,
+        name_chars = collect_chars_in_rect(all_chars, NAME_X_MIN, NAME_X_MAX,
                                             lic_y - NAME_ABOVE, lic_y + NAME_BELOW,
                                             color_filter=OFFICIAL_BLUE)
         # Player names never contain digits.  In some PDFs the first digit

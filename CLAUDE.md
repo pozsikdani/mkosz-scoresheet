@@ -362,6 +362,30 @@ Korábbi javítások (kronológiai sorrendben):
    1 sor eldönthetetlen (`hun3koa_125799`), mert ott a név eleve csonka
    („AGY GERGŐ" a „NAGY GERGŐ" helyett) — az a TYPE3 név-ablak hibája, külön
    javítandó.
+9. **A név-ablak levágta a nevek elejét** (2026-11-23). A név `x=[95, 275)`-ből
+   jött, de a név nem mindenhol ugyanott kezdődik. Mérve mind az 1364 PDF-en,
+   sablononként (`NAME_X_MIN` kommentjében is):
+
+   | | licenc jobb széle (max) | név kezdete (min) | levágott sor |
+   |---|---:|---:|---:|
+   | TYPE1 | 68,4 | 104,4 | 0 / 22 008 |
+   | TYPE2 | 69,3 | **78,7** | 22 / 2 873 |
+   | TYPE3 | 60,3 | **88,5** | **141 / 141** |
+
+   A két tartomány között mindenhol tiszta rés van, ezért a határ a közepére,
+   **74**-re került. A licencszám így sem tud beszivárogni: a névből a
+   számjegyeket amúgy is kiszűrjük, a licenc pedig csupa számjegy.
+   Mérve: **163 név állt helyre**, ebből 161 tiszta előtag-visszanyerés
+   (1-5 karakter), 2 egyéb — az egyiknél a beszivárgott „(KAP)" töredék is
+   eltűnt, a másik tördelt név, ahol MINDKÉT sor elvesztette az első betűjét.
+   0 név ürült ki, 0 játékos-sor veszett el a közös meccseken, a box score
+   változatlan (a név nem befolyásolja a pontot).
+
+   **A TYPE3-nak ezzel még NINCS vége.** A `hun3koa_125799`-en a B csapat
+   névsora csonka (4 játékos), és a hivatalos személyzet („DEMETER TAMÁS
+   (TÁRNOK)") játékosként kerül be — a box score 51-70 a hivatalos 58-90
+   helyett. Ezek a korábban bemért TYPE3 offset-hibák (a csapatrész és az
+   edző-sáv y-eltolása), külön javítandók.
 
 ## Hasznos lekérdezések
 
