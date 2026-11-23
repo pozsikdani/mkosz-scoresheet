@@ -521,7 +521,9 @@ def detect_template(all_chars):
         grid_chars = [ch for ch in all_chars
                       if ch["x"] >= 480 and 300 < ch["y"] < 400 and ch["c"].isdigit()]
         if grid_chars and min(ch["y"] for ch in grid_chars) > 315:
-            return {"name": "TYPE3", "off_id": -18, "off_body": 5, "off_footer": -103, "row_height": 24.31}
+            return {"name": "TYPE3", "off_id": -18, "off_body": 5, "off_footer": -103,
+                    "row_height": 24.31,
+                    "off_players_a": -64, "off_players_b": -104}
         # TYPE2
         return {"name": "TYPE2", "off_id": -10, "off_body": -20}
     if f_chars and f_chars[0]["y"] < 173:
@@ -717,6 +719,64 @@ def _offset_player_region(region, off):
         "row_height": region["row_height"],
         "max_rows": region["max_rows"],
     }
+
+
+COACH_LABEL_ABOVE = 8.0      # a felirat sorában van a név, de adjunk tűrést
+COACH_LABEL_BELOW = 18.0     # a licenc néha egy következő sorba kerül
+COACH_LABEL_GAP = 3.0        # az edző ablaka ennyivel a segédedző felirata előtt zár
+
+
+def find_coach_labels(all_chars):
+    """A nyomtatott EDZŐ / SEGÉDEDZŐ feliratok y-pozíciója csapatonként.
+
+    Az edző-sáv eddig fix y-ablakokból jött, eltolással sablononként. Ez két
+    okból is melléfogott:
+      * TYPE3-on a B csapat ablaka (1363-1390) a hivatalos személyzetet fogta
+        meg az edző helyett — a „DEMETER TAMÁS (TÁRNOK)" sorok innen jöttek;
+      * a SEGÉDEDZŐ ablaka MINDEN sablonon a felirat alatt kezdődött
+        (TYPE1-en a feliratok mediánja 764,1, az ablak 768-nál) — ezért van
+        2428 edző mellett csak 578 segédedző az adatbázisban.
+
+    A nyomtatott felirat viszont ott van minden olvasható PDF-en, és mérve mind
+    az 1364-en a kék NÉV pontosan a felirat sorában áll (eltérés 0,0). Ezért a
+    sáv ehhez horgonyzódik, nem koordinátához — ugyanaz az elv, mint a játékos-
+    soroknál a licencszám.
+
+    Visszatérés: {"A": {"coach": y, "asst": y}, "B": {...}} — hiányzó kulcs
+    nélkül, ha a felirat nem található (képes PDF-en egyik sincs).
+    """
+    sorok = {}
+    for c in all_chars:
+        if c["x"] < 330:
+            sorok.setdefault(round(c["y"], 1), []).append(c)
+    talalt = {"A": {}, "B": {}}
+    for y in sorted(sorok):
+        fekete = "".join(c["c"] for c in sorted(sorok[y], key=lambda c: c["x"])
+                         if color_name(c["color"]) == "black")
+        if fekete.startswith("SEGÉDEDZŐ"):
+            kulcs = "asst"
+        elif fekete.startswith("EDZŐ"):
+            kulcs = "coach"
+        else:
+            continue
+        oldal = "A" if y < 900 else "B"
+        talalt[oldal].setdefault(kulcs, y)   # az elsőt tartjuk meg
+    return talalt
+
+
+def coach_region_from_labels(labels, fallback):
+    """Felirat-horgonyzott edző-sáv, vagy a régi, eltolt ablak ha nincs felirat."""
+    if not labels or "coach" not in labels:
+        return fallback
+    c_y = labels["coach"]
+    a_y = labels.get("asst")
+    c_also = (a_y - COACH_LABEL_GAP) if a_y is not None else (c_y + COACH_LABEL_BELOW)
+    region = {"coach_y": (c_y - COACH_LABEL_ABOVE, c_also)}
+    if a_y is not None:
+        region["asst_y"] = (a_y - COACH_LABEL_ABOVE, a_y + COACH_LABEL_BELOW)
+    else:
+        region["asst_y"] = fallback["asst_y"]
+    return region
 
 
 def _offset_coach_region(region, off):
@@ -2426,10 +2486,21 @@ def process_single_pdf(pdf_path, conn):
     quarter_scores = extract_quarter_scores(all_chars, template)
 
     # Apply offset to player/coach regions
-    ta_players = _offset_player_region(TEAM_A_PLAYERS, off)
-    tb_players = _offset_player_region(TEAM_B_PLAYERS, off)
-    ta_coach = _offset_coach_region(TEAM_A_COACH, off)
-    tb_coach = _offset_coach_region(TEAM_B_COACH, off)
+    # A TYPE3 nem egyszerű eltolás: a lap lefelé haladva egyre jobban elcsúszik,
+    # ezért a két csapatrésznek SAJÁT eltolása van. Mérve mind a 12 TYPE3 PDF-en,
+    # a TYPE1/TYPE2-nél érvényes „y_start = első licencsor − 17" konvencióval:
+    #   első licencsor   TYPE1 446,7   TYPE2 412,1   TYPE3 383,5   (A csapat)
+    #                    TYPE1 1050,6  TYPE2 1014,5  TYPE3 946,5   (B csapat)
+    # A közös off_body=+5 miatt a B csapat keresőablaka 1013-nál kezdődött,
+    # a névsor viszont 946,5-nél — ezért maradt csonka (hun3koa_125799: 4 játékos
+    # a 12-ből, a box score 51-70 a hivatalos 58-90 helyett).
+    ta_players = _offset_player_region(TEAM_A_PLAYERS, template.get("off_players_a", off))
+    tb_players = _offset_player_region(TEAM_B_PLAYERS, template.get("off_players_b", off))
+    _labels = find_coach_labels(all_chars)
+    ta_coach = coach_region_from_labels(_labels.get("A"),
+                                       _offset_coach_region(TEAM_A_COACH, off))
+    tb_coach = coach_region_from_labels(_labels.get("B"),
+                                       _offset_coach_region(TEAM_B_COACH, off))
 
     # A sorsávokat egyszer számoljuk ki csapatonként: a játékos és a faultja
     # ugyanabból a sávból jön, különben elcsúszhatnának egymáshoz képest.

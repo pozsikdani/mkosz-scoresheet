@@ -381,11 +381,53 @@ Korábbi javítások (kronológiai sorrendben):
    0 név ürült ki, 0 játékos-sor veszett el a közös meccseken, a box score
    változatlan (a név nem befolyásolja a pontot).
 
-   **A TYPE3-nak ezzel még NINCS vége.** A `hun3koa_125799`-en a B csapat
-   névsora csonka (4 játékos), és a hivatalos személyzet („DEMETER TAMÁS
-   (TÁRNOK)") játékosként kerül be — a box score 51-70 a hivatalos 58-90
-   helyett. Ezek a korábban bemért TYPE3 offset-hibák (a csapatrész és az
-   edző-sáv y-eltolása), külön javítandók.
+   **A TYPE3 offset-hibáit a 10. pont zárta le.**
+10. **TYPE3 csapatrész-eltolás és felirat-horgonyzott edző-sáv** (2026-11-23).
+   Két külön hiba, két külön mechanizmussal.
+
+   **(a) A csapatrész.** A TYPE3 nem egyszerű eltolás: a lap lefelé haladva
+   egyre jobban elcsúszik, ezért a két csapatrésznek SAJÁT eltolása kell.
+   Mérve mind a 12 TYPE3 PDF-en, a TYPE1/TYPE2-nél érvényes
+   „`y_start` = első licencsor − 17" konvencióval:
+
+   | | A első licencsora | B első licencsora |
+   |---|---:|---:|
+   | TYPE1 | 446,7 | 1050,6 |
+   | TYPE2 | 412,1 | 1014,5 |
+   | TYPE3 | **383,5** | **946,5** |
+
+   A közös `off_body=+5` miatt a B keresőablak 1013-nál kezdődött, a névsor
+   viszont 946,5-nél — ezért maradt csonka. Innen a `off_players_a=-64` és
+   `off_players_b=-104`, csak a TYPE3 template-en.
+
+   **(b) Az edző-sáv.** Fix y-ablakokból jött, eltolással — és két okból is
+   melléfogott: TYPE3-on a B ablaka (1363-1390) a hivatalos személyzetet fogta
+   meg az edző helyett (innen jöttek a „DEMETER TAMÁS (TÁRNOK)" sorok), a
+   SEGÉDEDZŐ ablaka pedig MINDEN sablonon a felirat alatt kezdődött (TYPE1-en a
+   feliratok mediánja 764,1, az ablak 768-nál) — ezért volt 2428 edző mellett
+   csak 578 segédedző.
+
+   A megoldás ugyanaz az elv, mint a játékos-soroknál a licencszám: **horgony a
+   nyomtatott feliratokhoz.** Az `EDZŐ` / `SEGÉDEDZŐ` felirat feketével ott van
+   minden olvasható PDF-en, és mérve mind az 1364-en a kék NÉV pontosan a
+   felirat sorában áll (eltérés 0,0). Ahol nincs felirat (képes PDF, 122 db),
+   a kód a régi, eltolt ablakra esik vissza.
+
+   Mérve, módosítatlan alapvonalhoz képest, az 1246 közös meccsen:
+
+   | | |
+   |---|---|
+   | box score = hivatalos | 2435/2490 → **2452/2490** (17 javult, **0 romlott**) |
+   | segédedző | 578 → **755** (+177) |
+   | edző | 2428 → **2483** (+55) |
+   | kapitány | 2465 → 2483 (+18) |
+   | játékos | 22 613 → 22 661 (+48) |
+   | **eltűnt játékos-sor** | **0** |
+
+   A `hun3koa_125799` box score-ja 51-70-ről **58-90-re** javult, ami pontosan a
+   hivatalos eredmény. Ott a B csapat „edzője" `MOLNÁR MÁTÉ (KAP)` — ez NEM
+   hiba: játékos-edző, a kapitány játékos-licence 129804, az edző-soré 5300
+   (négyjegyű, mint a többi edzőé).
 
 ## Hasznos lekérdezések
 
