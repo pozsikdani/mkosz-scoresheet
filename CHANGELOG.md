@@ -3,6 +3,11 @@
 ## 2026-11-23
 
 ### Fixed
+- **TYPE3 csapatrész-eltolás és felirat-horgonyzott edző-sáv**: a TYPE3 lap
+  lefelé haladva egyre jobban elcsúszik, ezért a két csapatrésznek saját
+  eltolása van (`off_players_a/b`); az edző-sáv pedig a nyomtatott
+  `EDZŐ`/`SEGÉDEDZŐ` felirathoz horgonyzódik, nem fix koordinátához. Box score
+  2435/2490 → 2452/2490 (17 javult, 0 romlott), segédedző 578 → 755.
 - **A név-ablak levágta a nevek elejét** (`NAME_X_MIN` 95 → 74): a TYPE3 sablon
   MINDEN nevének (141/141) és 22 TYPE2-sornak hiányzott az első betűje
   („AGY GERGŐ" a „NAGY GERGŐ" helyett). 163 név állt helyre, 0 ürült ki.
