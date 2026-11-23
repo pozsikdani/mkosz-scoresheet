@@ -3,6 +3,12 @@
 ## 2026-11-23
 
 ### Fixed
+- **A magányos „-" (kihagyott büntető) átlógónak látszott**: a Hosszabbítás
+  oszlopcsoportban a kötőjel átlépte az „átlógott" küszöböt, és a kiolvasó a
+  következő csoport mezszám-oszlopába vitte — ahol amúgy is eldobja. Ettől nem
+  csak a kihagyott büntető veszett el, hanem a rá következő folytatólagos
+  büntetők is rossz játékoshoz kerültek. +100 kihagyott büntető, 50 sor került
+  közelebb a hivatalos adathoz, 0 romlott.
 - **A perc balra csúszása a pontszám-cellába** (`MINUTE_SPILL_GAP`): ahol az oszlophatár
   a pontszám és a perc közé esik, a perc eddig elveszett (a pontszám jó maradt, mert a
   `_try_repair_score()` levágta). 61 új perc, 206 javított `0`→`10`, 0 elveszett.
