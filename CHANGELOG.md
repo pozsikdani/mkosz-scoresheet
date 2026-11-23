@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-23
+
+### Fixed
+- **A perc balra csúszása a pontszám-cellába** (`MINUTE_SPILL_GAP`): ahol az oszlophatár
+  a pontszám és a perc közé esik, a perc eddig elveszett (a pontszám jó maradt, mert a
+  `_try_repair_score()` levágta). 61 új perc, 206 javított `0`→`10`, 0 elveszett.
+- **A hosszabbítás a 4. negyedbe került** (`OVERTIME_QUARTER`): a negyed a tinta
+  színéből jött, a hosszabbítás viszont ugyanazzal a kékkel megy, mint a 4. negyed —
+  most a „Hosszabbítás" fejléc dönt. 451 esemény, 31 meccs.
+
+Mindkettő Andris jelzésére. A box score 25 264 sorából 0 változott.
+
 ## 2026-11-22
 
 ### Fixed
