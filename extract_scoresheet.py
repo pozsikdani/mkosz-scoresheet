@@ -344,7 +344,21 @@ def extract_running_score(all_chars, all_circles, template=None):
 
         # If ALL chars are far from the left boundary → entirely stray,
         # re-assign them to the next group's A*-1 column.
-        if char_list[0][0] - col_left > 15:
+        #
+        # Never for a cell that holds no digit at all. A lone "-" here is a
+        # MISSED FREE THROW, and the destination is a jersey column, where
+        # compute_scoring_events() ignores "-" anyway (it means "same player
+        # as before") — so moving it cannot add anything and can only destroy
+        # the missed attempt. It does destroy it: this left-edge test is
+        # calibrated for columns whose content starts 2-6px in, but in the
+        # Hosszabbítás group the whole column sits further right (a two-digit
+        # score starts at 12.3, a lone "-" at 18.1), so the dash trips the
+        # 15px rule while the scores do not. On hun3k_125647 this lost all
+        # three of Közgáz's missed overtime free throws — Bartus came out
+        # 14/14 instead of 14/15 and Bencze 0/0 instead of 0/2. (Andris
+        # jelezte, 2026-11-22.)
+        if (char_list[0][0] - col_left > 15
+                and any(c.isdigit() for _, c, _ in char_list)):
             if next_a1:
                 a1_key = (row, next_a1[0], next_a1[1])
                 cells.setdefault(a1_key, [])

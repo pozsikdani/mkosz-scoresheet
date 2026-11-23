@@ -340,6 +340,28 @@ Korábbi javítások (kronológiai sorrendben):
    mezszámának első számjegye, ami balra, a perc-oszlopba csúszik (a mezszámot a
    `fix_truncated_jerseys()` utólag helyreállítja, a perc-oszlop viszont szennyezett
    marad). A maradék ~337 az A oldalon van, és más okú — külön vizsgálandó.
+8. **A magányos „-" (kihagyott büntető) átlógónak látszott** (2026-11-23, Andris
+   jelzésére). A Case 1 szabály a `B*-2` cellát átlógónak tekinti, ha minden
+   karaktere 15 px-nél messzebb kezdődik a bal széltől, és a következő
+   oszlopcsoport `A*-1` mezszám-oszlopába viszi. Ez a küszöb olyan oszlopokra van
+   hangolva, ahol a tartalom 2-6 px-nél kezdődik — a **Hosszabbítás** csoportban
+   viszont az egész oszlop jobbra tolódik (kétjegyű pontszám 12,3-nál, magányos
+   „-" 18,1-nél), így a kötőjel átlépi a 15-öt, a pontszámok nem.
+   A `hun3k_125647`-en ez mind a 3 Közgáz-hosszabbításbeli kihagyott büntetőt
+   elvitte: Bartus 14/14 lett 14/15 helyett, Bencze 0/0 a 0/2 helyett.
+   **Az érv, ami eldönti:** a célhely egy MEZSZÁM-oszlop, ahol a
+   `compute_scoring_events()` a „-"-t amúgy is eldobja (az ott „ugyanaz a játékos"
+   jelentésű), tehát az áthelyezés nem adhat hozzá semmit, csak veszíthet. Ezért
+   a szabály csak akkor fut, ha a cellában van legalább egy SZÁMJEGY.
+   Nem csak a kihagyott büntető tért vissza: a „-" eldobásával a teljes sor
+   kimaradt, így a rá következő folytatólagos büntetők az ELŐZŐ mezszámra kerültek
+   (`hun2b_124209`: 3 büntető a 79-esre a 11-es helyett). Mérve 1364 PDF-en:
+   +100 kihagyott büntető, 75 megváltozott játékos-sor, ebből **50 került
+   közelebb** a független forráshoz (MKOSZ meccsoldal, ahol nincs: play-by-play),
+   **0 romlott**, 16 azonos távolságra maradt, 8 nem volt ellenőrizhető.
+   1 sor eldönthetetlen (`hun3koa_125799`), mert ott a név eleve csonka
+   („AGY GERGŐ" a „NAGY GERGŐ" helyett) — az a TYPE3 név-ablak hibája, külön
+   javítandó.
 
 ## Hasznos lekérdezések
 
