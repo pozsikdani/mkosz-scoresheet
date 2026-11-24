@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-11-24
+
+### Fixed
+- **A 10. perc szétesett az oszlophatáron** (`MINUTE_TENS_GAP`): a perc-oszlop
+  14 px, a kétjegyű perc ~16 — a „10" tehát nem mindig fér bele, és az egyik
+  jegye a szomszéd oszlopba esik. Két irányban: a tízes jegy BALRA a
+  pontszám-cellába (a perc „0"-t olvas), vagy az egyes jegy JOBBRA a B-mezszám
+  oszlopába (a perc „1"-et olvas). A bizonyíték a betűlépés: egy SZÁM
+  szomszédos jegyei 4,9-8,2 px-re állnak (medián 7,9), a pontszám és a perc
+  legalább 9,3-ra, a perc és a B-mezszám legalább 12-re — plusz a
+  lehetetlenség: „0" sosem perc, mezszám pedig csak a 0 és a 00 kezdődik
+  nullával, és azok 15-21 px-re állnak, sosem 7,9-re.
+  Perc `0` 321 → 7, perc `10` 3463 → **4483** (+1020), visszafelé lépő perc
+  **398 → 62**. A play-by-play-hez mért durva perc-hiba (|eltérés| ≥ 2)
+  355 → 220. 11 játékos-sor változott, **mind a 11 közelebb** a független
+  forráshoz (8 pontosan ráállt), **0 romlott**; box score 2579/2618
+  változatlan, név 0, elveszett sor 0.
+
 ## 2026-11-23
 
 ### Fixed

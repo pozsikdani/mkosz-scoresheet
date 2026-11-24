@@ -336,10 +336,8 @@ Korábbi javítások (kronológiai sorrendben):
    31 meccs), perc 206-szor `0`→`10`, 61 új perc, **0 elveszett**, és a visszafelé
    lépő percek 625-ről 393-ra estek.
 
-   **Ami ebből MEGMARADT:** 393 visszafelé lépő perc (0,9%). Ebből ~47 a B-csapat
-   mezszámának első számjegye, ami balra, a perc-oszlopba csúszik (a mezszámot a
-   `fix_truncated_jerseys()` utólag helyreállítja, a perc-oszlop viszont szennyezett
-   marad). A maradék ~337 az A oldalon van, és más okú — külön vizsgálandó.
+   **Ami ebből MEGMARADT:** 398 visszafelé lépő perc — ezt a 11. pont zárta le.
+
 8. **A magányos „-" (kihagyott büntető) átlógónak látszott** (2026-11-23, Andris
    jelzésére). A Case 1 szabály a `B*-2` cellát átlógónak tekinti, ha minden
    karaktere 15 px-nél messzebb kezdődik a bal széltől, és a következő
@@ -428,6 +426,79 @@ Korábbi javítások (kronológiai sorrendben):
    hivatalos eredmény. Ott a B csapat „edzője" `MOLNÁR MÁTÉ (KAP)` — ez NEM
    hiba: játékos-edző, a kapitány játékos-licence 129804, az edző-soré 5300
    (négyjegyű, mint a többi edzőé).
+
+11. **A 10. perc szétesett az oszlophatáron** (2026-11-24). Ez volt a 7. pontban
+   nyitva maradt 398 visszafelé lépő perc valódi oka, és nem „kétféle hiba",
+   hanem egy szerkezeti tény: **a perc-oszlop 14 px, a kétjegyű perc ~16**, tehát
+   a „10" nem mindig fér bele, és az egyik jegye a szomszéd oszlopba esik. Két
+   irányban, és mindkettő LEHETETLEN percet hagy maga után:
+
+   | | a kiszökő jegy | ahova esik | a perc így | eset |
+   |---|---|---|---:|---:|
+   | (a) | tízes `1` | balra, `A*-2` (pontszám) | `0` | 1297 |
+   | (b) | egyes `0` | jobbra, `B*-1` (B-mezszám) | `1` | 39 |
+
+   **A bizonyíték a betűlépés.** Mérve mind az 1364 PDF-en: egy SZÁM szomszédos
+   jegyei 4,9-8,2 px-re állnak egymástól (medián 7,9; 48 282 mérés), a pontszám
+   és a perc viszont legalább 9,3-ra (23 405 mérés — és ezt a 9,3-at a három
+   jegyű eredmények adják, a szokásos 15-17), a perc és a B-mezszám legalább
+   12-re. Vagyis az oszlophatáron átnyúló, pontosan EGY betűlépésre álló
+   számjegy ugyanannak a számnak a jegye. A két klaszter közt tiszta rés van,
+   ezért a küszöb a közepére, **9,0**-ra került (`MINUTE_TENS_GAP`).
+
+   **A lehetetlenség legalább ennyit számít.** „0" sosem perc, a perc sosem több
+   10-nél, mezszám pedig csak a 0 és a 00 kezdődik nullával — és azok 15-21 px-re
+   állnak a perctől, sosem 7,9-re. Geometria + lehetetlenség együtt dönt, külön
+   egyik sem elég: a Hosszabbítás csoportban a jobbra tolódás miatt valódi
+   pontszám-perc pár is 7,9-re áll (`hun2a_ply_134111`), ott viszont a perc
+   érvényes, tehát a szabály nem indul el.
+
+   **Miért nem fogta meg ezt a `MINUTE_SPILL_GAP` (7. pont)?** Az ugyanezt méri,
+   de a pontszám-cellán BELÜL. Egy teljes perc 15-17 px-re áll a pontszámtól, egy
+   magányos tízes jegy viszont csak 11,4-12,0-ra (a „10" szélesebb, ezért balra
+   tolódik a középre zárásból) — pont a 12,0-as küszöb ALATT. A küszöb
+   leszállítása rossz válasz lett volna: a szám-belső rések p99-e 11,8.
+   A lone `1`-et pedig a `len(char_list) < 2` eleve kizárta.
+
+   **Egy helyen hagytam szándékosan hibát:** ha a `B*-1` tartalma pontosan `0` és
+   a sorban van B-pontszám, akkor a `0` lehet a 0-as mezszám is, és az elvétele a
+   kosarat az ELŐZŐ mezszámra vinné. Geometriával ez nem szétválasztható, ezért
+   az a 6 sor (1364 PDF-ből) marad. Perc-hibát vállalni jobb, mint dobót cserélni.
+
+   Mérve, módosítatlan alapvonalhoz képest, 1310 közös meccsen:
+
+   | | |
+   |---|---|
+   | perc `0` | 321 → **7** |
+   | perc `10` | 3463 → **4483** (+1020) |
+   | esemény perccel | 43 726 → 44 409 (+683) |
+   | **visszafelé lépő perc** | **398 → 62** |
+   | durva perc-hiba a play-by-play-hez (\|eltérés\| ≥ 2) | 355 → **220** |
+   | box score = hivatalos | 2579/2618 → 2579/2618 |
+   | megváltozott játékos-sor | 11 — **mind a 11 közelebb** a független forráshoz (8 pontosan ráállt), **0 romlott** |
+   | név, elveszett sor | 0, 0 |
+
+   A 11 megváltozott sor nem melléktermék, hanem nyereség: ahol a tízes jegy
+   bent maradt a pontszám-cellában, ott a `_try_repair_score()` a SOR VÉGÉT
+   vágta le, és ettől elcsúszott a dobó. `hun3k_141611`-ben Kis Levente 23 pont
+   / 1 tripla volt 20 / 0 helyett, Plangár Máté 0 pont 2 helyett.
+   **A box score ezekre vak volt**, mert a csapatösszeg nem változott (egy
+   játékos kapott +1 triplát, egy másik vesztett egy büntetőt) — ugyanaz a
+   csapda, mint a 6. pontnál, ezért kellett a play-by-play és az MKOSZ
+   meccsoldal külön ellenőrzésnek.
+
+   **Ami ebből MEGMARADT:** 62 visszafelé lépő perc, de már csak **20 meccsen**,
+   szinte mind a 4. negyedben / hosszabbításban és a B oldalon — tehát a lap
+   jobb szélén, ahol a sablon-csúszás a legnagyobb. Ez meccsenként csoportosul,
+   vagyis PDF-szintű elrendezési eltérés, nem az itt javított szerkezeti ok.
+   Mellette 7 lehetetlen perc-érték (12, 31, 45, 52, 61, 81), ahol a B-mezszám
+   egy jegye a perc MÖGÉ került, és 7 megmaradt `0`.
+
+   **Külön észrevétel, nem hiba:** a 115 743 eseményből **72 ezernek nincs perce
+   (62%)**, és ez a forrás tulajdonsága — a jegyző negyedenként ~10 perc-jelet ír,
+   nem soronként. Ha a perc minden eseményre kellene, az a jelet lefelé
+   örökítő olvasás lenne (`minute` = a sor fölötti utolsó jel az adott
+   negyedben), ami jelentés-változás, ezért nem csináltam meg.
 
 ## Hasznos lekérdezések
 
