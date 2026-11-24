@@ -701,6 +701,25 @@ python3 update_attendance.py
 git add dashboards/ && git commit && git push
 ```
 
+### Ütközés a napi CI-vel extractor-javítás után (2026-11-24)
+
+Ha egy extractor-javítás után teljes `--force` újraolvasás megy, a napi CI
+(`Napi import` / `Napi frissítés` / `Scoresheet frissítés`) közben feltolhatja
+a saját automata commitját mind a három repóba, és a push elhasal. A három
+repó NEM egyformán oldódik fel, mert a CI más-más okból „régi":
+
+| repó | a CI commitja | feloldás |
+|---|---|---|
+| `mkosz-scoresheet` | **elavult** — a CI nem `--force`-ol, csak az új PDF-eket olvassa, a régi meccsek a javítás előtti értéket tartják | `git merge -s ours origin/main` — a helyi újraolvasás marad |
+| `mkosz-stats` | **értékes** — benne van a CI aznapi friss play-by-play importja (nálunk nincs) | `git reset --hard origin/main`, majd újra `cli.py import scoresheet` + `cli.py resolve` a CI DB-jére |
+| `mkosz-dashboard` | generált, a CI a régi stats DB-ből csinálta | `git reset --hard origin/main`, majd újra `generate_dashboards.py site` a végleges DB-ből |
+
+Vagyis: a scoresheet-DB-nél a miénk nyer, a stats-DB-nél **egyiket sem lehet
+eldobni** (a CI pbp-je + a mi scoresheet-importunk kell), a dashboard pedig
+mindig a legvégén, a kész stats DB-ből generálódik újra. A döntés előtt
+MINDIG hasonlítsd össze a két DB-t sor-szinten (`git show origin/main:<db>`
+temp fájlba), ne a commit-idő alapján válassz.
+
 ### generate_dashboards.py architektúra
 ```
 generate_site()                              — teljes site generálás (alapértelmezett)
