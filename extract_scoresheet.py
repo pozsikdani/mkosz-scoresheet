@@ -245,6 +245,13 @@ NUM_ROWS = 42
 # ami balra csúszott be. (Mérve 1364 PDF-en.)
 MINUTE_SPILL_GAP = 12.0
 
+# Egy SZÁM szomszédos jegyei 4,9-8,2 px-re állnak egymástól (medián 7,9), a
+# pontszám és a perc viszont legalább 9,3-ra, a perc és a B-mezszám legalább
+# 12-re. Ezért az oszlophatáron átnyúló, egyetlen betűlépésre álló számjegy
+# ugyanannak a számnak a jegye. (Mérve 1364 PDF-en: 48 282 szám-belső rés és
+# 23 405 pontszám→perc távolság.)
+MINUTE_TENS_GAP = 9.0
+
 
 def _get_row(y):
     r = int((y - ROW_TOP) / ROW_HEIGHT) + 1
@@ -456,6 +463,80 @@ def extract_running_score(all_chars, all_circles, template=None):
         cells.setdefault(m_key, [])
         cells[m_key] = minute_chars + cells[m_key]
         cells[key] = char_list[:split_at]
+
+    # Case 4: the minute 10 split across a column boundary.
+    #
+    # The M column is 14px wide, a two-digit minute is ~16px, so "10" does not
+    # always fit: one of its digits lands in a neighbouring column.  Both
+    # directions occur, and both leave an IMPOSSIBLE minute behind:
+    #
+    #   (a) the tens digit falls LEFT into A*-2 (the score) → M reads "0"
+    #   (b) the units digit falls RIGHT into B*-1 (the B jersey) → M reads "1"
+    #       where the sequence has already passed minute 1
+    #
+    # The evidence is the glyph advance, measured over all 1364 PDFs:
+    # digits of ONE number sit 4.9-8.2px apart (median 7.9), while a score and
+    # the minute sit 9.3px apart at the very closest (23 405 pairs, and the
+    # 3-digit scores make up that low end — the usual distance is 15-17), and a
+    # minute and the B jersey 12px at the closest.  So a digit exactly one
+    # advance away across the boundary belongs to the SAME number.
+    # MINUTE_SPILL_GAP (12.0) measures the same thing INSIDE the score cell,
+    # where the minute's own width shifts it: there a full minute sits 15-17px
+    # from the score, but a lone tens digit only 11.4-12.0 — under the
+    # threshold, which is why Case 3 never caught this.
+    #
+    # The plausibility anchor matters as much as the geometry: "0" is never a
+    # minute, and a jersey never STARTS with 0 unless it is 0 or 00 — and those
+    # stand 15-21px from the minute, never 7.9.
+    for key in list(cells.keys()):
+        row, header, cname = key
+        if not cname.startswith("M"):
+            continue
+        m_chars = cells[key]
+        if len(m_chars) != 1:
+            continue
+        m_chars.sort(key=lambda t: t[0])
+        grp = cname[1]
+
+        # (a) M == "0": the tens digit is the last char of A*-2.
+        if m_chars[0][1] == "0":
+            a_key = (row, header, "A" + grp + "-2")
+            a_chars = cells.get(a_key)
+            if a_chars:
+                a_chars.sort(key=lambda t: t[0])
+                if (a_chars[-1][1] == "1"
+                        and m_chars[0][0] - a_chars[-1][0] < MINUTE_TENS_GAP):
+                    cells[key] = [a_chars[-1]] + m_chars
+                    if len(a_chars) == 1:
+                        del cells[a_key]
+                    else:
+                        cells[a_key] = a_chars[:-1]
+            continue
+
+        # (b) M == "1": the units digit is the first char of B*-1.
+        if m_chars[0][1] != "1":
+            continue
+        b_key = (row, header, "B" + grp + "-1")
+        b_chars = cells.get(b_key)
+        if not b_chars:
+            continue
+        b_chars.sort(key=lambda t: t[0])
+        if b_chars[0][1] != "0":
+            continue
+        if b_chars[0][0] - m_chars[0][0] >= MINUTE_TENS_GAP:
+            continue
+        # A lone "0" in the jersey column next to a B SCORE is ambiguous: it
+        # may be jersey number 0, and taking it away would hand the basket to
+        # the previous jersey.  Geometry cannot separate those, so leave them
+        # (6 rows over 1364 PDFs).  With a score of its own absent, or with
+        # more digits to the right, the jersey survives either way.
+        if len(b_chars) == 1 and cells.get((row, header, "B" + grp + "-2")):
+            continue
+        cells[key] = m_chars + [b_chars[0]]
+        if len(b_chars) == 1:
+            del cells[b_key]
+        else:
+            cells[b_key] = b_chars[1:]
 
     records = []
     for (row, header, cname), char_list in sorted(cells.items()):
