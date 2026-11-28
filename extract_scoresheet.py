@@ -538,6 +538,70 @@ def extract_running_score(all_chars, all_circles, template=None):
         else:
             cells[b_key] = b_chars[1:]
 
+    # Case 5: the B jersey's leading digit drifted LEFT into the minute cell.
+    #
+    # The minute cell ends where the B jersey column begins, and the jersey's
+    # field is right-aligned: its first digit sits a single glyph advance left
+    # of its last one.  On some PDFs the whole B block is drawn 2-5px left of
+    # where COL_BOUNDS expects it (a three-digit score widens the field, the
+    # form is filled at a slightly different scale), and then a two-digit
+    # jersey's TENS digit crosses into the minute cell.  What is left behind
+    # is read as the minute:
+    #
+    #   * with a real minute present, the cell holds two numbers and reads
+    #     "12", "31", "45", "52", "61", "81" — every impossible minute value
+    #     in the database comes from here (minute + jersey tens);
+    #   * with no minute on that row, the cell holds the jersey tens ALONE and
+    #     reads as a plausible but wrong small minute (1, 2, 3...), which is
+    #     what makes the minute column walk backwards.
+    #
+    # Position alone cannot decide it: this is the mirror image of Case 4(b),
+    # where the minute 10's units digit crosses the SAME boundary in the other
+    # direction, and both leave two chars one advance apart straddling it.
+    # What separates them is where the pair sits, and that is calibrated per
+    # PDF from the column itself: within one (header, group) the real minutes
+    # share one x slot (a one-digit minute and a "10" differ by at most 4px,
+    # well inside one advance), while a drifted jersey digit stands ~11px to
+    # the right of it.  So if the minute cells of a group fall into two
+    # clusters at least MINUTE_TENS_GAP apart, the LEFT cluster is the minute
+    # (the minute column is always left of the jersey column) and everything
+    # right of it belongs to the jersey.  A group with a single cluster is
+    # left untouched — there is nothing to calibrate against.
+    m_groups = {}
+    for (row, header, cname), chars in cells.items():
+        if cname.startswith("M") and chars:
+            m_groups.setdefault((header, cname), []).append(row)
+    for (header, cname), rows_in_group in m_groups.items():
+        xs = sorted(x for r in rows_in_group for x, _, _ in cells[(r, header, cname)])
+        clusters = [[xs[0]]]
+        for x in xs[1:]:
+            if x - clusters[-1][-1] >= MINUTE_TENS_GAP:
+                clusters.append([x])
+            else:
+                clusters[-1].append(x)
+        if len(clusters) < 2:
+            continue
+        cut = clusters[0][-1]
+        grp = cname[1]
+        for row in rows_in_group:
+            key = (row, header, cname)
+            chars = sorted(cells[key], key=lambda t: t[0])
+            keep = [t for t in chars if t[0] <= cut]
+            stray = [t for t in chars if t[0] > cut]
+            if not stray:
+                continue
+            b_key = (row, header, "B" + grp + "-1")
+            b_chars = sorted(cells.get(b_key, []), key=lambda t: t[0])
+            # The stray must actually be the jersey's missing digit: adjacent
+            # to the jersey's own digits (one advance), or the whole jersey.
+            if b_chars and b_chars[0][0] - stray[-1][0] >= MINUTE_TENS_GAP:
+                continue
+            cells[b_key] = stray + b_chars
+            if keep:
+                cells[key] = keep
+            else:
+                del cells[key]
+
     records = []
     for (row, header, cname), char_list in sorted(cells.items()):
         char_list.sort(key=lambda t: t[0])

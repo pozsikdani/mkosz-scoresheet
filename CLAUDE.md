@@ -487,18 +487,79 @@ Korábbi javítások (kronológiai sorrendben):
    csapda, mint a 6. pontnál, ezért kellett a play-by-play és az MKOSZ
    meccsoldal külön ellenőrzésnek.
 
-   **Ami ebből MEGMARADT:** 62 visszafelé lépő perc, de már csak **20 meccsen**,
-   szinte mind a 4. negyedben / hosszabbításban és a B oldalon — tehát a lap
-   jobb szélén, ahol a sablon-csúszás a legnagyobb. Ez meccsenként csoportosul,
-   vagyis PDF-szintű elrendezési eltérés, nem az itt javított szerkezeti ok.
-   Mellette 7 lehetetlen perc-érték (12, 31, 45, 52, 61, 81), ahol a B-mezszám
-   egy jegye a perc MÖGÉ került, és 7 megmaradt `0`.
+   **Ami ebből MEGMARADT:** 62 visszafelé lépő perc 20 meccsen, és 7 lehetetlen
+   perc-érték (12, 31, 45, 52, 61, 81). A sejtés, hogy a B-mezszám egy jegye a
+   perc mögé került, igaznak bizonyult — ezt a **12. pont** zárta le.
 
    **Külön észrevétel, nem hiba:** a 115 743 eseményből **72 ezernek nincs perce
    (62%)**, és ez a forrás tulajdonsága — a jegyző negyedenként ~10 perc-jelet ír,
    nem soronként. Ha a perc minden eseményre kellene, az a jelet lefelé
    örökítő olvasás lenne (`minute` = a sor fölötti utolsó jel az adott
    negyedben), ami jelentés-változás, ezért nem csináltam meg.
+
+12. **A B-mezszám vezető jegye a perc-cellába csúszott** (2026-11-25). Ez volt a
+   11. pontban nyitva maradt 62 visszafelé lépő perc és mind a 7 lehetetlen
+   perc-érték oka — és egyben **43 hibás játékos-sor** oka, amiről nem is
+   tudtuk, hogy hibás.
+
+   A perc-cella ott végződik, ahol a B-mezszám oszlopa kezdődik, és a mezszám
+   mezője **jobbra zárt**: az első jegye egyetlen betűlépésre áll az utolsótól.
+   Néhány PDF-en az egész B-blokk 2-5 px-rel balra van rajzolva (három jegyű
+   pontszám szélesebb mezőt kér, a kitöltés kicsit más méretarányban készül),
+   és ilyenkor a kétjegyű mezszám **tízes jegye** átcsúszik a perc-cellába.
+   Ami ott marad, az lesz a perc:
+
+   | a sorban van valódi perc? | a perc-cella tartalma | a kár |
+   |---|---|---|
+   | igen | perc + mezszám-tízes együtt | `12`, `31`, `45`, `52`, `61`, `81` — **az adatbázis minden lehetetlen perc-értéke innen jött** |
+   | nem | a mezszám tízese egyedül | hihető, de hamis kis perc (1, 2, 3…) → ettől lép visszafelé a perc |
+
+   **A mezszám is sérül**, és ez a súlyosabb: a 27-ből 7 lesz, a 24-ből 4, a
+   70-ből 0 — a kosarat a jegyzőkönyv más játékosához írja a kód. Ezért
+   változott 44 játékos-sor 16 meccsen, köztük Közgáz-meccsek
+   (`hun3k_141617`: Sándor Bence 16 → 18 pont 2 büntetővel, Pálinkás Gergő
+   2 → 0).
+
+   **Miért nem dönthető el pozícióból:** ez a 11. pont Case 4(b)-jének
+   tükörképe. Ott a perc „10" egyes jegye csúszik át ugyanazon a határon a
+   MÁSIK irányba, és mindkettő ugyanazt hagyja maga után: két karakter egy
+   betűlépésre, a határ két oldalán. Ami szétválasztja, az a pár **helye**, és
+   azt PDF-enként kell kalibrálni: egy (félidő, csoport) valódi percei egy
+   x-slotban állnak (az egy jegyű perc és a „10" legfeljebb 4 px-re tér el,
+   jóval egy betűlépésen belül), az elcsúszott mezszám-jegy viszont ~11 px-rel
+   jobbra. Ezért: ha egy csoport perc-cellái **két klaszterbe** esnek legalább
+   `MINUTE_TENS_GAP` távolságra, akkor a BAL klaszter a perc (a perc-oszlop
+   mindig a mezszám-oszlop bal oldalán van), és ami tőle jobbra van, az a
+   mezszámé. Egyetlen klaszternál nincs mihez kalibrálni → nem nyúlunk hozzá.
+   Mérve mind az 1364 PDF-en: 26 ilyen (félidő, csoport) eset 23 PDF-ben.
+
+   **Mérés** (alapvonal = `main`, ugyanaz az 1364 PDF, 1287 közös meccs,
+   `source_pdf` kulcson):
+
+   | | alap | javított |
+   |---|---:|---:|
+   | visszafelé lépő perc | 62 | **7** |
+   | lehetetlen perc-érték (>10) | 7 | **0** |
+   | box score = hivatalos | 2533/2572 | **2538**/2572 |
+   | esemény perccel | 44 409 | 44 320 |
+   | durva perc-hiba a play-by-play-hez | 220 | **213** (7 javult, 0 romlott) |
+   | esemény / név / elveszett sor | 115 743 / — / — | változatlan / 0 / 0 |
+
+   Az „esemény perccel" **csökken** (−89), és ez a helyes irány: 89 hamis perc
+   tűnt el, nem adat. A box score itt is csak +5-öt mutat, mert a csapaton
+   belül kompenzálnak a hibák — ezért kellett a **hivatalos MKOSZ meccsoldal
+   soronként**: a 44 megváltozott játékos-sorból **43 KÖZELEBB, 0 TÁVOLABB**,
+   és mind a 43 **pontosan** ráállt a hivatalos értékre (1 nem ellenőrizhető).
+   Mellé a névsor mint harmadik forrás: 78 esemény mezszáma változott, ebből 17
+   olyanra, ami a névsorban szerepel, miközben a régi nem — **0 romlott**.
+
+   **Ami ebből MEGMARADT: 7 visszalépés, és egyik sem kiolvasási hiba.**
+   Négy jogos: a „Hosszabbítás" fül MINDEN ráadást egy oszlop-blokkban tart,
+   így a második ráadásban a perc jogosan indul újra 1-ről (`hun2a_123641` A,
+   `hun2b_124287` B) — ez a metrika vaksága, nem az adat hibája. A másik három
+   jegyzői elírás: `huna_cup_1028`-ban a perc helyére írt `0` a rendes
+   perc-slotban áll (tehát nem levágott „10"), és ilyen a megmaradt 7 db `0`
+   mind. Kitalálni nem fogjuk.
 
 ## Hasznos lekérdezések
 

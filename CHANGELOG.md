@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-11-25
+
+### Fixed
+- **A B-mezszám vezető jegye a perc-cellába csúszott** (Case 5): a perc-cella
+  ott végződik, ahol a B-mezszám oszlopa kezdődik, és a mezszám mezője
+  jobbra zárt — az első jegye egyetlen betűlépésre áll az utolsótól. Néhány
+  PDF-en az egész B-blokk 2-5 px-rel balra van rajzolva, és a kétjegyű
+  mezszám TÍZES jegye átcsúszik a perc-cellába. Ami ott marad, az lesz a perc:
+  valódi perc mellett „12", „31", „45", „52", „61", „81" (perc + mezszám-tízes
+  — **az adatbázis MINDEN lehetetlen perc-értéke innen jött**), perc nélküli
+  sorban pedig a mezszám tízese egyedül, hihető de hamis kis percként.
+  A Case 4(b) tükörképe, ezért a döntés PDF-enként kalibrált: egy
+  (félidő, csoport) valódi percei egy x-slotban állnak, az elcsúszott
+  mezszám-jegy ~11 px-rel jobbra.
+  Visszafelé lépő perc **62 → 7**, a 10-nél nagyobb (fizikailag lehetetlen)
+  perc-érték **7 → 0**. A maradék 7 visszalépés közül 4 jogos: a
+  „Hosszabbítás" fül MINDEN ráadást tart, és a második ráadásban a perc
+  újraindul 1-ről. A másik 3 jegyzői elírás (köztük a 7 darab „0", amit
+  szándékosan nem találunk ki).
+  **44 játékos-sor változott 16 meccsen; független forráshoz (hivatalos MKOSZ
+  meccsoldal, ill. play-by-play) mérve 43 KÖZELEBB — mind a 43 pontosan
+  ráállt a hivatalos értékre —, 0 romlott**, 1 nem ellenőrizhető.
+  Box score = hivatalos 2533 → 2538/2572; mezszám-változás 78 esemény, a
+  névsor szerint 17 javult, 0 romlott; név 0, elveszett sor 0, esemény 115 743
+  változatlan.
+
 ## 2026-11-24
 
 ### Fixed
